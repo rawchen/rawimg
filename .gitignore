@@ -108,7 +108,7 @@ Thumbs.db
 # Security / Sensitive Files
 # ====================
 # SSH keys
-#id_rsa.pem
+id_rsa.pem
 id_rsa
 id_rsa.pub
 *.key
