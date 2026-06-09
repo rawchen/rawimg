@@ -189,36 +189,71 @@ export function useRawDecoder(): UseRawDecoderResult {
       setProgress(60);
       console.log('Calling imageData()...');
       const imageData = await libraw.imageData();
-      console.log('imageData() result type:', typeof imageData, 'length:', imageData?.length);
+      console.log('imageData() result:', imageData);
+      console.log('imageData() result type:', typeof imageData);
+      console.log('imageData() constructor:', imageData?.constructor?.name);
 
-      if (!imageData || imageData.length === 0) {
-        // Try alternative methods if available
-        console.log('imageData returned null/empty, checking for alternatives...');
+      // Inspect the object structure
+      if (imageData && typeof imageData === 'object') {
+        console.log('imageData keys:', Object.keys(imageData));
+        console.log('imageData own properties:', Object.getOwnPropertyNames(imageData));
 
-        // Try dcrawMakeMemImage if available
-        if (typeof libraw.dcrawMakeMemImage === 'function') {
-          console.log('Trying dcrawMakeMemImage...');
-          try {
-            const memImage = libraw.dcrawMakeMemImage();
-            console.log('dcrawMakeMemImage result:', memImage);
-            if (memImage && memImage.data) {
-              const result = processImageData(memImage.data, memImage.width || width, memImage.height || height);
-              if (result) {
-                setProgress(100);
-                setIsDecoding(false);
-                return result;
-              }
-            }
-          } catch (e) {
-            console.log('dcrawMakeMemImage error:', e);
-          }
+        // Check if it has common properties
+        if (imageData.data) {
+          console.log('imageData.data:', imageData.data, 'length:', imageData.data?.length);
         }
-
-        throw new Error('imageData() 返回空数据，且无替代方法可用');
+        if (imageData.buffer) {
+          console.log('imageData.buffer:', imageData.buffer);
+        }
+        if (imageData.width) {
+          console.log('imageData.width:', imageData.width);
+        }
+        if (imageData.height) {
+          console.log('imageData.height:', imageData.height);
+        }
       }
 
+      // Check if it's a Uint8Array or similar
+      if (imageData && (imageData instanceof Uint8Array || imageData instanceof Uint8ClampedArray)) {
+        console.log('imageData is Uint8Array-like, length:', imageData.length);
+      }
+
+      // Try to extract actual data
+      let actualData: Uint8Array | null = null;
+      let actualWidth = width;
+      let actualHeight = height;
+
+      if (imageData instanceof Uint8Array) {
+        actualData = imageData;
+      } else if (imageData?.data instanceof Uint8Array) {
+        actualData = imageData.data;
+        if (imageData.width) actualWidth = imageData.width;
+        if (imageData.height) actualHeight = imageData.height;
+        console.log('Extracted data from imageData.data, length:', actualData.length);
+      } else if (imageData?.buffer) {
+        actualData = new Uint8Array(imageData.buffer);
+      } else if (Array.isArray(imageData)) {
+        actualData = new Uint8Array(imageData);
+      }
+
+      if (!actualData || actualData.length === 0) {
+        // Log the full object for debugging
+        console.log('Full imageData object:', JSON.stringify(imageData, (key, value) => {
+          if (value instanceof Uint8Array) {
+            return `Uint8Array(${value.length})`;
+          }
+          return value;
+        }, 2));
+
+        throw new Error('无法从 imageData() 提取有效数据');
+      }
+
+      console.log('Using actualData:', actualData.length, 'bytes');
+      console.log('Dimensions:', actualWidth, 'x', actualHeight);
+      console.log('Colors:', imageData.colors, 'bits:', imageData.bits);
+
       setProgress(80);
-      const result = processImageData(imageData, width, height);
+      const result = processImageData(actualData, actualWidth, actualHeight);
 
       if (!result) {
         throw new Error('无法处理图像数据');
