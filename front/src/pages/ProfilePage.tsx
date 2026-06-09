@@ -1,0 +1,667 @@
+import { useState, useEffect } from 'react';
+import { message, Upload, Image } from 'antd';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { userApi, feedbackApi } from '@/api';
+import { UserStats } from '@/types';
+import {
+  UserOutlined,
+  CrownOutlined,
+  MailOutlined,
+  LockOutlined,
+  HeartOutlined,
+  DownloadOutlined,
+  StarOutlined,
+  ClockCircleOutlined,
+  PictureOutlined,
+  PlusOutlined
+} from '@ant-design/icons';
+import type { UploadFile } from 'antd/es/upload/interface';
+
+export function ProfilePage() {
+  const { user, logout, refreshUser } = useAuth();
+  const [userStats, setStats] = useState<UserStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'email' | 'password' | 'feedback'>('overview');
+
+  // 表单状态
+  const [nickname, setNickname] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [currentNickname, setCurrentNickname] = useState('');
+
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // 意见反馈状态
+  const [feedbackContent, setFeedbackContent] = useState('');
+  const [feedbackContact, setFeedbackContact] = useState('');
+  const [feedbackImages, setFeedbackImages] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchStats();
+    if (user) {
+      setNickname(user.nickname || user.username);
+      setCurrentNickname(user.nickname || user.username);
+      setEmail(user.email);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    } else if (countdown === 0) {
+      setCodeSent(false);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const result = await userApi.getStats();
+      setStats(result);
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendEmailCode = async () => {
+    if (!email || email.trim() === '') {
+      message.warning('请输入邮箱');
+      return;
+    }
+    if (email === user?.email) {
+      message.warning('新邮箱不能与当前邮箱相同');
+      return;
+    }
+    try {
+      setSendingCode(true);
+      await userApi.sendEmailCode(email);
+      setCodeSent(true);
+      setCountdown(60);
+      message.success('验证码已发送到您的邮箱');
+    } catch (error: any) {
+      message.error(error.msg || '验证码发送失败');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleUpdateNickname = async () => {
+    if (!nickname || nickname.trim() === '') {
+      message.warning('昵称不能为空');
+      return;
+    }
+    try {
+      await userApi.updateNickname(nickname);
+      message.success('昵称修改成功');
+      setCurrentNickname(nickname);
+      refreshUser();
+    } catch (error: any) {
+      message.error(error.msg || '昵称修改失败');
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!email || email.trim() === '') {
+      message.warning('邮箱不能为空');
+      return;
+    }
+    if (email === user?.email) {
+      message.warning('新邮箱不能与当前邮箱相同');
+      return;
+    }
+    if (!emailCode || emailCode.trim() === '') {
+      message.warning('请输入验证码');
+      return;
+    }
+    try {
+      await userApi.updateEmail(email, emailCode);
+      message.success('邮箱修改成功');
+      setEmailCode('');
+      setCodeSent(false);
+      refreshUser();
+    } catch (error: any) {
+      message.error(error.msg || '邮箱修改失败');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || oldPassword.trim() === '') {
+      message.warning('请输入原密码');
+      return;
+    }
+    if (!newPassword || newPassword.trim() === '') {
+      message.warning('请输入新密码');
+      return;
+    }
+    if (!confirmPassword || confirmPassword.trim() === '') {
+      message.warning('请确认新密码');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      message.warning('两次输入的密码不一致');
+      return;
+    }
+    if (newPassword.length < 6) {
+      message.warning('密码长度不能少于6位');
+      return;
+    }
+    try {
+      await userApi.changePassword(oldPassword, newPassword, confirmPassword);
+      message.success('密码修改成功，请重新登录');
+      logout();
+      window.location.href = '/';
+    } catch (error: any) {
+      message.error(error.msg || '密码修改失败');
+    }
+  };
+
+  const handleUploadImage = async (file: File): Promise<boolean> => {
+    try {
+      const url = await userApi.uploadImage(file);
+      setFeedbackImages(prev => [...prev, url]);
+      return false;
+    } catch (error) {
+      message.error('上传失败');
+      return false;
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackContent || feedbackContent.trim() === '') {
+      message.warning('请输入反馈内容');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await feedbackApi.createFeedback({
+        content: feedbackContent,
+        contact: feedbackContact || undefined,
+        images: feedbackImages.length > 0 ? feedbackImages.join(',') : undefined
+      });
+      message.success('提交成功，感谢您的反馈');
+      setFeedbackContent('');
+      setFeedbackContact('');
+      setFeedbackImages([]);
+    } catch (error: any) {
+      message.error(error.msg || '提交失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Page Title */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-black">个人中心</h1>
+        <p className="mt-2 text-gray-500">管理您的个人信息和账户设置</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-8 border-b border-gray-200">
+        <div className="flex space-x-5 md:space-x-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'overview'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            概览
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'profile'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            个人信息
+          </button>
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'email'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            修改邮箱
+          </button>
+          <button
+            onClick={() => setActiveTab('password')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'password'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            修改密码
+          </button>
+          <button
+            onClick={() => setActiveTab('feedback')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'feedback'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            意见反馈
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* VIP Status and Points */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* VIP Status */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-black mb-4">会员状态</h2>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {userStats?.vip ? (
+                    <>
+                      <CrownOutlined className="text-4xl text-yellow-500" />
+                      <div className="flex-1">
+                        <p className="text-lg font-medium text-black">{userStats?.vipType}</p>
+                        <p className="text-sm text-gray-500">
+                          剩余 {userStats?.vipRemainingDays} 天
+                        </p>
+                        {userStats?.dailyDownloadLimit && userStats?.dailyDownloadLimit > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            今日下载: {userStats?.dailyDownloadCount || 0}/{userStats?.dailyDownloadLimit}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <UserOutlined className="text-4xl text-gray-400" />
+                      <div className="flex-1">
+                        <p className="text-lg font-medium text-black">非VIP</p>
+                        <p className="text-sm text-gray-500">
+                          升级VIP享受更多特权
+                        </p>
+                      </div>
+                      <Link
+                        to="/recharge"
+                        target="_blank"
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+                      >
+                        去升级
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Points */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-black mb-4">积分余额</h2>
+              <div className="flex items-center space-x-4">
+                <StarOutlined className="text-4xl text-yellow-500" />
+                <div>
+                  <p className="text-3xl font-bold text-black">{user?.points}</p>
+                  <p className="text-sm text-gray-500">积分</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Admin Role */}
+          {user?.role === 'ADMIN' || user?.role === 'STAFF' ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-black mb-4">管理员角色</h2>
+              <div className="flex items-center space-x-4">
+                <UserOutlined className="text-4xl text-blue-500" />
+                <div>
+                  <p className="text-lg font-medium text-black">
+                    {user.role === 'ADMIN' ? '超级管理员' : '工作人员'}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {user.role === 'ADMIN'
+                      ? '拥有所有管理权限'
+                      : '拥有部分管理权限'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Statistics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">下载次数</p>
+                  <p className="text-2xl font-bold text-black mt-1">
+                    {userStats?.downloadCount || 0}
+                  </p>
+                </div>
+                <DownloadOutlined className="text-2xl text-blue-500" />
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">喜爱总数</p>
+                  <p className="text-2xl font-bold text-black mt-1">
+                    {userStats?.likeCount || 0}
+                  </p>
+                </div>
+                <HeartOutlined className="text-2xl text-red-500" />
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">收藏数</p>
+                  <p className="text-2xl font-bold text-black mt-1">
+                    {userStats?.favoriteCount || 0}
+                  </p>
+                </div>
+                <StarOutlined className="text-2xl text-yellow-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'profile' && (
+        <div className="space-y-6">
+          {/* Avatar */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">头像</h2>
+            <div className="flex items-center space-x-4">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <UserOutlined className="text-3xl text-gray-400" />
+                )}
+              </div>
+              <p className="text-sm text-gray-500">头像暂不支持修改</p>
+            </div>
+          </div>
+
+          {/* Username (Read-only) */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">用户名</h2>
+            <div className="flex items-center space-x-4">
+              <UserOutlined className="text-2xl text-gray-400" />
+              <p className="text-lg text-black">{user?.username}</p>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">用户名不能修改</p>
+          </div>
+
+          {/* Current Nickname Display */}
+          {currentNickname && currentNickname !== user?.username && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-black mb-4">当前昵称</h2>
+              <div className="flex items-center space-x-4">
+                <UserOutlined className="text-2xl text-gray-400" />
+                <p className="text-lg text-black">{currentNickname}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Nickname */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">昵称</h2>
+            <div className="flex items-center space-x-4">
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="输入昵称"
+              />
+            </div>
+            <button
+              onClick={handleUpdateNickname}
+              className="mt-4 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              保存昵称
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">修改邮箱</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              为了您的账户安全，修改邮箱需要验证新邮箱
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  当前邮箱
+                </label>
+                <div className="flex items-center space-x-3">
+                  <MailOutlined className="text-gray-400" />
+                  <p className="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  新邮箱
+                </label>
+                <div className="flex items-center space-x-3">
+                  <MailOutlined className="text-gray-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="请输入新邮箱"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  验证码
+                </label>
+                <div className="flex items-center space-x-3">
+                  <ClockCircleOutlined className="text-gray-400" />
+                  <input
+                    type="text"
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value)}
+                    className="w-full flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="请输入验证码"
+                  />
+                  <button
+                    onClick={handleSendEmailCode}
+                    disabled={sendingCode || countdown > 0}
+                    className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {countdown > 0 ? `${countdown}s` : '发送验证码'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleUpdateEmail}
+              className="mt-6 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              修改邮箱
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'password' && (        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">修改密码</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              为了您的账户安全，修改密码后需要重新登录
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  原密码
+                </label>
+                <div className="flex items-center space-x-3">
+                  <LockOutlined className="text-gray-400" />
+                  <input
+                    type="password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="请输入原密码"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  新密码
+                </label>
+                <div className="flex items-center space-x-3">
+                  <LockOutlined className="text-gray-400" />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="请输入新密码（至少6位）"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  确认新密码
+                </label>
+                <div className="flex items-center space-x-3">
+                  <LockOutlined className="text-gray-400" />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="请再次输入新密码"
+                  />
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleChangePassword}
+              className="mt-6 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              修改密码
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'feedback' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-black mb-4">意见反馈</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              感谢您的反馈，我们会认真处理您的意见和建议
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  反馈内容 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black min-h-[120px] resize-y"
+                  placeholder="请详细描述您遇到的问题或建议..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  联系方式（选填）
+                </label>
+                <input
+                  type="text"
+                  value={feedbackContact}
+                  onChange={(e) => setFeedbackContact(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="邮箱或手机号，方便我们联系您"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  上传图片（选填）
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {feedbackImages.map((img, index) => (
+                    <div key={index} className="relative w-20 h-20">
+                      <Image
+                        src={img}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => setFeedbackImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {feedbackImages.length < 5 && (
+                    <Upload
+                      accept="image/*"
+                      showUploadList={false}
+                      beforeUpload={handleUploadImage}
+                    >
+                      <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400">
+                        <PlusOutlined className="text-2xl text-gray-400" />
+                      </div>
+                    </Upload>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">最多上传5张图片</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSubmitFeedback}
+              disabled={submitting}
+              className="mt-6 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? '提交中...' : '立即提交'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
