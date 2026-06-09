@@ -16,6 +16,29 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  // RAF-based render throttling
+  const rafRef = useRef<number | null>(null);
+  const pendingRenderRef = useRef<{ params: typeof params; width: number; height: number } | null>(null);
+
+  // Calculate preview dimensions (limit max resolution for performance)
+  const getPreviewDimensions = useCallback((imgWidth: number, imgHeight: number) => {
+    // Higher limit for better quality while maintaining performance
+    // 4MP gives ~2x quality improvement over 2MP, still ~6x faster than full 26MP
+    const maxPixels = 4000000; // 4MP limit
+    const pixelCount = imgWidth * imgHeight;
+
+    if (pixelCount <= maxPixels) {
+      return { width: imgWidth, height: imgHeight, scale: 1 };
+    }
+
+    const scale = Math.sqrt(maxPixels / pixelCount);
+    return {
+      width: Math.floor(imgWidth * scale),
+      height: Math.floor(imgHeight * scale),
+      scale,
+    };
+  }, []);
+
   // Fit image to screen
   const fitToScreen = useCallback(() => {
     if (!containerRef.current || !currentImage) return;
@@ -33,7 +56,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
       fitZoom = containerHeight / currentImage.height;
     }
 
-    setZoom(fitZoom * 0.9);
+    setZoom(fitZoom * 1);
     setPan(0, 0);
   }, [currentImage, setZoom, setPan]);
 
@@ -75,11 +98,37 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
     }
   }, [currentImage?.id, currentImage?.decodedData, currentImage?.thumbnail, isReady, loadImage]);
 
-  // Render when params change
+  // Render when params change - use RAF for throttling
   useEffect(() => {
     if (!isReady || !imageLoaded || !currentImage) return;
-    render(params, currentImage.width, currentImage.height);
-  }, [isReady, imageLoaded, params, currentImage, render]);
+
+    const preview = getPreviewDimensions(currentImage.width, currentImage.height);
+
+    // Store pending render request
+    pendingRenderRef.current = {
+      params,
+      width: preview.width,
+      height: preview.height,
+    };
+
+    // Schedule render if not already scheduled
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        const pending = pendingRenderRef.current;
+        if (pending) {
+          render(pending.params, pending.width, pending.height, 1);
+        }
+        rafRef.current = null;
+      });
+    }
+
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [isReady, imageLoaded, params, currentImage, render, getPreviewDimensions]);
 
   // Pan handler
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -98,11 +147,23 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
     setIsDragging(false);
   }, []);
 
-  // Zoom handler
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(ui.zoom * delta);
+  // Zoom handler - use native event listener for non-passive wheel event
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom(ui.zoom * delta);
+    };
+
+    // Add wheel listener with passive: false to allow preventDefault
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
   }, [ui.zoom, setZoom]);
 
   if (!currentImage) {
@@ -112,6 +173,8 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
       </div>
     );
   }
+
+  const preview = getPreviewDimensions(currentImage.width, currentImage.height);
 
   return (
     <div
@@ -124,7 +187,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
+      onDoubleClick={fitToScreen}
     >
       {/* Centered canvas container */}
       <div
@@ -137,10 +200,11 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
       >
         <canvas
           ref={setCanvas}
-          width={currentImage.width}
-          height={currentImage.height}
+          width={preview.width}
+          height={preview.height}
           style={{
             display: 'block',
+            // CSS size matches original image dimensions for proper zoom/pan
             width: currentImage.width,
             height: currentImage.height,
           }}

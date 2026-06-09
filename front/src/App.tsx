@@ -27,11 +27,12 @@ import { EditorLayout } from '@/components/editor/EditorLayout';
 function AppContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
+  const isEditorPage = location.pathname.startsWith('/editor');
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header />
-      <main className="flex-1 pt-16">
+    <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      {!isEditorPage && <Header />}
+      <main className={isEditorPage ? 'flex-1 overflow-hidden' : 'flex-1 pt-16'}>
         <Routes>
             {/* Frontend Routes */}
             <Route path="/" element={<HomePage />} />
@@ -67,7 +68,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && <Footer />}
+      {!isAdminPage && !isEditorPage && <Footer />}
     </div>
   );
 }

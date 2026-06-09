@@ -288,7 +288,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
   if (!currentImage && !isLoading) {
     return (
       <div
-        className={cn('flex flex-col h-screen bg-gray-900', className)}
+        className={cn('flex flex-col h-full bg-gray-900', className)}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -324,7 +324,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
 
   return (
     <div
-      className={cn('flex flex-col h-screen bg-gray-900 overflow-hidden', className)}
+      className={cn('flex flex-col h-full bg-gray-900 overflow-hidden', className)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -356,13 +356,13 @@ export function EditorLayout({ className }: EditorLayoutProps) {
         {/* Right Side - Adjustment Panel */}
         <div
           className={cn(
-            'flex flex-col bg-gray-800 border-l border-gray-700 transition-all duration-200',
+            'flex flex-col bg-gray-800 border-l border-gray-700 transition-all duration-200 overflow-hidden',
             ui.isPanelCollapsed ? 'w-12' : 'w-[320px] min-w-[280px] max-w-[400px]'
           )}
         >
           {/* Histogram at top */}
           {!ui.isPanelCollapsed && (
-            <div className="h-24 border-b border-gray-700 p-2">
+            <div className="h-24 shrink-0 border-b border-gray-700 p-2">
               <Histogram />
             </div>
           )}

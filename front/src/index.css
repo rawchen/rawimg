@@ -4,7 +4,7 @@
 
 /* 防止滚动条出现时导致的布局抖动 */
 html {
-  overflow-y: scroll;
+  /*overflow-y: scroll;*/
 }
 
 /* 自定义滚动条样式 */

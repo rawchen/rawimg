@@ -104,9 +104,44 @@ vec3 hsl2rgb(vec3 c) {
   return vec3(r, g, b);
 }
 
-// Apply exposure adjustment
+// Apply exposure adjustment - Camera Raw inspired with smooth highlight handling
 vec3 applyExposure(vec3 color, float exposure) {
-  return color * pow(2.0, exposure);
+  if (exposure == 0.0) return color;
+
+  // Exposure multiplier - gentle linear scaling
+  // exposure=1 → mult=1.15, exposure=5 → mult=1.75
+  float mult = 1.0 + exposure * 0.15;
+
+  vec3 result = color * mult;
+
+  // For positive exposure: smooth highlight compression
+  if (exposure > 0.0) {
+    // Use filmic curve but blend smoothly near zero
+    // This ensures linearity for small adjustments
+    float blendFactor = smoothstep(0.0, 1.0, exposure);
+
+    // ACES filmic tone mapping approximation
+    vec3 x = max(vec3(0.0), result);
+    float a = 0.6;
+    float b = 0.5;
+    float c = 0.1;
+    float d = 0.533;
+    vec3 compressed = clamp((x * (a * x + b)) / (x * (a * x + c * b) + d), 0.0, 1.0);
+
+    // Blend between linear and compressed based on exposure strength
+    result = mix(result, compressed, blendFactor);
+  }
+
+  // For negative exposure: protect shadows from going pure black
+  if (exposure < 0.0) {
+    float blendFactor = smoothstep(0.0, -1.0, exposure);
+    float lum = dot(color, vec3(0.299, 0.587, 0.114));
+    float shadowFloor = 0.02 * lum;
+    vec3 protected = max(result, vec3(shadowFloor));
+    result = mix(result, protected, blendFactor);
+  }
+
+  return result;
 }
 
 // Apply contrast adjustment using S-curve
@@ -115,19 +150,48 @@ vec3 applyContrast(vec3 color, float contrast) {
   return (color - 0.5) * (1.0 + contrast) + 0.5;
 }
 
-// Apply highlights/shadows adjustment
+// Apply highlights/shadows adjustment - Camera Raw style
 vec3 applyHighlightsShadows(vec3 color, float highlights, float shadows) {
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
 
-  // Highlights: affect bright areas
-  float highlightMask = smoothstep(0.5, 1.0, lum);
-  color += (highlights / 100.0) * highlightMask * color;
+  // Highlights: affect bright areas with gentle shoulder curve
+  float highlightMask = smoothstep(0.5, 0.95, lum);
+
+  if (abs(highlights) > 0.001) {
+    // Use gentler compression curve - Camera Raw style
+    float strength = highlights / 100.0;
+
+    if (highlights < 0.0) {
+      // Lowering highlights: very gentle compression
+      // For -100 (param -10): white -> ~#f6f6f6 (only ~3% reduction)
+      float compression = 1.0 + strength * highlightMask * 0.3;
+      float newLum = lum * compression;
+      // Preserve color ratio
+      color = color * (newLum / max(0.001, lum));
+    } else {
+      // Raising highlights
+      color *= 1.0 + strength * highlightMask * 0.5;
+    }
+  }
 
   // Shadows: affect dark areas
-  float shadowMask = smoothstep(0.5, 0.0, lum);
-  color += (shadows / 100.0) * shadowMask * color;
+  float shadowMask = smoothstep(0.5, 0.05, lum);
 
-  return color;
+  if (abs(shadows) > 0.001) {
+    float strength = shadows / 100.0;
+
+    if (shadows < 0.0) {
+      // Lowering shadows
+      float compression = 1.0 + strength * shadowMask * 0.3;
+      float newLum = lum * compression;
+      color = color * (newLum / max(0.001, lum));
+    } else {
+      // Raising shadows
+      color *= 1.0 + strength * shadowMask * 0.5;
+    }
+  }
+
+  return clamp(color, 0.0, 1.0);
 }
 
 // Apply whites/blacks adjustment
@@ -246,8 +310,10 @@ void main() {
   // 5. Contrast
   color = applyContrast(color, u_contrast);
 
-  // 6. Clarity (local contrast)
-  color = applyClarity(color, u_clarity, v_texCoord, u_image, u_resolution);
+  // 6. Clarity (local contrast) - only sample if clarity != 0
+  if (abs(u_clarity) > 0.001) {
+    color = applyClarity(color, u_clarity, v_texCoord, u_image, u_resolution);
+  }
 
   // 7. Dehaze
   color = applyDehaze(color, u_dehaze);
@@ -449,13 +515,16 @@ export function useWebGLRenderer() {
     return true;
   }, []);
 
-  // Render with params
-  const render = useCallback((params: EditParams, imageWidth: number, imageHeight: number) => {
+  // Render with params - supports downscaled rendering for performance
+  const render = useCallback((params: EditParams, imageWidth: number, imageHeight: number, scale: number = 1) => {
     const { gl, program, uniforms, isReady: ready } = stateRef.current;
     if (!gl || !program || !ready) return;
 
-    // Canvas resolution equals image resolution for maximum quality
-    gl.viewport(0, 0, imageWidth, imageHeight);
+    // Calculate render dimensions based on scale
+    const renderWidth = Math.floor(imageWidth * scale);
+    const renderHeight = Math.floor(imageHeight * scale);
+
+    gl.viewport(0, 0, renderWidth, renderHeight);
     gl.useProgram(program);
 
     // Set uniforms

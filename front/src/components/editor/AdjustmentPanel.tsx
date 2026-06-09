@@ -52,16 +52,19 @@ function PanelSection({ title, icon, defaultOpen = true, children }: PanelSectio
 export function AdjustmentPanel() {
   const { params, setParam, resetParam, pushHistory, ui, setActivePanel } = useEditorStore();
 
-  // Helper to create slider change handler with history
-  const createChangeHandler = <K extends keyof typeof params>(key: K) => {
-    return (value: typeof params[K]) => {
-      pushHistory();
-      setParam(key, value);
+  // Helper to create slider handlers: onChange for real-time update, onCommit for history
+  const createHandlers = <K extends keyof typeof params>(key: K) => {
+    return {
+      onChange: (value: typeof params[K]) => setParam(key, value),
+      onCommit: (value: typeof params[K]) => {
+        pushHistory();
+        setParam(key, value);
+      },
     };
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Panel Tabs */}
       <div className="flex border-b border-gray-700 px-2 py-1 gap-1">
         <button
@@ -147,9 +150,8 @@ export function AdjustmentPanel() {
                 min={-5}
                 max={5}
                 defaultValue={0}
-                step={0.1}
-                onChange={createChangeHandler('exposure')}
-                onReset={() => resetParam('exposure')}
+                step={0.01}
+                {...createHandlers('exposure')}
                 backgroundGradient="exposure"
               />
               <AdjustmentSlider
@@ -158,19 +160,18 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('contrast')}
-                onReset={() => resetParam('contrast')}
-                backgroundGradient="contrast"
+                {...createHandlers('contrast')}
+                backgroundGradient="exposure"
               />
               <AdjustmentSlider
                 label="高光"
                 value={params.highlights}
-                min={-100}
-                max={100}
+                min={-10}
+                max={10}
                 defaultValue={0}
-                onChange={createChangeHandler('highlights')}
-                onReset={() => resetParam('highlights')}
-                backgroundGradient="neutral"
+                displayMultiplier={10}
+                {...createHandlers('highlights')}
+                backgroundGradient="exposure"
               />
               <AdjustmentSlider
                 label="阴影"
@@ -178,9 +179,8 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('shadows')}
-                onReset={() => resetParam('shadows')}
-                backgroundGradient="neutral"
+                {...createHandlers('shadows')}
+                backgroundGradient="exposure"
               />
               <AdjustmentSlider
                 label="白色"
@@ -188,9 +188,8 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('whites')}
-                onReset={() => resetParam('whites')}
-                backgroundGradient="neutral"
+                {...createHandlers('whites')}
+                backgroundGradient="exposure"
               />
               <AdjustmentSlider
                 label="黑色"
@@ -198,9 +197,8 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('blacks')}
-                onReset={() => resetParam('blacks')}
-                backgroundGradient="neutral"
+                {...createHandlers('blacks')}
+                backgroundGradient="exposure"
               />
             </PanelSection>
 
@@ -234,8 +232,7 @@ export function AdjustmentPanel() {
                 defaultValue={6500}
                 unit="K"
                 step={100}
-                onChange={createChangeHandler('temperature')}
-                onReset={() => resetParam('temperature')}
+                {...createHandlers('temperature')}
                 backgroundGradient="temperature"
               />
               <AdjustmentSlider
@@ -244,8 +241,7 @@ export function AdjustmentPanel() {
                 min={-150}
                 max={150}
                 defaultValue={0}
-                onChange={createChangeHandler('tint')}
-                onReset={() => resetParam('tint')}
+                {...createHandlers('tint')}
                 backgroundGradient="tint"
               />
             </PanelSection>
@@ -257,8 +253,7 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('vibrance')}
-                onReset={() => resetParam('vibrance')}
+                {...createHandlers('vibrance')}
                 backgroundGradient="saturation"
               />
               <AdjustmentSlider
@@ -267,8 +262,7 @@ export function AdjustmentPanel() {
                 min={-100}
                 max={100}
                 defaultValue={0}
-                onChange={createChangeHandler('saturation')}
-                onReset={() => resetParam('saturation')}
+                {...createHandlers('saturation')}
                 backgroundGradient="saturation"
               />
             </PanelSection>
@@ -295,8 +289,7 @@ export function AdjustmentPanel() {
               min={-100}
               max={100}
               defaultValue={0}
-              onChange={createChangeHandler('texture')}
-              onReset={() => resetParam('texture')}
+              {...createHandlers('texture')}
               backgroundGradient="neutral"
             />
             <AdjustmentSlider
@@ -305,8 +298,7 @@ export function AdjustmentPanel() {
               min={-100}
               max={100}
               defaultValue={0}
-              onChange={createChangeHandler('clarity')}
-              onReset={() => resetParam('clarity')}
+              {...createHandlers('clarity')}
               backgroundGradient="neutral"
             />
             <AdjustmentSlider
@@ -315,8 +307,7 @@ export function AdjustmentPanel() {
               min={-100}
               max={100}
               defaultValue={0}
-              onChange={createChangeHandler('dehaze')}
-              onReset={() => resetParam('dehaze')}
+              {...createHandlers('dehaze')}
               backgroundGradient="neutral"
             />
           </PanelSection>
