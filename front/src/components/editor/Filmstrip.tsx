@@ -1,10 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { cn } from '@/lib/utils';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 
+// Custom ImageOff icon (image with slash through it)
+const ImageOffIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21 15 16 10 5 21" />
+    <line x1="2" y1="2" x2="22" y2="22" />
+  </svg>
+);
+
+// Image icon (normal image)
+const ImageIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21 15 16 10 5 21" />
+  </svg>
+);
+
 export function Filmstrip() {
-  const { currentImage } = useEditorStore();
+  const { currentImage, setShowingOriginal } = useEditorStore();
+  const [isComparing, setIsComparing] = useState(false);
+
+  const handleCompareMouseDown = () => {
+    setIsComparing(true);
+    setShowingOriginal(true);
+  };
+
+  const handleCompareMouseUp = () => {
+    setIsComparing(false);
+    setShowingOriginal(false);
+  };
 
   // For now, just show the current image
   // TODO: Implement multi-image filmstrip
@@ -16,7 +46,7 @@ export function Filmstrip() {
       </button>
 
       {/* Filmstrip content */}
-      <div className="flex-1 overflow-x-auto">
+      <div className="flex-1 overflow-x-auto h-[90px]">
         <div className="flex gap-2 h-full py-2">
           {currentImage && (
             <div
@@ -47,15 +77,20 @@ export function Filmstrip() {
         <RightOutlined />
       </button>
 
-      {/* Image info */}
+      {/* Real-time compare button */}
       {currentImage && (
-        <div className="ml-4 text-right text-xs text-gray-400">
-          <div className="font-medium text-gray-200">{currentImage.filename}</div>
-          <div>{currentImage.width} × {currentImage.height}</div>
-          {currentImage.exif?.make && (
-            <div>{currentImage.exif.make} {currentImage.exif.model}</div>
+        <button
+          onMouseDown={handleCompareMouseDown}
+          onMouseUp={handleCompareMouseUp}
+          onMouseLeave={handleCompareMouseUp}
+          className={cn(
+            'ml-4 p-2 rounded transition-colors',
+            isComparing ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
           )}
-        </div>
+          title="按住查看原图，松开显示调整后的图"
+        >
+          {isComparing ? <ImageIcon /> : <ImageOffIcon />}
+        </button>
       )}
     </div>
   );

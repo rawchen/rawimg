@@ -7,7 +7,8 @@ import { Histogram } from './Histogram';
 import { EditorToolbar } from './EditorToolbar';
 import { Filmstrip } from './Filmstrip';
 import { useRawDecoder } from '@/hooks/useRawDecoder';
-import type { RawImage, EditParams } from '@/types';
+import type { RawImage, EditParams, ExifData } from '@/types';
+import EXIF from 'exif-js';
 
 // Default edit params for new images
 const defaultEditParams: EditParams = {
@@ -64,7 +65,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [decodeProgress, setDecodeProgress] = useState(0);
 
-  const { decodeRaw, isDecoding, error: decodeError } = useRawDecoder();
+  const { decodeRaw, getMetadata, isDecoding, error: decodeError } = useRawDecoder();
 
   // Panel collapse handlers
   const toggleLeftPanel = useCallback(() => {
@@ -75,46 +76,167 @@ export function EditorLayout({ className }: EditorLayoutProps) {
     fileInputRef.current?.click();
   }, []);
 
-  // Load regular image file (JPEG, PNG, etc.)
+  // Load regular image file (JPEG, PNG, etc.) with EXIF parsing
   const loadRegularImage = useCallback((file: File): Promise<RawImage> => {
     return new Promise((resolve, reject) => {
+      // Start fake progress for regular images (faster)
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        const remaining = 90 - progress;
+        const increment = Math.max(1, remaining * 0.15);
+        progress = Math.min(90, progress + increment);
+        setDecodeProgress(Math.round(progress));
+      }, 50);
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
         const img = new Image();
         img.onload = () => {
+          // Save dimensions before EXIF modifies the img
+          const imgWidth = img.naturalWidth;
+          const imgHeight = img.naturalHeight;
+
+          // Parse EXIF data
+          const exifData: ExifData = {
+            width: imgWidth,
+            height: imgHeight,
+          };
+
+          try {
+            EXIF.getData(img as any, function(this: any) {
+              const allData = EXIF.getAllTags(this);
+              console.log('EXIF data:', allData);
+
+              exifData.make = EXIF.getTag(this, 'Make') || undefined;
+              exifData.model = EXIF.getTag(this, 'Model') || undefined;
+              exifData.lens = EXIF.getTag(this, 'LensModel') || EXIF.getTag(this, 'LensInfo') || undefined;
+              exifData.focalLength = EXIF.getTag(this, 'FocalLength') || undefined;
+
+              const aperture = EXIF.getTag(this, 'FNumber');
+              exifData.aperture = aperture ? aperture.numerator / aperture.denominator : undefined;
+
+              const shutter = EXIF.getTag(this, 'ExposureTime');
+              if (shutter) {
+                if (shutter.numerator >= shutter.denominator) {
+                  exifData.shutterSpeed = `${shutter.numerator / shutter.denominator}s`;
+                } else {
+                  exifData.shutterSpeed = `${shutter.numerator}/${shutter.denominator}s`;
+                }
+              }
+
+              exifData.iso = EXIF.getTag(this, 'ISOSpeedRatings') || EXIF.getTag(this, 'ISO') || undefined;
+              exifData.datetime = EXIF.getTag(this, 'DateTime') || undefined;
+              exifData.orientation = EXIF.getTag(this, 'Orientation') || undefined;
+              exifData.whiteBalance = EXIF.getTag(this, 'WhiteBalance') || undefined;
+              exifData.flash = EXIF.getTag(this, 'Flash') || undefined;
+
+              // Parse exposure program/mode
+              const exposureProgram = EXIF.getTag(this, 'ExposureProgram');
+              if (exposureProgram !== undefined) {
+                const exposureProgramMap: Record<number, string> = {
+                  0: '未定义',
+                  1: '手动',
+                  2: '程序自动',
+                  3: '光圈优先',
+                  4: '快门优先',
+                  5: '创意程序',
+                  6: '动作程序',
+                  7: '肖像模式',
+                  8: '风景模式',
+                };
+                exifData.exposureMode = exposureProgramMap[exposureProgram] || `模式 ${exposureProgram}`;
+              }
+
+              const gpsLat = EXIF.getTag(this, 'GPSLatitude');
+              const gpsLatRef = EXIF.getTag(this, 'GPSLatitudeRef');
+              const gpsLon = EXIF.getTag(this, 'GPSLongitude');
+              const gpsLonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+              const gpsAlt = EXIF.getTag(this, 'GPSAltitude');
+
+              if (gpsLat && gpsLon) {
+                const toDecimal = (coords: number[], ref: string) => {
+                  const decimal = coords[0] + coords[1] / 60 + coords[2] / 3600;
+                  return ref === 'S' || ref === 'W' ? -decimal : decimal;
+                };
+                exifData.gps = {
+                  latitude: toDecimal(gpsLat, gpsLatRef || 'N'),
+                  longitude: toDecimal(gpsLon, gpsLonRef || 'E'),
+                  altitude: gpsAlt ? gpsAlt.numerator / gpsAlt.denominator : undefined,
+                };
+              }
+            });
+          } catch (exifErr) {
+            console.warn('EXIF parsing failed, continuing without EXIF:', exifErr);
+          }
+
+          clearInterval(progressInterval);
+          setDecodeProgress(100);
+
           const rawImage: RawImage = {
             id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
             filename: file.name,
-            width: img.naturalWidth,
-            height: img.naturalHeight,
+            width: imgWidth,
+            height: imgHeight,
             thumbnail: dataUrl,
-            exif: {
-              width: img.naturalWidth,
-              height: img.naturalHeight,
-            },
+            exif: exifData,
             editParams: { ...defaultEditParams },
             isRaw: false,
             loadedAt: Date.now(),
           };
           resolve(rawImage);
         };
-        img.onerror = () => reject(new Error('无法加载图片'));
+        img.onerror = () => {
+          clearInterval(progressInterval);
+          reject(new Error('无法加载图片'));
+        };
         img.src = dataUrl;
       };
-      reader.onerror = () => reject(new Error('无法读取文件'));
+      reader.onerror = () => {
+        clearInterval(progressInterval);
+        reject(new Error('无法读取文件'));
+      };
       reader.readAsDataURL(file);
     });
   }, []);
 
-  // Load RAW file with WASM decoder
+  // Load RAW file with WASM decoder with fake progress
   const loadRawImage = useCallback(async (file: File): Promise<RawImage> => {
     setDecodeProgress(0);
 
-    // Decode RAW file using WASM
-    const result = await decodeRaw(file);
+    // Estimate decode time based on file size
+    // Large RAW files (~30MB) take about 8-12 seconds
+    const fileSizeMB = file.size / (1024 * 1024);
+    const estimatedTime = Math.max(3000, Math.min(15000, fileSizeMB * 400)); // 3-15 seconds
+
+    // Initial progress - file reading
+    setDecodeProgress(3);
+
+    // Progress animation based on estimated time
+    let currentProgress = 3;
+    let targetProgress = 75; // 解码阶段目标
+    const progressInterval = setInterval(() => {
+      if (currentProgress < targetProgress) {
+        // Smooth increment
+        const increment = Math.max(0.3, (targetProgress - currentProgress) * 0.05);
+        currentProgress = Math.min(targetProgress, currentProgress + increment);
+        setDecodeProgress(Math.round(currentProgress));
+      }
+    }, 50);
+
+    let result;
+    try {
+      // Decode RAW file using WASM
+      result = await decodeRaw(file);
+    } catch (err) {
+      clearInterval(progressInterval);
+      setDecodeProgress(0);
+      throw err;
+    }
 
     if (!result) {
+      clearInterval(progressInterval);
+      setDecodeProgress(0);
       throw new Error('RAW 解码失败');
     }
 
@@ -122,8 +244,24 @@ export function EditorLayout({ className }: EditorLayoutProps) {
 
     // Validate dimensions
     if (result.width <= 0 || result.height <= 0) {
+      clearInterval(progressInterval);
+      setDecodeProgress(0);
       throw new Error('无效的图片尺寸');
     }
+
+    // 阶段2: 处理图像数据 (75% -> 88%)
+    targetProgress = 88;
+    await new Promise<void>((resolve) => {
+      const processingInterval = setInterval(() => {
+        if (currentProgress < targetProgress) {
+          currentProgress = Math.min(targetProgress, currentProgress + 1);
+          setDecodeProgress(Math.round(currentProgress));
+        } else {
+          clearInterval(processingInterval);
+          resolve();
+        }
+      }, 30);
+    });
 
     // Calculate expected length and adjust if needed
     const expectedLength = result.width * result.height * 4;
@@ -186,10 +324,82 @@ export function EditorLayout({ className }: EditorLayoutProps) {
         ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
       }
     }
-    const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+    const thumbnail = canvas.toDataURL('image/jpeg', 1);
+
+    // 阶段3: 生成缩略图 (88% -> 95%)
+    targetProgress = 95;
+    await new Promise<void>((resolve) => {
+      const thumbInterval = setInterval(() => {
+        if (currentProgress < targetProgress) {
+          currentProgress = Math.min(targetProgress, currentProgress + 0.8);
+          setDecodeProgress(Math.round(currentProgress));
+        } else {
+          clearInterval(thumbInterval);
+          resolve();
+        }
+      }, 30);
+    });
+
+    // Get RAW metadata
+    const metadata = await getMetadata(file);
+    console.log('RAW metadata:', metadata);
+
+    // 阶段4: 读取元数据 (95% -> 100%)
+    targetProgress = 100;
+    await new Promise<void>((resolve) => {
+      const metaInterval = setInterval(() => {
+        if (currentProgress < targetProgress) {
+          currentProgress = Math.min(targetProgress, currentProgress + 0.5);
+          setDecodeProgress(Math.round(currentProgress));
+        } else {
+          clearInterval(metaInterval);
+          resolve();
+        }
+      }, 30);
+    });
+
+    const exifData: ExifData = {
+      width: result.width,
+      height: result.height,
+    };
+
+    if (metadata) {
+      exifData.make = metadata.make || undefined;
+      exifData.model = metadata.model || undefined;
+      exifData.iso = metadata.iso || undefined;
+      exifData.aperture = metadata.aperture || undefined;
+      exifData.exposureMode = metadata.exposureMode || undefined;
+
+      // Format shutter speed: convert decimal to fraction (e.g., 0.000625 -> 1/1600s)
+      if (metadata.shutter !== undefined && metadata.shutter !== null) {
+        const shutter = metadata.shutter;
+        if (shutter >= 1) {
+          exifData.shutterSpeed = `${shutter}s`;
+        } else if (shutter > 0) {
+          // Find the closest standard denominator
+          const denominator = Math.round(1 / shutter);
+          // Check if it's a standard fraction (within 5% tolerance)
+          const actualValue = 1 / denominator;
+          if (Math.abs(shutter - actualValue) / shutter < 0.05) {
+            exifData.shutterSpeed = `1/${denominator}s`;
+          } else {
+            // Not a standard fraction, show decimal
+            exifData.shutterSpeed = `${shutter.toFixed(4)}s`;
+          }
+        }
+      }
+
+      exifData.focalLength = metadata.focalLength ? parseFloat(metadata.focalLength) : undefined;
+      // Convert timestamp to string if it's a Date object
+      if (metadata.timestamp) {
+        const ts = metadata.timestamp;
+        exifData.datetime = typeof ts === 'object' && 'toLocaleString' in ts
+          ? ts.toLocaleString()
+          : String(ts);
+      }
+    }
 
     setDecodeProgress(100);
-
     return {
       id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       filename: file.name,
@@ -197,15 +407,12 @@ export function EditorLayout({ className }: EditorLayoutProps) {
       height: result.height,
       decodedData: result.data,
       thumbnail,
-      exif: {
-        width: result.width,
-        height: result.height,
-      },
+      exif: exifData,
       editParams: { ...defaultEditParams },
       isRaw: true,
       loadedAt: Date.now(),
     };
-  }, [decodeRaw]);
+  }, [decodeRaw, getMetadata]);
 
   // Handle file selection
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -347,6 +554,37 @@ export function EditorLayout({ className }: EditorLayoutProps) {
           {/* Main Canvas */}
           <div className="flex-1 relative overflow-hidden">
             {currentImage && <EditorCanvas />}
+
+            {/* Loading Overlay - centered on canvas */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+                <div className="text-center text-white w-64">
+                  {/* Step description */}
+                  <p className="mb-4 text-sm">
+                    {decodeProgress < 5
+                      ? '读取文件...'
+                      : decodeProgress < 70
+                        ? '解码 RAW 文件...'
+                        : decodeProgress < 88
+                          ? '处理图像数据...'
+                          : decodeProgress < 95
+                            ? '生成缩略图...'
+                            : '读取 EXIF 元数据...'}
+                  </p>
+
+                  {/* Progress bar */}
+                  <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-100"
+                      style={{ width: `${decodeProgress}%` }}
+                    />
+                  </div>
+
+                  {/* Percentage */}
+                  <p className="text-lg font-medium">{decodeProgress}%</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bottom Filmstrip */}
@@ -362,7 +600,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
         >
           {/* Histogram at top */}
           {!ui.isPanelCollapsed && (
-            <div className="h-24 shrink-0 border-b border-gray-700 p-2">
+            <div className="h-24 shrink-0 border-b border-gray-700">
               <Histogram />
             </div>
           )}
@@ -379,16 +617,6 @@ export function EditorLayout({ className }: EditorLayoutProps) {
           {!ui.isPanelCollapsed && <AdjustmentPanel />}
         </div>
       </div>
-
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="text-center text-white">
-            <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-            <p>{isDecoding ? `正在解码 RAW 文件... ${decodeProgress}%` : '正在加载...'}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

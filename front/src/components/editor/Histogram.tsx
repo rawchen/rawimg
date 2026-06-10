@@ -1,121 +1,308 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
+import { useWebGLRenderer } from '@/hooks/useWebGLRenderer';
+import type { HistogramData } from '@/types';
+import { cn } from '@/lib/utils';
+
+/**
+ * Calculate histogram data from RGBA pixel data
+ */
+export function calculateHistogram(data: Uint8ClampedArray): HistogramData {
+  const r = new Array(256).fill(0);
+  const g = new Array(256).fill(0);
+  const b = new Array(256).fill(0);
+  const luminance = new Array(256).fill(0);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const rv = data[i];
+    const gv = data[i + 1];
+    const bv = data[i + 2];
+
+    r[rv]++;
+    g[gv]++;
+    b[bv]++;
+
+    // Calculate luminance using Rec. 709 formula
+    const l = Math.round(0.2126 * rv + 0.7152 * gv + 0.0722 * bv);
+    luminance[l]++;
+  }
+
+  return { r, g, b, luminance };
+}
+
+interface ChannelVisibility {
+  r: boolean;
+  g: boolean;
+  b: boolean;
+  luminance: boolean;
+}
 
 export function Histogram() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { currentImage, ui } = useEditorStore();
+  const histCanvasRef = useRef<HTMLCanvasElement>(null);
+  const { currentImage, params, ui } = useEditorStore();
+  const { setCanvas, isReady, loadImage, render, getRenderedPixels } = useWebGLRenderer();
 
+  const [histogram, setHistogram] = useState<HistogramData | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [channelVisible, setChannelVisible] = useState<ChannelVisibility>({
+    r: true,
+    g: true,
+    b: true,
+    luminance: false,
+  });
+
+  // Calculate histogram from rendered image
+  const updateHistogram = useCallback(() => {
+    if (!isReady || !currentImage || !getRenderedPixels) return;
+
+    // Use multiple RAF to ensure WebGL has finished rendering
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const pixels = getRenderedPixels();
+        if (pixels && pixels.length > 0) {
+          const hist = calculateHistogram(pixels);
+          setHistogram(hist);
+          console.log('Histogram calculated, pixels length:', pixels.length);
+        }
+      });
+    });
+  }, [isReady, currentImage, getRenderedPixels]);
+
+  // Set up hidden WebGL canvas for histogram calculation
+  useEffect(() => {
+    if (histCanvasRef.current) {
+      setCanvas(histCanvasRef.current);
+    }
+  }, [setCanvas]);
+
+  // Resize hidden canvas based on image dimensions
+  useEffect(() => {
+    if (!histCanvasRef.current || !currentImage) return;
+
+    const maxDim = 128;
+    const scale = Math.min(1, maxDim / Math.max(currentImage.width, currentImage.height));
+    histCanvasRef.current.width = Math.floor(currentImage.width * scale);
+    histCanvasRef.current.height = Math.floor(currentImage.height * scale);
+  }, [currentImage?.width, currentImage?.height]);
+
+  // Load image to histogram canvas
+  useEffect(() => {
+    if (!currentImage || !isReady) return;
+
+    if (currentImage.decodedData) {
+      loadImage({
+        data: currentImage.decodedData,
+        width: currentImage.width,
+        height: currentImage.height,
+      });
+    } else if (currentImage.thumbnail) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        loadImage(img);
+      };
+      img.src = currentImage.thumbnail;
+    }
+  }, [currentImage?.id, currentImage?.decodedData, currentImage?.thumbnail, isReady, loadImage]);
+
+  // Render and calculate histogram when params change
+  useEffect(() => {
+    if (!isReady || !currentImage || !histCanvasRef.current) return;
+
+    const maxDim = 128;
+    const scale = Math.min(1, maxDim / Math.max(currentImage.width, currentImage.height));
+    const width = Math.floor(currentImage.width * scale);
+    const height = Math.floor(currentImage.height * scale);
+
+    render(params, width, height, 1);
+
+    // Wait for render to complete
+    updateHistogram();
+  }, [currentImage, params, isReady, render, updateHistogram]);
+
+  // Draw histogram with flame effect - responsive to container size
   useEffect(() => {
     const canvas = canvasRef.current;
+    const container = containerRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+    if (!canvas || !ctx || !container) return;
 
-    // Set canvas size
-    canvas.width = 280;
-    canvas.height = 80;
+    // Match canvas size to container
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
 
-    // Clear canvas
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const width = canvas.width;
+    const height = canvas.height;
 
-    // Draw placeholder histogram
-    if (!currentImage?.histogram) {
-      // Generate a basic histogram curve for visual purposes
+    // Clear canvas with transparent background
+    ctx.clearRect(0, 0, width, height);
+
+    if (!histogram) {
+      // Draw placeholder
+      ctx.fillStyle = '#333';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('加载中...', width / 2, height / 2);
+      return;
+    }
+
+    // Find max value for scaling - use 98th percentile to avoid spike outliers
+    const getPercentile = (data: number[], percentile: number) => {
+      const sorted = [...data].sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length * percentile / 100)];
+    };
+
+    let maxVal = 1;
+    if (channelVisible.r) maxVal = Math.max(maxVal, getPercentile(histogram.r, 99));
+    if (channelVisible.g) maxVal = Math.max(maxVal, getPercentile(histogram.g, 99));
+    if (channelVisible.b) maxVal = Math.max(maxVal, getPercentile(histogram.b, 99));
+    if (channelVisible.luminance) maxVal = Math.max(maxVal, getPercentile(histogram.luminance, 99));
+
+    const scaleY = (height - 4) / maxVal;
+    const scaleX = width / 256;
+
+    // Use additive blending so RGB overlap shows white
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Draw channels as filled areas (flame effect)
+    const drawChannel = (data: number[], baseColor: { r: number; g: number; b: number }) => {
       ctx.beginPath();
-      ctx.moveTo(0, 60);
+      ctx.moveTo(0, height - 2);
 
-      // Simple bell curve shape
-      for (let x = 0; x < canvas.width; x++) {
-        const normalizedX = x / canvas.width;
-        const y = 60 - 50 * Math.exp(-Math.pow(normalizedX - 0.5, 2) * 8);
-        ctx.lineTo(x, y);
+      for (let i = 0; i < 256; i++) {
+        const x = i * scaleX;
+        const y = height - 2 - Math.min(data[i] * scaleY, height - 4);
+        ctx.lineTo(x, Math.max(2, y));
       }
 
-      ctx.lineTo(canvas.width, 60);
+      ctx.lineTo(width, height - 2);
       ctx.closePath();
 
-      // Fill with gradient
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-      gradient.addColorStop(0, 'rgba(0,0,0,0.3)');
-      gradient.addColorStop(0.25, 'rgba(0,0,0,0.5)');
-      gradient.addColorStop(0.5, 'rgba(128,128,128,0.7)');
-      gradient.addColorStop(0.75, 'rgba(255,255,255,0.5)');
-      gradient.addColorStop(1, 'rgba(255,255,255,0.3)');
+      // Create gradient for flame effect - keep color at bottom so overlap shows white
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, `rgba(${baseColor.r},${baseColor.g},${baseColor.b},1)`);
+      gradient.addColorStop(0.5, `rgba(${baseColor.r},${baseColor.g},${baseColor.b},0.7)`);
+      gradient.addColorStop(1, `rgba(${baseColor.r},${baseColor.g},${baseColor.b},0.4)`);
+
       ctx.fillStyle = gradient;
       ctx.fill();
+    };
 
-      // Draw RGB channels
-      // Red channel
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, 60);
-      for (let x = 0; x < canvas.width; x++) {
-        const normalizedX = x / canvas.width;
-        const y = 60 - 40 * Math.exp(-Math.pow(normalizedX - 0.45, 2) * 6);
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Green channel
-      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(0, 60);
-      for (let x = 0; x < canvas.width; x++) {
-        const normalizedX = x / canvas.width;
-        const y = 60 - 45 * Math.exp(-Math.pow(normalizedX - 0.5, 2) * 7);
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Blue channel
-      ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(0, 60);
-      for (let x = 0; x < canvas.width; x++) {
-        const normalizedX = x / canvas.width;
-        const y = 60 - 35 * Math.exp(-Math.pow(normalizedX - 0.55, 2) * 8);
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Labels
-      ctx.fillStyle = '#666';
-      ctx.font = '10px sans-serif';
-      ctx.fillText('0', 5, 75);
-      ctx.fillText('255', canvas.width - 25, 75);
-    } else {
-      // Draw actual histogram data
-      const { r, g, b, luminance } = currentImage.histogram;
-
-      const drawChannel = (data: number[], color: string) => {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        const maxVal = Math.max(...data);
-        const scale = 50 / maxVal;
-        for (let i = 0; i < 256; i++) {
-          const x = (i / 255) * canvas.width;
-          const y = 60 - data[i] * scale;
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      };
-
-      drawChannel(r, 'rgba(255, 0, 0, 0.5)');
-      drawChannel(g, 'rgba(0, 255, 0, 0.5)');
-      drawChannel(b, 'rgba(0, 0, 255, 0.5)');
-      drawChannel(luminance, 'rgba(255, 255, 255, 0.3)');
+    // Draw luminance first (white, at back)
+    if (channelVisible.luminance) {
+      drawChannel(histogram.luminance, { r: 255, g: 255, b: 255 });
     }
-  }, [currentImage, ui.showBeforeAfter]);
+
+    // Draw RGB channels - lighter mode makes overlap white
+    if (channelVisible.r) {
+      drawChannel(histogram.r, { r: 255, g: 0, b: 0 });
+    }
+    if (channelVisible.g) {
+      drawChannel(histogram.g, { r: 0, g: 255, b: 0 });
+    }
+    if (channelVisible.b) {
+      drawChannel(histogram.b, { r: 0, g: 0, b: 255 });
+    }
+
+    // Reset blend mode
+    ctx.globalCompositeOperation = 'source-over';
+  }, [histogram, channelVisible]);
+
+  // Resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (!canvasRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      canvasRef.current.width = rect.width;
+      canvasRef.current.height = rect.height;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Toggle channel visibility
+  const toggleChannel = (channel: keyof ChannelVisibility) => {
+    setChannelVisible(prev => ({ ...prev, [channel]: !prev[channel] }));
+  };
 
   if (!ui.showHistogram) return null;
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div
+      ref={containerRef}
+      className="w-full h-full relative"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      {/* Histogram canvas - fills container */}
       <canvas
         ref={canvasRef}
-        className="max-w-full max-h-full"
+        className="w-full h-full"
+      />
+
+      {/* Channel toggles - only visible on hover */}
+      <div
+        className={cn(
+          'absolute top-1 right-1 flex gap-1 transition-opacity duration-200',
+          isHovering ? 'opacity-100' : 'opacity-0'
+        )}
+      >
+        <button
+          onClick={() => toggleChannel('r')}
+          className={cn(
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            channelVisible.r
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+          )}
+        >
+          R
+        </button>
+        <button
+          onClick={() => toggleChannel('g')}
+          className={cn(
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            channelVisible.g
+              ? 'bg-green-500 text-white'
+              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+          )}
+        >
+          G
+        </button>
+        <button
+          onClick={() => toggleChannel('b')}
+          className={cn(
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            channelVisible.b
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+          )}
+        >
+          B
+        </button>
+        <button
+          onClick={() => toggleChannel('luminance')}
+          className={cn(
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            channelVisible.luminance
+              ? 'bg-gray-300 text-gray-800'
+              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+          )}
+        >
+          L
+        </button>
+      </div>
+
+      {/* Hidden canvas for WebGL histogram calculation */}
+      <canvas
+        ref={histCanvasRef}
+        width={128}
+        height={128}
+        className="hidden"
       />
     </div>
   );

@@ -22,12 +22,15 @@ interface RawMetadata {
   width: number;
   height: number;
   iso?: number;
-  shutter?: string;
+  shutter?: number;  // Shutter speed in seconds (e.g., 0.000625 for 1/1600s)
   aperture?: number;
   focalLength?: string;
   make?: string;
   model?: string;
-  timestamp?: string;
+  timestamp?: string | Date;
+  exposureMode?: string;  // e.g., "Aperture-priority AE", "Manual", "Program AE"
+  meteringMode?: string;
+  exposureProgram?: number;
 }
 
 interface UseRawDecoderResult {
@@ -285,6 +288,21 @@ export function useRawDecoder(): UseRawDecoderResult {
       await libraw.open(uint8Array, { halfSize: true });
       const metadata = await libraw.metadata();
 
+      // Convert exposure program number to readable string
+      const exposureProgramMap: Record<number, string> = {
+        0: '未定义',
+        1: '手动',
+        2: '程序自动',
+        3: '光圈优先',
+        4: '快门优先',
+        5: '创意程序',
+        6: '动作程序',
+        7: '肖像模式',
+        8: '风景模式',
+      };
+      const exposureProgram = metadata?.exposure_program;
+      const exposureMode = exposureProgram ? exposureProgramMap[exposureProgram] || `模式 ${exposureProgram}` : undefined;
+
       return {
         width: metadata?.width,
         height: metadata?.height,
@@ -295,6 +313,8 @@ export function useRawDecoder(): UseRawDecoderResult {
         make: metadata?.camera_make || metadata?.make,
         model: metadata?.camera_model || metadata?.model,
         timestamp: metadata?.timestamp,
+        exposureMode,
+        exposureProgram,
       };
     } catch (err) {
       console.error('Failed to get RAW metadata:', err);

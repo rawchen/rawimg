@@ -576,6 +576,33 @@ export function useWebGLRenderer() {
     }
   }, [initialize, cleanup]);
 
+  // Get rendered pixel data from canvas
+  const getRenderedPixels = useCallback((): Uint8ClampedArray | null => {
+    const { gl, isReady: ready } = stateRef.current;
+    if (!gl || !ready) return null;
+
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    // Flip the image vertically (WebGL has origin at bottom-left)
+    const flippedPixels = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const srcIndex = ((height - 1 - y) * width + x) * 4;
+        const dstIndex = (y * width + x) * 4;
+        flippedPixels[dstIndex] = pixels[srcIndex];
+        flippedPixels[dstIndex + 1] = pixels[srcIndex + 1];
+        flippedPixels[dstIndex + 2] = pixels[srcIndex + 2];
+        flippedPixels[dstIndex + 3] = pixels[srcIndex + 3];
+      }
+    }
+
+    return new Uint8ClampedArray(flippedPixels);
+  }, []);
+
   return {
     setCanvas,
     canvasRef,
@@ -583,6 +610,7 @@ export function useWebGLRenderer() {
     error,
     loadImage,
     render,
+    getRenderedPixels,
     cleanup,
   };
 }

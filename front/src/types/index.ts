@@ -221,6 +221,8 @@ export interface ExifData {
   orientation?: number;
   whiteBalance?: number;
   flash?: number;
+  exposureMode?: string;  // 拍摄模式：手动、光圈优先、快门优先等
+  meteringMode?: string;  // 测光模式
   gps?: {
     latitude?: number;
     longitude?: number;
@@ -435,6 +437,7 @@ export interface EditorUIState {
   panY: number;
   showHistogram: boolean;
   showBeforeAfter: boolean;
+  showingOriginal: boolean; // 是否正在显示原图（用于实时对比）
   activePanel: 'edit' | 'light' | 'color' | 'effects' | 'detail' | 'optics';
   isPanelCollapsed: boolean;
 }

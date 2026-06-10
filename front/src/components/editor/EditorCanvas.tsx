@@ -2,6 +2,39 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { cn } from '@/lib/utils';
 import { useWebGLRenderer } from '@/hooks/useWebGLRenderer';
+import type { EditParams } from '@/types';
+
+// Default edit params for showing original image
+const defaultParams: EditParams = {
+  exposure: 0,
+  contrast: 0,
+  highlights: 0,
+  shadows: 0,
+  whites: 0,
+  blacks: 0,
+  temperature: 6500,
+  tint: 0,
+  vibrance: 0,
+  saturation: 0,
+  curves: {
+    rgb: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+    r: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+    g: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+    b: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+  },
+  hsl: { hue: [], saturation: [], luminance: [] },
+  clarity: 0,
+  dehaze: 0,
+  texture: 0,
+  sharpening: { amount: 0, radius: 1.0, detail: 25, masking: 0 },
+  noiseReduction: { luminance: 0, luminanceDetail: 50, luminanceContrast: 50, color: 0, colorDetail: 50, colorSmoothness: 50 },
+  removeChromaticAberration: false,
+  enableLensCorrection: false,
+  distortion: 0,
+  vignette: 0,
+  postCropVignette: { amount: 0, midpoint: 50, roundness: 50, feather: 50, highlights: 0 },
+  grain: { amount: 0, size: 25, roughness: 50 },
+};
 
 interface EditorCanvasProps {
   className?: string;
@@ -11,6 +44,9 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { currentImage, params, ui, setZoom, setPan } = useEditorStore();
   const { setCanvas, isReady, loadImage, render } = useWebGLRenderer();
+
+  // Determine which params to use based on showingOriginal state
+  const activeParams = ui.showingOriginal ? defaultParams : params;
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -106,7 +142,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 
     // Store pending render request
     pendingRenderRef.current = {
-      params,
+      params: activeParams,
       width: preview.width,
       height: preview.height,
     };
@@ -128,7 +164,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
         rafRef.current = null;
       }
     };
-  }, [isReady, imageLoaded, params, currentImage, render, getPreviewDimensions]);
+  }, [isReady, imageLoaded, activeParams, currentImage, render, getPreviewDimensions]);
 
   // Pan handler
   const handleMouseDown = useCallback((e: React.MouseEvent) => {

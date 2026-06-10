@@ -58,6 +58,7 @@ interface EditorState {
   zoomOut: () => void;
   zoomTo: (zoom: number) => void;
   zoomTo100: () => void;
+  setShowingOriginal: (showing: boolean) => void;
 
   // Actions - Loading
   setLoading: (loading: boolean) => void;
@@ -70,6 +71,7 @@ const DEFAULT_UI_STATE: EditorUIState = {
   panY: 0,
   showHistogram: true,
   showBeforeAfter: false,
+  showingOriginal: false,
   activePanel: 'light',
   isPanelCollapsed: false,
 };
@@ -304,6 +306,12 @@ export const useEditorStore = create<EditorState>()(
     zoomTo100: () => {
       set((state) => ({
         ui: { ...state.ui, zoom: 1 }
+      }));
+    },
+
+    setShowingOriginal: (showing) => {
+      set((state) => ({
+        ui: { ...state.ui, showingOriginal: showing }
       }));
     },
 
