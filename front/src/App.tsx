@@ -3,6 +3,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { LandingPage } from '@/pages/LandingPage';
 import { HomePage } from '@/pages/HomePage';
 import { GalleryDetailPage } from '@/pages/GalleryDetailPage';
 import { FavoritesPage } from '@/pages/FavoritesPage';
@@ -28,22 +29,34 @@ function AppContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
   const isEditorPage = location.pathname.startsWith('/editor');
+  const isLandingPage = location.pathname === '/';
 
   return (
     <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      {!isEditorPage && <Header />}
-      <main className={isEditorPage ? 'flex-1 overflow-hidden' : 'flex-1 pt-16'}>
+      {!isEditorPage && !isLandingPage && <Header />}
+      <main className={isEditorPage ? 'flex-1 overflow-hidden' : isLandingPage ? 'flex-1' : 'flex-1 pt-16'}>
         <Routes>
+            {/* Landing Page */}
+            <Route path="/" element={<LandingPage />} />
+
+            {/* Gallery Routes */}
+            <Route path="/galleries" element={<HomePage />} />
+            <Route path="/galleries/latest" element={<HomePage />} />
+            <Route path="/galleries/like" element={<HomePage />} />
+            <Route path="/galleries/hot" element={<HomePage />} />
+            <Route path="/galleries/down" element={<HomePage />} />
+
+            {/* Legacy Routes - redirect to galleries */}
+            <Route path="/like" element={<HomePage />} />
+            <Route path="/hot" element={<HomePage />} />
+            <Route path="/down" element={<HomePage />} />
+
             {/* Frontend Routes */}
-            <Route path="/" element={<HomePage />} />
             <Route path="/id/:id" element={<GalleryDetailPage />} />
             <Route path="/not-found" element={<NotFoundPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/recharge" element={<RechargePage />} />
-            <Route path="/like" element={<HomePage />} />
-            <Route path="/hot" element={<HomePage />} />
-            <Route path="/down" element={<HomePage />} />
 
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
@@ -68,7 +81,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && <Footer />}
+      {!isAdminPage && !isEditorPage && !isLandingPage && <Footer />}
     </div>
   );
 }

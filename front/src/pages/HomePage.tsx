@@ -25,7 +25,9 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
 
-  const pathSort = location.pathname.slice(1);
+  // 处理路径：/galleries/latest -> latest, /galleries -> latest
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const pathSort = pathParts[0] === 'galleries' ? (pathParts[1] || 'latest') : (pathParts[0] || 'latest');
   const sortBy: SortType = validSorts.includes(pathSort as SortType) ? pathSort as SortType : 'latest';
   
   // 从 URL 参数读取页码，默认为 1
