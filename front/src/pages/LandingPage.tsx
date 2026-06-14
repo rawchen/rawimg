@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { SparklesOutlined, BgColorsOutlined, PictureOutlined, ScissorOutlined, EyeOutlined, SkinOutlined, SwapOutlined, CrownOutlined, CheckOutlined, StarFilled, PlayCircleOutlined, ExpandOutlined, CameraOutlined, SmileOutlined, ThunderboltOutlined, SafetyOutlined, GlobalOutlined, CustomerServiceOutlined, RocketOutlined, DownOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons';
+import { HighlightOutlined, BgColorsOutlined, PictureOutlined, ScissorOutlined, EyeOutlined, SkinOutlined, SwapOutlined, CrownOutlined, CheckOutlined, StarFilled, PlayCircleOutlined, ExpandOutlined, CameraOutlined, SmileOutlined, ThunderboltOutlined, SafetyOutlined, GlobalOutlined, CustomerServiceOutlined, RocketOutlined, DownOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons';
 
 const featureCards = [
-  { title: 'RAW 图像增强', description: '一键提升 RAW 照片质量', icon: <SparklesOutlined className="text-2xl" />, color: 'from-violet-500 to-purple-600', href: '/editor' },
+  { title: 'RAW 图像增强', description: '一键提升 RAW 照片质量', icon: <HighlightOutlined className="text-2xl" />, color: 'from-violet-500 to-purple-600', href: '/editor' },
   { title: 'AI 背景移除', description: '智能识别主体，一键去除背景', icon: <ScissorOutlined className="text-2xl" />, color: 'from-pink-500 to-rose-600', href: '/editor' },
   { title: '智能修图', description: 'AI 驱动的人像美容', icon: <SkinOutlined className="text-2xl" />, color: 'from-amber-500 to-orange-600', href: '/editor' },
   { title: '图像放大', description: '无损放大，保持清晰细节', icon: <ExpandOutlined className="text-2xl" />, color: 'from-emerald-500 to-teal-600', href: '/editor' },
@@ -13,7 +13,7 @@ const featureCards = [
 
 const toolCategories = [
   { title: '图像工具', items: [
-    { name: '图像增强器', icon: <SparklesOutlined />, hot: true },
+    { name: '图像增强器', icon: <HighlightOutlined />, hot: true },
     { name: 'AI 图像扩展器', icon: <ExpandOutlined />, new: true },
     { name: '照片修复', icon: <PictureOutlined /> },
     { name: 'AI 物体移除器', icon: <ScissorOutlined /> },
