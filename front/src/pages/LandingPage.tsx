@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import enhanceBf from '@/assets/media/enhance-bf.webp';
+import eraserBf from '@/assets/media/eraser-bf.webp';
+import retouchBf from '@/assets/media/retouch-bf.webp';
+import tunerBf from '@/assets/media/tuner-bf.webp';
+import outfitBf from '@/assets/media/outfit-bf.webp';
 import {
   HighlightOutlined,
   BgColorsOutlined,
@@ -37,46 +42,46 @@ const featureCards = [
     title: 'RAW 图像增强',
     description: '一键提升 RAW 照片质量',
     icon: <HighlightOutlined className="text-2xl" />,
-    gradient: 'from-amber-500 to-orange-600',
+    // gradient: 'from-amber-500 to-orange-600',
     href: '/editor',
     rotation: '-5deg',
-    image: '/assets/media/enhance-bf.webp',
+    image: enhanceBf,
   },
   {
     title: 'AI 背景移除',
     description: '智能识别主体，一键去除背景',
     icon: <ScissorOutlined className="text-2xl" />,
-    gradient: 'from-pink-500 to-rose-600',
+    // gradient: 'from-pink-500 to-rose-600',
     href: '/editor',
     rotation: '3deg',
-    image: '/assets/media/eraser-bf.webp',
+    image: eraserBf,
   },
   {
     title: '智能修图',
     description: 'AI 驱动的人像美容',
     icon: <SkinOutlined className="text-2xl" />,
-    gradient: 'from-violet-500 to-purple-600',
+    // gradient: 'from-violet-500 to-purple-600',
     href: '/editor',
     rotation: '-3deg',
-    image: '/assets/media/retouch-bf.webp',
+    image: retouchBf,
   },
   {
     title: '图像放大',
     description: '无损放大，保持清晰细节',
     icon: <ExpandOutlined className="text-2xl" />,
-    gradient: 'from-emerald-500 to-teal-600',
+    // gradient: 'from-emerald-500 to-teal-600',
     href: '/editor',
     rotation: '5deg',
-    image: '/assets/media/tuner-bf.webp',
+    image: tunerBf,
   },
   {
     title: 'AI 滤镜',
     description: '一键应用专业级滤镜',
     icon: <BgColorsOutlined className="text-2xl" />,
-    gradient: 'from-blue-500 to-cyan-600',
+    // gradient: 'from-blue-500 to-cyan-600',
     href: '/editor',
     rotation: '-2deg',
-    image: '/assets/media/outfit-bf.webp',
+    image: outfitBf,
   },
 ];
 
@@ -293,9 +298,19 @@ const animationStyles = `
   }
 
   /* Feature Card hover animation */
+  .feature-card-wrapper {
+    position: relative;
+    z-index: var(--z-index, 10);
+    display: block;
+    flex-shrink: 0;
+  }
+
   .feature-card {
+    display: block;
+    transform: rotate(var(--rotation, 0deg)) scale(var(--scale, 1)) translateX(var(--translate-x, 0px));
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    clip-path: inset(0 round 1rem);
   }
 `;
 
@@ -359,9 +374,9 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
       {/* Navigation */}
-      <nav className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-xl shadow-sm' : 'bg-transparent'}`}>
+      <nav className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-xl shadow-sm' : 'bg-[rgba(255,255,255,0.8)]'}`}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className={`flex items-center justify-between ${scrolled ? 'h-16' : 'h-20'}`}>
+          <div className={`flex items-center font-medium justify-between ${scrolled ? 'h-16' : 'h-16'}`}>
             {/* Logo */}
             <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
               <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
@@ -490,28 +505,29 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto mb-12">
             {/* Badge */}
-            <div className={`inline-flex items-center space-x-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-medium mb-6 transition-all duration-500 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <RocketOutlined className="transition-transform hover:rotate-12 duration-300" />
-              <span>AI 驱动的图像处理平台</span>
-            </div>
+            {/*<div className={`inline-flex items-center space-x-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-medium mb-6 transition-all duration-500 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>*/}
+            {/*  <RocketOutlined className="transition-transform hover:rotate-12 duration-300" />*/}
+            {/*  <span>AI 驱动的图像处理平台</span>*/}
+            {/*</div>*/}
 
             {/* Headline */}
+            <h1 className={`text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-1.5 leading-tight transition-all duration-700 delay-200 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+              懂你的照片编辑器
+            </h1>
             <h1 className={`text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight transition-all duration-700 delay-200 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-              一键处理 RAW 照片
-              <br />
               <span className="bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
                 AI 让创作更简单
               </span>
             </h1>
 
             {/* Subheadline */}
-            <p className={`text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto transition-all duration-700 delay-300 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-              无需安装软件，在线编辑 RAW 格式照片。智能背景移除、AI 修图、无损放大，专业级效果触手可及。
-            </p>
+            {/*<p className={`text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto transition-all duration-700 delay-300 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>*/}
+            {/*  在线编辑 RAW 格式照片，智能背景移除、AI 修图、无损放大，专业级效果触手可及。*/}
+            {/*</p>*/}
           </div>
 
           {/* Feature Cards - Rotated Layout */}
-          <div className={`hidden md:flex justify-center gap-4 lg:gap-6 mb-12 transition-all duration-700 delay-400 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`hidden md:flex justify-center gap-4 lg:gap-6 mb-20 transition-all duration-700 delay-400 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {featureCards.map((feature, index) => {
               const isHovered = hoveredFeatureIndex === index;
               const isLeft = hoveredFeatureIndex !== null && index < hoveredFeatureIndex;
@@ -531,37 +547,38 @@ export function LandingPage() {
               const scale = isHovered ? 1.5 : 1;
 
               return (
-                <a
+                <div
                   key={feature.title}
-                  href={feature.href}
-                  className="feature-card group relative w-40 lg:w-48 aspect-[3/4] rounded-2xl overflow-hidden bg-white border-2 border-white shadow-lg hover:shadow-2xl hover:shadow-orange-500/30 cursor-pointer"
+                  className="feature-card-wrapper w-40 lg:w-48"
                   style={{
-                    transform: `rotate(${rotation}) scale(${scale}) translateX(${translateX}px)`,
                     zIndex: isHovered ? 50 : 10 - index,
-                    transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                   onMouseEnter={() => setHoveredFeatureIndex(index)}
                   onMouseLeave={() => setHoveredFeatureIndex(null)}
                 >
-                  {/* Background Image */}
-                  <img
-                    src={feature.image}
-                    alt={feature.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:opacity-80 transition-opacity duration-500"
-                  />
-                  {/* Gradient Overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                  {/* Content */}
-                  <div className="relative h-full p-4 flex flex-col justify-between group-hover:bg-transparent transition-colors duration-500">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-2 group-hover:scale-110 transition-transform duration-500`}>
-                      {feature.icon}
+                  <a
+                    href={feature.href}
+                    className="feature-card group relative w-full aspect-[3/4] bg-white cursor-pointer"
+                    style={{
+                      '--rotation': isHovered ? '0deg' : feature.rotation,
+                      '--scale': isHovered ? 1.5 : 1,
+                      '--translate-x': `${translateX}px`,
+                    } as React.CSSProperties}
+                  >
+                    {/* Background Image Container */}
+                    <div className="relative h-full w-full overflow-hidden rounded-2xl border-2 border-white bg-white shadow-[0_4px_32px_rgba(205,211,238,0.50)]">
+                      <img
+                        src={feature.image}
+                        alt={feature.title}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {/* Content - 底部半透明背景 */}
+                      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center h-8 w-full bg-[rgba(0,0,0,0.30)] backdrop-blur-md">
+                        <h3 className="text-sm leading-none text-white lg:text-base">{feature.title}</h3>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 group-hover:text-white transition-colors duration-500 text-sm lg:text-base">{feature.title}</h3>
-                      <p className="text-xs text-gray-500 group-hover:text-white/80 transition-colors duration-500 mt-1">{feature.description}</p>
-                    </div>
-                  </div>
-                </a>
+                  </a>
+                </div>
               );
             })}
           </div>
@@ -572,27 +589,27 @@ export function LandingPage() {
               <a
                 key={feature.title}
                 href={feature.href}
-                className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer"
+                className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 {/* Background Image */}
                 <img
                   src={feature.image}
                   alt={feature.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-50 transition-opacity duration-300"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                {/* Content */}
-                <div className="relative p-4 bg-white/90 group-hover:bg-white/70 transition-colors duration-300">
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-3`}>
-                    {feature.icon}
-                  </div>
-                  <h3 className="font-semibold text-gray-900 text-sm">{feature.title}</h3>
+                {/* Content - 底部半透明背景 */}
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center h-8 w-full bg-[rgba(0,0,0,0.30)] backdrop-blur-md transition-opacity duration-200">
+                  <h3 className="text-sm leading-none text-white">{feature.title}</h3>
                 </div>
               </a>
             ))}
           </div>
 
           {/* CTA Buttons */}
-          <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-500 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div
+            className={`relative flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-500 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+            style={{ zIndex: 10 }}
+          >
             <button
               onClick={handleStartEdit}
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-lg font-semibold rounded-full hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
@@ -608,14 +625,14 @@ export function LandingPage() {
           </div>
 
           {/* Trust Indicators */}
-          <div className={`mt-10 flex flex-wrap items-center justify-center gap-6 text-gray-500 text-sm transition-all duration-700 delay-600 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <div className={`relative mt-10 flex flex-wrap items-center justify-center gap-6 text-gray-500 text-sm transition-all duration-700 delay-600 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
               <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
-              <span>免费试用</span>
+              <span>AI 辅助</span>
             </div>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
               <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
-              <span>无需信用卡</span>
+              <span>在线编辑</span>
             </div>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
               <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
