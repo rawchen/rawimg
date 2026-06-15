@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
 import enhanceBf from '@/assets/media/enhance-bf.webp';
 import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
@@ -18,32 +17,25 @@ import {
   StarFilled,
   PlayCircleOutlined,
   ExpandOutlined,
-  CameraOutlined,
   SmileOutlined,
   ThunderboltOutlined,
   SafetyOutlined,
   GlobalOutlined,
   CustomerServiceOutlined,
   RocketOutlined,
-  DownOutlined,
-  MenuOutlined,
-  CloseOutlined,
-  UserOutlined,
-  LoginOutlined,
-  EditOutlined,
   ArrowRightOutlined,
   PlusOutlined,
   MinusOutlined,
-  DownloadOutlined,
+  CameraOutlined,
 } from '@ant-design/icons';
 
 const featureCards = [
   {
-    title: 'RAW 图像增强',
-    description: '一键提升 RAW 照片质量',
+    title: '图像增强',
+    description: '一键提升照片质量',
     icon: <HighlightOutlined className="text-2xl" />,
     // gradient: 'from-amber-500 to-orange-600',
-    href: '/editor',
+    href: '/enhance',
     rotation: '-5deg',
     image: enhanceBf,
   },
@@ -323,13 +315,9 @@ if (typeof document !== 'undefined') {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeToolTab, setActiveToolTab] = useState('all');
   const [activePersona, setActivePersona] = useState(0);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
-  const [scrolled, setScrolled] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [hoveredFeatureIndex, setHoveredFeatureIndex] = useState<number | null>(null);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
@@ -337,12 +325,6 @@ export function LandingPage() {
   useEffect(() => {
     // Hero loaded animation
     setTimeout(() => setHeroLoaded(true), 100);
-
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Scroll animation observer
@@ -373,133 +355,6 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
-      {/* Navigation */}
-      <nav className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-xl shadow-sm' : 'bg-[rgba(255,255,255,0.8)]'}`}>
-        <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className={`flex items-center font-medium justify-between ${scrolled ? 'h-16' : 'h-16'}`}>
-            {/* Logo */}
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <CameraOutlined className="text-white text-lg" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">RawImg</span>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8">
-              <div className="relative">
-                <button
-                  className="flex items-center space-x-1 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
-                  onMouseEnter={() => setToolsDropdownOpen(true)}
-                  onMouseLeave={() => setToolsDropdownOpen(false)}
-                >
-                  <span>在线工具</span>
-                  <DownOutlined className="text-xs" />
-                </button>
-                {toolsDropdownOpen && (
-                  <div
-                    className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 grid grid-cols-2 gap-4 animate-scale-in"
-                    onMouseEnter={() => setToolsDropdownOpen(true)}
-                    onMouseLeave={() => setToolsDropdownOpen(false)}
-                  >
-                    {tools.slice(0, 8).map((tool, index) => (
-                      <a
-                        key={tool.key}
-                        href="/editor"
-                        className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 text-sm py-1 cursor-pointer transition-colors group"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <span className="text-gray-400 group-hover:text-orange-500 transition-colors duration-300 group-hover:scale-110">{tool.icon}</span>
-                        <span className="group-hover:translate-x-1 transition-transform duration-300">{tool.name}</span>
-                        {tool.hot && (
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded animate-pulse">热</span>
-                        )}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <a onClick={handleGoToGalleries} className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer">
-                图集
-              </a>
-              <a href="#pricing" className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer">
-                定价
-              </a>
-            </div>
-
-            {/* Auth Buttons */}
-            <div className="hidden lg:flex items-center space-x-3">
-              {isAuthenticated ? (
-                <>
-                  <button
-                    onClick={handleStartEdit}
-                    className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
-                  >
-                    <EditOutlined />
-                    <span>编辑器</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/profile')}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-full hover:shadow-lg hover:shadow-orange-500/30 transition-all cursor-pointer"
-                  >
-                    <UserOutlined />
-                    <span>{user?.username || '用户'}</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => navigate('/login')}
-                    className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
-                  >
-                    登录
-                  </button>
-                  <button
-                    onClick={() => navigate('/register')}
-                    className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-full hover:shadow-lg hover:shadow-orange-500/30 transition-all cursor-pointer"
-                  >
-                    免费注册
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 cursor-pointer"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <CloseOutlined /> : <MenuOutlined />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 px-4 py-4">
-            <div className="space-y-3">
-              <a href="/editor" className="block text-gray-600 hover:text-orange-600 py-2 cursor-pointer">在线工具</a>
-              <a onClick={handleGoToGalleries} className="block text-gray-600 hover:text-orange-600 py-2 cursor-pointer">图集</a>
-              <a href="#pricing" className="block text-gray-600 hover:text-orange-600 py-2 cursor-pointer">定价</a>
-              <div className="pt-3 border-t border-gray-100">
-                {isAuthenticated ? (
-                  <>
-                    <button onClick={handleStartEdit} className="w-full mb-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">编辑器</button>
-                    <button onClick={() => navigate('/profile')} className="w-full px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg cursor-pointer">{user?.username || '用户'}</button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => navigate('/login')} className="w-full mb-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">登录</button>
-                    <button onClick={() => navigate('/register')} className="w-full px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg cursor-pointer">免费注册</button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
-
       {/* Hero Section */}
       <section className="pt-8 pb-16 px-4">
         <div className="max-w-7xl mx-auto">
@@ -866,7 +721,7 @@ export function LandingPage() {
                 <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><CheckOutlined className="text-green-500" />基础 RAW 解码</li>
                 <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><CheckOutlined className="text-green-500" />标准画质导出</li>
               </ul>
-              <button onClick={() => navigate('/register')} className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
+              <button onClick={handleStartEdit} className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
                 免费开始
               </button>
             </div>
@@ -889,7 +744,7 @@ export function LandingPage() {
                 <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-300"><CheckOutlined />全部 AI 滤镜</li>
                 <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-400"><CheckOutlined />批量处理</li>
               </ul>
-              <button onClick={() => navigate('/register')} className="w-full py-3 bg-white text-orange-600 rounded-full font-semibold hover:shadow-lg hover:bg-gray-100 transition-all duration-300 cursor-pointer">
+              <button onClick={handleStartEdit} className="w-full py-3 bg-white text-orange-600 rounded-full font-semibold hover:shadow-lg hover:bg-gray-100 transition-all duration-300 cursor-pointer">
                 立即订阅
               </button>
             </div>
@@ -1023,11 +878,11 @@ export function LandingPage() {
       </footer>
 
       {/* Floating CTA Banner - Desktop Only */}
-      <div className={`hidden lg:block fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-100 shadow-lg transform transition-transform duration-500 ${scrolled ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className="hidden lg:block fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-100 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center hover:scale-110 transition-transform duration-300">
-              <CameraOutlined className="text-white" />
+              <span className="text-white font-bold text-lg">R</span>
             </div>
             <div>
               <p className="font-semibold text-gray-900 text-sm">专业级图像处理，无需安装软件</p>

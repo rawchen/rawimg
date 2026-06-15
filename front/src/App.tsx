@@ -24,6 +24,7 @@ import { VipPackagesPage } from '@/pages/admin/VipPackagesPage';
 import { RechargePage } from '@/pages/RechargePage';
 import { FeedbackPage } from '@/pages/admin/FeedbackPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
+import { ImageEnhancePage } from '@/pages/ImageEnhancePage.tsx';
 
 function AppContent() {
   const location = useLocation();
@@ -33,8 +34,8 @@ function AppContent() {
 
   return (
     <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      {!isEditorPage && !isLandingPage && <Header />}
-      <main className={isEditorPage ? 'flex-1 overflow-hidden' : isLandingPage ? 'flex-1' : 'flex-1 pt-16'}>
+      {!isEditorPage && <Header />}
+      <main className={isEditorPage ? 'flex-1 overflow-hidden' : 'flex-1 flex flex-col'}>
         <Routes>
             {/* Landing Page */}
             <Route path="/" element={<LandingPage />} />
@@ -57,6 +58,9 @@ function AppContent() {
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/recharge" element={<RechargePage />} />
+
+            {/* Image Enhance Route */}
+            <Route path="/enhance" element={<ImageEnhancePage />} />
 
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />

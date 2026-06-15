@@ -74,6 +74,13 @@ app:
 ip2region:
   xdb: file:./data/ip2region_v4.xdb
 
+# GPT Image API Configuration
+gpt:
+  image:
+    api-url: https://api.openai-hub.com
+    api-key: sk-xxx
+    model: gpt-image-2
+
 # Logging
 logging:
   level:

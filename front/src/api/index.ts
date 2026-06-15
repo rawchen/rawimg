@@ -425,4 +425,24 @@ export const feedbackApi = {
     api.put<void>(`/admin/feedback/${id}/status`, null, { params: { status, reply } }) as unknown as Promise<void>,
 };
 
+// Image Enhance API
+export const imageEnhanceApi = {
+  enhanceImage: (file: File, category: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', category);
+    return api.post<{
+      originalFilename: string;
+      enhancedUrl: string;
+      category: string;
+    }>('/image-enhance/enhance', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<{
+      originalFilename: string;
+      enhancedUrl: string;
+      category: string;
+    }>;
+  },
+};
+
 export default api;
