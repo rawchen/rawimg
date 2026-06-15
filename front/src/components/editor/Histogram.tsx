@@ -50,7 +50,7 @@ export function Histogram() {
     r: true,
     g: true,
     b: true,
-    luminance: false,
+    luminance: true,
   });
 
   // Calculate histogram from rendered image
@@ -137,12 +137,13 @@ export function Histogram() {
     const width = canvas.width;
     const height = canvas.height;
 
-    // Clear canvas with transparent background
-    ctx.clearRect(0, 0, width, height);
+    // Clear canvas with dark background for better contrast
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, width, height);
 
     if (!histogram) {
       // Draw placeholder
-      ctx.fillStyle = '#333';
+      ctx.fillStyle = '#9CA3AF';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('加载中...', width / 2, height / 2);
@@ -181,7 +182,7 @@ export function Histogram() {
       ctx.lineTo(width, height - 2);
       ctx.closePath();
 
-      // Create gradient for flame effect - keep color at bottom so overlap shows white
+      // Create gradient for flame effect
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, `rgba(${baseColor.r},${baseColor.g},${baseColor.b},1)`);
       gradient.addColorStop(0.5, `rgba(${baseColor.r},${baseColor.g},${baseColor.b},0.7)`);
@@ -254,10 +255,10 @@ export function Histogram() {
         <button
           onClick={() => toggleChannel('r')}
           className={cn(
-            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors cursor-pointer',
             channelVisible.r
               ? 'bg-red-500 text-white'
-              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+              : 'bg-white/80 text-gray-500 hover:bg-gray-100'
           )}
         >
           R
@@ -265,10 +266,10 @@ export function Histogram() {
         <button
           onClick={() => toggleChannel('g')}
           className={cn(
-            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors cursor-pointer',
             channelVisible.g
               ? 'bg-green-500 text-white'
-              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+              : 'bg-white/80 text-gray-500 hover:bg-gray-100'
           )}
         >
           G
@@ -276,10 +277,10 @@ export function Histogram() {
         <button
           onClick={() => toggleChannel('b')}
           className={cn(
-            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors cursor-pointer',
             channelVisible.b
               ? 'bg-blue-500 text-white'
-              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+              : 'bg-white/80 text-gray-500 hover:bg-gray-100'
           )}
         >
           B
@@ -287,10 +288,10 @@ export function Histogram() {
         <button
           onClick={() => toggleChannel('luminance')}
           className={cn(
-            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors',
+            'px-1.5 py-0.5 text-xs font-medium rounded transition-colors cursor-pointer',
             channelVisible.luminance
-              ? 'bg-gray-300 text-gray-800'
-              : 'bg-gray-600/80 text-gray-300 hover:bg-gray-500'
+              ? 'bg-gray-700 text-white'
+              : 'bg-white/80 text-gray-500 hover:bg-gray-100'
           )}
         >
           L

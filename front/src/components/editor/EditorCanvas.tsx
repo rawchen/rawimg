@@ -204,7 +204,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 
   if (!currentImage) {
     return (
-      <div className={cn('flex items-center justify-center h-full bg-gray-900', className)}>
+      <div className={cn('flex items-center justify-center h-full bg-[#F5F7FA]', className)}>
         <div className="text-gray-500">没有打开的照片</div>
       </div>
     );
@@ -216,7 +216,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
     <div
       ref={containerRef}
       className={cn(
-        'relative w-full h-full bg-gray-900 overflow-hidden cursor-grab active:cursor-grabbing',
+        'relative w-full h-full bg-[#F5F7FA] overflow-hidden cursor-grab active:cursor-grabbing',
         className
       )}
       onMouseDown={handleMouseDown}
@@ -249,20 +249,20 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 
       {/* Loading indicator */}
       {!isReady || !imageLoaded ? (
-        <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10 pointer-events-none">
-          <div className="text-white text-sm">加载中...</div>
+        <div className="absolute inset-0 bg-gray-200/80 flex items-center justify-center z-10 pointer-events-none">
+          <div className="text-gray-700 text-sm">加载中...</div>
         </div>
       ) : null}
 
       {/* Zoom indicator */}
-      <div className="absolute bottom-4 left-4 bg-black/50 text-white text-xs px-2 py-1 rounded select-none">
+      <div className="absolute bottom-4 left-4 bg-white/90 text-gray-700 text-xs px-2 py-1 rounded-lg shadow-sm select-none">
         {Math.round(ui.zoom * 100)}% | {currentImage.width}×{currentImage.height}
-        {currentImage.isRaw && <span className="ml-2 text-green-400">RAW</span>}
+        {currentImage.isRaw && <span className="ml-2 text-orange-500 font-medium">RAW</span>}
       </div>
 
       {/* WebGL error indicator */}
       {!isReady && (
-        <div className="absolute top-4 left-4 bg-red-600/80 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute top-4 left-4 bg-red-500/90 text-white text-xs px-2 py-1 rounded-lg">
           WebGL 不可用
         </div>
       )}

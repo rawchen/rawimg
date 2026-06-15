@@ -39,9 +39,9 @@ export function Filmstrip() {
   // For now, just show the current image
   // TODO: Implement multi-image filmstrip
   return (
-    <div className="h-20 bg-gray-800 border-t border-gray-700 flex items-center px-4">
+    <div className="h-20 bg-white border-t border-gray-200 flex items-center px-4 shadow-sm">
       {/* Left scroll button */}
-      <button className="p-2 text-gray-400 hover:text-white">
+      <button className="p-2 text-gray-400 hover:text-orange-600 transition-colors cursor-pointer">
         <LeftOutlined />
       </button>
 
@@ -51,8 +51,8 @@ export function Filmstrip() {
           {currentImage && (
             <div
               className={cn(
-                'flex-shrink-0 h-full aspect-[3/2] rounded overflow-hidden border-2',
-                'border-blue-500' // Active image
+                'flex-shrink-0 h-full aspect-[3/2] rounded-lg overflow-hidden border-2 shadow-sm',
+                'border-orange-500' // Active image with orange accent
               )}
             >
               <img
@@ -73,7 +73,7 @@ export function Filmstrip() {
       </div>
 
       {/* Right scroll button */}
-      <button className="p-2 text-gray-400 hover:text-white">
+      <button className="p-2 text-gray-400 hover:text-orange-600 transition-colors cursor-pointer">
         <RightOutlined />
       </button>
 
@@ -84,8 +84,8 @@ export function Filmstrip() {
           onMouseUp={handleCompareMouseUp}
           onMouseLeave={handleCompareMouseUp}
           className={cn(
-            'ml-4 p-2 rounded transition-colors',
-            isComparing ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+            'ml-4 p-2 rounded-lg transition-colors cursor-pointer',
+            isComparing ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-orange-600'
           )}
           title="按住查看原图，松开显示调整后的图"
         >

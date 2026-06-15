@@ -24,13 +24,13 @@ function PanelSection({ title, icon, defaultOpen = true, children }: PanelSectio
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-gray-700">
+    <div className="border-b border-gray-100">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700/50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2">
-          {icon}
+          <span className="text-orange-500">{icon}</span>
           <span className="text-sm font-medium">{title}</span>
         </div>
         <RightOutlined
@@ -64,14 +64,14 @@ export function AdjustmentPanel() {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="flex-1 min-h-0 overflow-y-auto bg-white">
       {/* Panel Tabs */}
-      <div className="flex border-b border-gray-700 px-2 py-1 gap-1">
+      <div className="flex border-b border-gray-200 px-2 py-1 gap-1 bg-gray-50">
         <button
           onClick={() => setActivePanel('edit')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'edit' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'edit' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           编辑
@@ -79,8 +79,8 @@ export function AdjustmentPanel() {
         <button
           onClick={() => setActivePanel('light')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'light' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'light' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           浅色
@@ -88,8 +88,8 @@ export function AdjustmentPanel() {
         <button
           onClick={() => setActivePanel('color')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'color' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'color' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           颜色
@@ -97,8 +97,8 @@ export function AdjustmentPanel() {
         <button
           onClick={() => setActivePanel('effects')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'effects' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'effects' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           效果
@@ -106,8 +106,8 @@ export function AdjustmentPanel() {
         <button
           onClick={() => setActivePanel('detail')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'detail' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'detail' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           细节
@@ -115,8 +115,8 @@ export function AdjustmentPanel() {
         <button
           onClick={() => setActivePanel('optics')}
           className={cn(
-            'px-2 py-1 text-xs rounded',
-            ui.activePanel === 'optics' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+            'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
+            ui.activePanel === 'optics' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
           光学
@@ -128,13 +128,13 @@ export function AdjustmentPanel() {
         {ui.activePanel === 'edit' && (
           <PanelSection title="编辑" icon={<span>✨</span>} defaultOpen>
             <div className="flex gap-2 mb-3">
-              <button className="flex-1 py-2 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600">
+              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
                 自动
               </button>
-              <button className="flex-1 py-2 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600">
+              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
                 黑白
               </button>
-              <button className="flex-1 py-2 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600">
+              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
                 HDR
               </button>
             </div>
@@ -203,7 +203,7 @@ export function AdjustmentPanel() {
             </PanelSection>
 
             <PanelSection title="点曲线" icon={<FilterOutlined />} defaultOpen={false}>
-              <div className="h-40 bg-gray-800 rounded flex items-center justify-center text-gray-500 text-sm">
+              <div className="h-40 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                 曲线编辑器 (TODO)
               </div>
             </PanelSection>
@@ -214,7 +214,7 @@ export function AdjustmentPanel() {
           <>
             <PanelSection title="白平衡" icon={<BgColorsOutlined />} defaultOpen>
               <div className="mb-3">
-                <select className="w-full bg-gray-700 text-gray-200 border border-gray-600 rounded px-3 py-2 text-sm">
+                <select className="w-full bg-gray-100 text-gray-700 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-orange-500 focus:outline-none cursor-pointer">
                   <option>原照设置</option>
                   <option>日光</option>
                   <option>阴影</option>
@@ -324,21 +324,21 @@ export function AdjustmentPanel() {
         {ui.activePanel === 'optics' && (
           <PanelSection title="光学" icon={<CameraOutlined />} defaultOpen>
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={params.removeChromaticAberration}
                   onChange={(e) => setParam('removeChromaticAberration', e.target.checked)}
-                  className="rounded"
+                  className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
                 />
                 删除色差
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={params.enableLensCorrection}
                   onChange={(e) => setParam('enableLensCorrection', e.target.checked)}
-                  className="rounded"
+                  className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
                 />
                 启用镜头校正
               </label>

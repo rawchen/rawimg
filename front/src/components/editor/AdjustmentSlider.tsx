@@ -22,12 +22,12 @@ interface AdjustmentSliderProps {
 }
 
 const BACKGROUND_GRADIENTS = {
-  exposure: 'bg-gradient-to-r from-gray-700 via-gray-400 to-gray-100',
-  contrast: 'bg-gradient-to-r from-gray-300 via-gray-600 to-gray-300',
-  temperature: 'bg-gradient-to-r from-blue-400 via-white to-orange-400',
-  tint: 'bg-gradient-to-r from-green-400 via-white to-magenta-400',
-  saturation: 'bg-gradient-to-r from-gray-400 via-gray-400 to-red-400',
-  neutral: 'bg-gradient-to-r from-gray-200 via-gray-400 to-gray-200',
+  exposure: 'bg-gradient-to-r from-gray-300 via-gray-200 to-white',
+  contrast: 'bg-gradient-to-r from-gray-200 via-gray-400 to-gray-200',
+  temperature: 'bg-gradient-to-r from-blue-300 via-white to-orange-400',
+  tint: 'bg-gradient-to-r from-green-300 via-white to-pink-400',
+  saturation: 'bg-gradient-to-r from-gray-300 via-gray-300 to-orange-400',
+  neutral: 'bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200',
 };
 
 export function AdjustmentSlider({
@@ -221,7 +221,7 @@ export function AdjustmentSlider({
     <div className={cn('mb-3', className)}>
       {/* Label and value display */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm select-none text-white dark:text-gray-400">{label}</span>
+        <span className="text-sm select-none text-gray-700">{label}</span>
         {showValueInput && (
           <div className="flex items-center gap-1">
             <input
@@ -231,7 +231,7 @@ export function AdjustmentSlider({
               onBlur={handleInputBlur}
               onKeyDown={handleInputKeyDown}
               disabled={disabled}
-              className="w-12 h-5 text-xs text-center text-white bg-transparent border border-gray-300 dark:border-gray-600 rounded px-1 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              className="w-12 h-5 text-xs text-center text-gray-700 bg-gray-100 border border-gray-200 rounded px-1 focus:outline-none focus:border-orange-500 disabled:opacity-50"
             />
             {unit && <span className="text-xs text-gray-500">{unit}</span>}
           </div>
@@ -258,7 +258,7 @@ export function AdjustmentSlider({
       >
         {/* Background gradient */}
         <div className={cn(
-          'absolute inset-0',
+          'absolute inset-0 rounded-sm',
           BACKGROUND_GRADIENTS[backgroundGradient]
         )} />
 
@@ -282,9 +282,9 @@ export function AdjustmentSlider({
           className={cn(
             'absolute bottom-0 -translate-x-1/2 w-0 h-0 transition-shadow',
             isDragging
-              ? 'border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-gray-800 dark:border-t-gray-200'
-              : 'border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-gray-700 dark:border-t-gray-300',
-            isDefault && 'border-t-gray-500 dark:border-t-gray-500'
+              ? 'border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-gray-800'
+              : 'border-l-[7px] border-r-[7px] border-t-[10px] border-l-transparent border-r-transparent border-t-gray-600',
+            isDefault && 'border-t-gray-400'
           )}
           style={{ left: `${positionPercent}%` }}
         />

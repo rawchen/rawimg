@@ -503,12 +503,12 @@ export function EditorToolbar() {
   }, [setCurrentImage, setLoading]);
 
   return (
-    <div className="h-12 bg-gray-800 border-b border-gray-700 flex items-center px-4 gap-4">
+    <div className="h-12 bg-white border-b border-gray-200 flex items-center px-4 gap-4 shadow-sm">
       {/* Left side - Navigation */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => navigate('/')}
-          className="px-3 py-1.5 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600 flex items-center gap-2"
+          className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 hover:text-orange-600 flex items-center gap-2 transition-colors cursor-pointer"
           title="返回图库"
         >
           <FolderOpenOutlined />
@@ -516,7 +516,7 @@ export function EditorToolbar() {
         </button>
         <button
           onClick={handleImportClick}
-          className="px-3 py-1.5 bg-gray-700 text-gray-200 rounded text-sm hover:bg-gray-600 flex items-center gap-2"
+          className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 hover:text-orange-600 flex items-center gap-2 transition-colors cursor-pointer"
           title="导入照片"
         >
           <span className="hidden sm:inline">导入</span>
@@ -531,7 +531,7 @@ export function EditorToolbar() {
       </div>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-gray-600" />
+      <div className="w-px h-6 bg-gray-200" />
 
       {/* Center - Edit controls */}
       <div className="flex items-center gap-2">
@@ -539,8 +539,8 @@ export function EditorToolbar() {
           onClick={undo}
           disabled={!canUndo()}
           className={cn(
-            'p-2 rounded hover:bg-gray-700',
-            canUndo() ? 'text-gray-200' : 'text-gray-600 cursor-not-allowed'
+            'p-2 rounded-lg transition-colors cursor-pointer',
+            canUndo() ? 'text-gray-600 hover:bg-gray-100 hover:text-orange-600' : 'text-gray-300 cursor-not-allowed'
           )}
           title="撤销 (Ctrl+Z)"
         >
@@ -550,8 +550,8 @@ export function EditorToolbar() {
           onClick={redo}
           disabled={!canRedo()}
           className={cn(
-            'p-2 rounded hover:bg-gray-700',
-            canRedo() ? 'text-gray-200' : 'text-gray-600 cursor-not-allowed'
+            'p-2 rounded-lg transition-colors cursor-pointer',
+            canRedo() ? 'text-gray-600 hover:bg-gray-100 hover:text-orange-600' : 'text-gray-300 cursor-not-allowed'
           )}
           title="重做 (Ctrl+Shift+Z)"
         >
@@ -560,13 +560,13 @@ export function EditorToolbar() {
       </div>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-gray-600" />
+      <div className="w-px h-6 bg-gray-200" />
 
       {/* Zoom controls */}
       <div className="flex items-center gap-2">
         <button
           onClick={zoomOut}
-          className="p-2 rounded hover:bg-gray-700 text-gray-200"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
           title="缩小"
         >
           <ZoomOutOutlined />
@@ -576,27 +576,27 @@ export function EditorToolbar() {
             type="number"
             value={Math.round(ui.zoom * 100)}
             onChange={(e) => zoomTo(parseInt(e.target.value) / 100)}
-            className="w-14 h-7 bg-gray-700 text-gray-200 text-sm text-center rounded border border-gray-600"
+            className="w-14 h-7 bg-gray-100 text-gray-700 text-sm text-center rounded-lg border border-gray-200 focus:border-orange-500 focus:outline-none"
           />
-          <span className="text-gray-400 text-sm">%</span>
+          <span className="text-gray-500 text-sm">%</span>
         </div>
         <button
           onClick={zoomIn}
-          className="p-2 rounded hover:bg-gray-700 text-gray-200"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
           title="放大"
         >
           <ZoomInOutlined />
         </button>
         <button
           onClick={fitToScreen}
-          className="px-2 py-1 rounded hover:bg-gray-700 text-gray-200 text-xs"
+          className="px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 text-xs transition-colors cursor-pointer"
           title="适合屏幕"
         >
           适合
         </button>
         <button
           onClick={zoomTo100}
-          className="px-2 py-1 rounded hover:bg-gray-700 text-gray-200 text-xs"
+          className="px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 text-xs transition-colors cursor-pointer"
           title="100%"
         >
           100%
@@ -610,16 +610,16 @@ export function EditorToolbar() {
       <div className="flex items-center gap-3">
         {/* Image filename and EXIF info */}
         {currentImage && (
-          <div className="flex items-center gap-2 text-gray-200 text-sm">
+          <div className="flex items-center gap-2 text-gray-700 text-sm">
             <span className="font-medium truncate max-w-[150px]">{currentImage.filename}</span>
-            <div className="flex items-center gap-1 text-xs text-gray-400">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
               {currentImage.exif?.aperture && <span>f/{currentImage.exif.aperture}</span>}
               {currentImage.exif?.shutterSpeed && <span>{currentImage.exif.shutterSpeed}</span>}
               {currentImage.exif?.iso && <span>ISO {currentImage.exif.iso}</span>}
             </div>
             <button
               onClick={() => setInfoModalVisible(true)}
-              className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
+              className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-orange-600 transition-colors cursor-pointer"
               title="查看详细信息"
             >
               <InfoCircleOutlined />
@@ -628,7 +628,7 @@ export function EditorToolbar() {
         )}
 
         {/* Divider */}
-        <div className="w-px h-6 bg-gray-600" />
+        <div className="w-px h-6 bg-gray-200" />
 
         {/* Fullscreen */}
         <button
@@ -639,7 +639,7 @@ export function EditorToolbar() {
               document.documentElement.requestFullscreen();
             }
           }}
-          className="p-2 rounded hover:bg-gray-700 text-gray-200"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
           title="全屏"
         >
           <Fullscreen size={16} />
@@ -650,10 +650,10 @@ export function EditorToolbar() {
           onClick={openExportModal}
           disabled={!currentImage}
           className={cn(
-            'px-4 py-1.5 rounded text-sm flex items-center gap-2 ml-2',
+            'px-4 py-1.5 rounded-lg text-sm flex items-center gap-2 ml-2 transition-all cursor-pointer',
             currentImage
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-500/30'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           )}
         >
           <Download />

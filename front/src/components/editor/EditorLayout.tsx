@@ -495,7 +495,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
   if (!currentImage && !isLoading) {
     return (
       <div
-        className={cn('flex flex-col h-full bg-gray-900', className)}
+        className={cn('flex flex-col h-full bg-[#F5F7FA]', className)}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -510,16 +510,16 @@ export function EditorLayout({ className }: EditorLayoutProps) {
         />
         <div className={cn(
           'flex-1 flex items-center justify-center transition-colors',
-          isDragging && 'bg-blue-900/30 ring-2 ring-blue-500 ring-inset'
+          isDragging && 'bg-orange-100/50 ring-2 ring-orange-500 ring-inset'
         )}>
-          <div className="text-center text-gray-400">
+          <div className="text-center text-gray-600">
             <div className="mb-4 text-6xl">📷</div>
-            <p className="text-lg mb-2">没有打开的照片</p>
+            <p className="text-lg mb-2 text-gray-900 font-medium">没有打开的照片</p>
             <p className="text-sm text-gray-500">拖放图片文件到此处或点击导入</p>
-            <p className="text-xs text-gray-600 mt-2">支持 JPEG, PNG, RAW (CR2, NEF, ARW, DNG 等)</p>
+            <p className="text-xs text-gray-400 mt-2">支持 JPEG, PNG, RAW (CR2, NEF, ARW, DNG 等)</p>
             <button
               onClick={handleImportClick}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg hover:shadow-orange-500/30 transition-all cursor-pointer"
             >
               导入照片
             </button>
@@ -531,7 +531,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
 
   return (
     <div
-      className={cn('flex flex-col h-full bg-gray-900 overflow-hidden', className)}
+      className={cn('flex flex-col h-full bg-[#F5F7FA] overflow-hidden', className)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -557,10 +557,10 @@ export function EditorLayout({ className }: EditorLayoutProps) {
 
             {/* Loading Overlay - centered on canvas */}
             {isLoading && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-                <div className="text-center text-white w-64">
+              <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-50">
+                <div className="text-center text-gray-900 w-64 bg-white rounded-xl p-6 shadow-xl">
                   {/* Step description */}
-                  <p className="mb-4 text-sm">
+                  <p className="mb-4 text-sm text-gray-600">
                     {decodeProgress < 5
                       ? '读取文件...'
                       : decodeProgress < 70
@@ -573,15 +573,15 @@ export function EditorLayout({ className }: EditorLayoutProps) {
                   </p>
 
                   {/* Progress bar */}
-                  <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
                     <div
-                      className="h-full bg-blue-500 transition-all duration-100"
+                      className="h-full bg-gradient-to-r from-amber-500 to-orange-600 transition-all duration-100"
                       style={{ width: `${decodeProgress}%` }}
                     />
                   </div>
 
                   {/* Percentage */}
-                  <p className="text-lg font-medium">{decodeProgress}%</p>
+                  <p className="text-lg font-medium text-gray-900">{decodeProgress}%</p>
                 </div>
               </div>
             )}
@@ -594,13 +594,13 @@ export function EditorLayout({ className }: EditorLayoutProps) {
         {/* Right Side - Adjustment Panel */}
         <div
           className={cn(
-            'flex flex-col bg-gray-800 border-l border-gray-700 transition-all duration-200 overflow-hidden',
+            'flex flex-col bg-white border-l border-gray-200 transition-all duration-200 overflow-hidden',
             ui.isPanelCollapsed ? 'w-12' : 'w-[320px] min-w-[280px] max-w-[400px]'
           )}
         >
           {/* Histogram at top */}
           {!ui.isPanelCollapsed && (
-            <div className="h-24 shrink-0 border-b border-gray-700">
+            <div className="h-24 shrink-0 border-b border-gray-200 bg-gray-50">
               <Histogram />
             </div>
           )}
@@ -608,7 +608,7 @@ export function EditorLayout({ className }: EditorLayoutProps) {
           {/* Panel Toggle */}
           <button
             onClick={() => useEditorStore.getState().togglePanelCollapse()}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-gray-700 rounded-l flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 z-10"
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-12 bg-white rounded-l flex items-center justify-center text-gray-400 hover:text-orange-600 hover:bg-gray-50 z-10 border border-gray-200 border-l-0 cursor-pointer"
           >
             {ui.isPanelCollapsed ? '◀' : '▶'}
           </button>
