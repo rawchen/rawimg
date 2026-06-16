@@ -231,13 +231,13 @@ export function InspirationAdminPage() {
       title: '图片',
       dataIndex: 'imageUrl',
       key: 'imageUrl',
-      width: 100,
+      width: 80,
       render: (url: string | null) =>
         url ? (
-          <Image src={url} alt="示例图" width={60} height={60} className="object-cover rounded" />
+          <Image src={url} alt="示例图" width={40} height={40} className="object-cover rounded" style={{ display: 'block' }} />
         ) : (
-          <div className="w-[60px] h-[60px] bg-gray-100 rounded flex items-center justify-center">
-            <PictureOutlined className="text-gray-400" />
+          <div className="w-[40px] h-[40px] bg-gray-100 rounded flex items-center justify-center">
+            <PictureOutlined className="text-gray-400 text-sm" />
           </div>
         ),
     },
@@ -350,6 +350,7 @@ export function InspirationAdminPage() {
             dataSource={templates}
             rowKey="id"
             loading={loading}
+            size="small"
             pagination={{
               current: pagination.current,
               pageSize: pagination.pageSize,
@@ -373,6 +374,7 @@ export function InspirationAdminPage() {
           okText="保存"
           cancelText="取消"
           width={600}
+          maskClosable={false}
         >
           <Form form={form} layout="vertical">
             <Form.Item
@@ -389,19 +391,31 @@ export function InspirationAdminPage() {
               rules={[{ required: true, message: '请输入提示词' }]}
               extra="支持 {{变量}} 格式的动态变量"
             >
-              <Input.TextArea rows={4} placeholder="输入AI生成提示词..." />
+              <Input.TextArea rows={12} placeholder="输入AI生成提示词..." />
             </Form.Item>
 
-            <Form.Item
-              label="分类"
-              name="category"
-              rules={[{ required: true, message: '请选择分类' }]}
-            >
-              <Select
-                placeholder="选择分类"
-                options={categoryOptions.map((c) => ({ label: c, value: c }))}
-              />
-            </Form.Item>
+            <div className="flex gap-4">
+              <Form.Item
+                label="分类"
+                name="category"
+                rules={[{ required: true, message: '请选择分类' }]}
+                className="flex-1"
+              >
+                <Select
+                  placeholder="选择分类"
+                  options={categoryOptions.map((c) => ({ label: c, value: c }))}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="排序"
+                name="sortOrder"
+                extra="数字越小越靠前"
+                className="flex-1"
+              >
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+            </div>
 
             <Form.Item label="示例图片">
               <div className="flex items-start gap-4">
@@ -431,14 +445,6 @@ export function InspirationAdminPage() {
                 </Upload>
               </div>
               <p className="text-gray-400 text-xs mt-2">上传示例图片（可选）</p>
-            </Form.Item>
-
-            <Form.Item
-              label="排序"
-              name="sortOrder"
-              extra="数字越小越靠前"
-            >
-              <InputNumber min={0} style={{ width: 150 }} />
             </Form.Item>
           </Form>
         </Modal>

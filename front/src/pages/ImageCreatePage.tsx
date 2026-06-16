@@ -19,22 +19,6 @@ const sizeOptions = [
   { value: '1080x1920', label: '9:16', desc: '竖屏', displayWidth: 11, displayHeight: 20 },
 ];
 
-// 分类选项
-const categoryOptions = [
-  '全部',
-  '写实摄影',
-  '电影感',
-  '二次元',
-  '卡通动漫',
-  '游戏原画',
-  '国风古风',
-  '奇幻魔幻',
-  '赛博朋克/科幻',
-  '3D渲染',
-  '传统绘画',
-  '抽象艺术',
-];
-
 interface InspirationTemplate {
   id: number;
   title: string;
@@ -62,6 +46,7 @@ export function ImageCreatePage() {
   const [isPaused, setIsPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const animationRef = useRef<number | null>(null);
   const positionRef = useRef(0);
 
@@ -168,6 +153,39 @@ export function ImageCreatePage() {
   const handleSubmit = async () => {
     if (!prompt.trim()) {
       message.warning('请输入描述内容');
+      return;
+    }
+
+    // 检测是否存在未替换的模板变量 {{xxx}}
+    const templateVarRegex = /\{\{[^}]+\}\}/g;
+    const match = templateVarRegex.exec(prompt);
+    if (match) {
+      const varText = match[0]; // 如 {{xxx}}
+      const varIndex = match.index; // 变量在文本中的位置
+
+      // 显示提示，提取变量名（去掉{{和}}）
+      const varName = varText.slice(2, -2);
+      message.warning(`请替换模板变量：{{${varName}}}`);
+
+      const textarea = promptTextareaRef.current;
+      if (textarea) {
+        // 滚动页面到textarea
+        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        textarea.focus();
+
+        // 设置选中
+        textarea.selectionStart = varIndex;
+        textarea.selectionEnd = varIndex + varText.length;
+
+        // 使用 scrollHeight 比例计算
+        requestAnimationFrame(() => {
+          // 计算变量之前文本的比例
+          const ratio = varIndex / prompt.length;
+          // 滚动到对应比例位置，减去一些偏移让变量显示在可见区域
+          const targetScroll = Math.max(0, ratio * textarea.scrollHeight - textarea.clientHeight * 0.3);
+          textarea.scrollTop = targetScroll;
+        });
+      }
       return;
     }
 
@@ -403,6 +421,7 @@ export function ImageCreatePage() {
               </div>
               <p className="text-xs text-gray-400 mb-3">先说主体、场景、时间氛围，再补充想要的细节和风格</p>
               <textarea
+                ref={promptTextareaRef}
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 placeholder="例如：一位穿着白色连衣裙的少女站在樱花树下，阳光透过花瓣洒下斑驳的光影，梦幻般的氛围..."
@@ -566,7 +585,9 @@ export function ImageCreatePage() {
             {/* 提示词 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2">提示词</h4>
-              <p className="text-sm text-gray-600">{selectedInspiration.prompt}</p>
+              <div className="max-h-40 overflow-y-auto">
+                <p className="text-sm text-gray-600">{selectedInspiration.prompt}</p>
+              </div>
             </div>
 
             {/* 分类标签 */}

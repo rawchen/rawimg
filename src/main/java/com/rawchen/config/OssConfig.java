@@ -45,7 +45,7 @@ public class OssConfig {
     /**
      * STS临时凭证有效期（秒）
      */
-    private Integer stsExpiration;
+    private Long stsExpiration;
 
     /**
      * 上传文件夹前缀
