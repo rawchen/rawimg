@@ -81,6 +81,18 @@ gpt:
     api-key: sk-xxx
     model: gpt-image-2
 
+# Aliyun OSS Configuration
+aliyun:
+  oss:
+    access-key-id: xxx
+    access-key-secret: xxx
+    role-arn: acs:ram::xxx:role/xxx
+    endpoint: oss-cn-xxx.aliyuncs.com
+    bucket-name: xxx
+    custom-domain:
+    sts-expiration: 3600
+    upload-folder: inspiration
+
 # Logging
 logging:
   level:

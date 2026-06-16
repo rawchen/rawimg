@@ -11,12 +11,14 @@ import {
   GiftOutlined,
   CrownOutlined,
   HeartOutlined,
-  CommentOutlined
+  CommentOutlined,
+  BulbOutlined
 } from '@ant-design/icons';
 
 const sidebarItems = [
   { icon: DashboardOutlined, label: '仪表盘', path: '/admin' },
   { icon: PictureOutlined, label: '图集管理', path: '/admin/galleries' },
+  { icon: BulbOutlined, label: '灵感模板', path: '/admin/inspiration' },
   { icon: TeamOutlined, label: '用户管理', path: '/admin/users' },
   { icon: FileTextOutlined, label: '评论管理', path: '/admin/comments' },
   { icon: CommentOutlined, label: '意见反馈', path: '/admin/feedback' },

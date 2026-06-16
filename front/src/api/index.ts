@@ -445,4 +445,134 @@ export const imageEnhanceApi = {
   },
 };
 
+// Image Create API
+export const imageCreateApi = {
+  createImage: (files: File[], prompt: string, size: string) => {
+    const formData = new FormData();
+    if (files && files.length > 0) {
+      files.forEach(file => formData.append('files', file));
+    }
+    formData.append('prompt', prompt);
+    formData.append('size', size);
+    return api.post<{
+      createdUrl: string;
+      prompt: string;
+      size: string;
+    }>('/image-create/create', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<{
+      createdUrl: string;
+      prompt: string;
+      size: string;
+    }>;
+  },
+
+  getTemplates: (category?: string) =>
+    api.get<{
+      id: number;
+      title: string;
+      prompt: string;
+      category: string;
+      imageUrl: string | null;
+      sortOrder: number;
+    }[]>('/image-create/templates', { params: { category } }) as unknown as Promise<{
+      id: number;
+      title: string;
+      prompt: string;
+      category: string;
+      imageUrl: string | null;
+      sortOrder: number;
+    }[]>,
+
+  getRandomTemplates: (count = 10) =>
+    api.get<{
+      id: number;
+      title: string;
+      prompt: string;
+      category: string;
+      imageUrl: string | null;
+      sortOrder: number;
+    }[]>('/image-create/templates/random', { params: { count } }) as unknown as Promise<{
+      id: number;
+      title: string;
+      prompt: string;
+      category: string;
+      imageUrl: string | null;
+      sortOrder: number;
+    }[]>,
+
+  getCategories: () =>
+    api.get<string[]>('/image-create/categories') as unknown as Promise<string[]>,
+};
+
+// OSS API
+export const ossApi = {
+  getStsToken: () =>
+    api.get<{
+      accessKeyId: string;
+      accessKeySecret: string;
+      securityToken: string;
+      expiration: string;
+      endpoint: string;
+      bucketName: string;
+      customDomain: string;
+      uploadFolder: string;
+      region: string;
+    }>('/oss/sts-token') as unknown as Promise<{
+      accessKeyId: string;
+      accessKeySecret: string;
+      securityToken: string;
+      expiration: string;
+      endpoint: string;
+      bucketName: string;
+      customDomain: string;
+      uploadFolder: string;
+      region: string;
+    }>,
+};
+
+// Inspiration Admin API
+export const inspirationAdminApi = {
+  list: (page = 1, size = 10, title?: string, category?: string) =>
+    api.get<{
+      records: InspirationTemplate[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/admin/inspiration/list', { params: { page, size, title, category } }) as unknown as Promise<{
+      records: InspirationTemplate[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  get: (id: number) =>
+    api.get<InspirationTemplate>(`/admin/inspiration/${id}`) as unknown as Promise<InspirationTemplate>,
+
+  add: (data: Partial<InspirationTemplate>) =>
+    api.post<InspirationTemplate>('/admin/inspiration', data) as unknown as Promise<InspirationTemplate>,
+
+  update: (id: number, data: Partial<InspirationTemplate>) =>
+    api.put<InspirationTemplate>(`/admin/inspiration/${id}`, data) as unknown as Promise<InspirationTemplate>,
+
+  delete: (id: number) =>
+    api.delete<void>(`/admin/inspiration/${id}`) as unknown as Promise<void>,
+
+  deleteBatch: (ids: number[]) =>
+    api.delete<void>('/admin/inspiration/batch', { data: ids }) as unknown as Promise<void>,
+};
+
+interface InspirationTemplate {
+  id: number;
+  title: string;
+  prompt: string;
+  category: string;
+  imageUrl: string | null;
+  sortOrder: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
 export default api;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import enhanceBf from '@/assets/media/enhance-bf.webp';
 import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
@@ -590,9 +590,9 @@ export function LandingPage() {
           {/* Tools Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredTools.map((tool, index) => (
-              <a
+              <Link
                 key={tool.key}
-                href="/editor"
+                to="/editor"
                 className="group bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300 cursor-pointer overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -612,7 +612,7 @@ export function LandingPage() {
                     <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded">新</span>
                   )}
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -849,17 +849,17 @@ export function LandingPage() {
             <div>
               <h4 className="text-white font-semibold mb-4">产品</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="/editor" className="hover:text-white transition-colors cursor-pointer">编辑器</a></li>
-                <li><a href="/galleries" className="hover:text-white transition-colors cursor-pointer">图集</a></li>
+                <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">编辑器</Link></li>
+                <li><Link to="/galleries" className="hover:text-white transition-colors cursor-pointer">图集</Link></li>
                 <li><a href="#pricing" className="hover:text-white transition-colors cursor-pointer">定价</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-4">工具</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="/editor" className="hover:text-white transition-colors cursor-pointer">RAW 解码</a></li>
-                <li><a href="/editor" className="hover:text-white transition-colors cursor-pointer">背景移除</a></li>
-                <li><a href="/editor" className="hover:text-white transition-colors cursor-pointer">AI 滤镜</a></li>
+                <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">RAW 解码</Link></li>
+                <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">背景移除</Link></li>
+                <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">AI 滤镜</Link></li>
               </ul>
             </div>
             <div>

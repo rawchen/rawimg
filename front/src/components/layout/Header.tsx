@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   UserOutlined,
   MenuOutlined,
@@ -12,6 +12,7 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { UserDropdown } from '@/components/auth/UserDropdown';
 
 const tools = [
+  { key: 'create', name: '图像创作', icon: '✨', new: true },
   { key: 'enhance', name: '图像增强', icon: '🎨', hot: true },
   { key: 'expand', name: 'AI 图像扩展', icon: '📐', new: true },
   { key: 'restore', name: '照片修复', icon: '🖼️' },
@@ -202,14 +203,6 @@ export function Header() {
               >
                 图集
               </a>
-              {isLandingPage && (
-                <a
-                  href="#pricing"
-                  className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
-                >
-                  定价
-                </a>
-              )}
             </div>
 
             {/* Auth Buttons */}
@@ -264,12 +257,12 @@ export function Header() {
                 <span>{onlineCount} 在线</span>
               </div>
 
-              <a
-                href="/editor"
+              <Link
+                to="/editor"
                 className="block text-gray-600 hover:text-orange-600 py-2 cursor-pointer"
               >
                 在线工具
-              </a>
+              </Link>
               <a
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -279,14 +272,6 @@ export function Header() {
               >
                 图集
               </a>
-              {isLandingPage && (
-                <a
-                  href="#pricing"
-                  className="block text-gray-600 hover:text-orange-600 py-2 cursor-pointer"
-                >
-                  定价
-                </a>
-              )}
               <div className="pt-3 border-t border-gray-100">
                 {isAuthenticated ? (
                   <>
@@ -339,7 +324,7 @@ export function Header() {
         >
           <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 p-4 grid grid-cols-2 gap-0 w-96"
           >
-            {tools.slice(0, 8).map((tool) => (
+            {tools.slice(0, 9).map((tool) => (
               <a
                 key={tool.key}
                 href= {"/" + tool.key}

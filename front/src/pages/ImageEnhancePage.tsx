@@ -276,12 +276,14 @@ export function ImageEnhancePage() {
               </div>
 
               {/* 标签 */}
-              <div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                原图
-              </div>
-              <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
-                增强
-              </div>
+              {/*<div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded">*/}
+              {/*  原图*/}
+              {/*</div>*/}
+              {!originalImage && (
+                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                  示例
+                </div>
+              )}
 
               {/* 像素对比显示 */}
               {originalDimensions && (

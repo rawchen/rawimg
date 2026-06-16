@@ -23,8 +23,10 @@ import { CardKeysPage } from '@/pages/admin/CardKeysPage';
 import { VipPackagesPage } from '@/pages/admin/VipPackagesPage';
 import { RechargePage } from '@/pages/RechargePage';
 import { FeedbackPage } from '@/pages/admin/FeedbackPage';
+import { InspirationAdminPage } from '@/pages/admin/InspirationAdminPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { ImageEnhancePage } from '@/pages/ImageEnhancePage.tsx';
+import { ImageCreatePage } from '@/pages/ImageCreatePage.tsx';
 
 function AppContent() {
   const location = useLocation();
@@ -62,6 +64,9 @@ function AppContent() {
             {/* Image Enhance Route */}
             <Route path="/enhance" element={<ImageEnhancePage />} />
 
+            {/* Image Create Route */}
+            <Route path="/create" element={<ImageCreatePage />} />
+
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
             <Route path="/editor/:id" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
@@ -79,6 +84,7 @@ function AppContent() {
             <Route path="/admin/logs" element={<ProtectedRoute requireAdmin><LogsPage /></ProtectedRoute>} />
             <Route path="/admin/user-actions" element={<ProtectedRoute requireAdmin><UserActionsPage /></ProtectedRoute>} />
             <Route path="/admin/feedback" element={<ProtectedRoute requireAdmin><FeedbackPage /></ProtectedRoute>} />
+            <Route path="/admin/inspiration" element={<ProtectedRoute requireAdmin><InspirationAdminPage /></ProtectedRoute>} />
             <Route path="/admin/config" element={<ProtectedRoute requireAdmin><ConfigPage /></ProtectedRoute>} />
 
           {/* 404 - Catch all unmatched routes */}
