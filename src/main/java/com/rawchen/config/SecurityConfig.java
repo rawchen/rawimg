@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .antMatchers("/api/auth/**").permitAll()
                         .antMatchers("/api/public/**").permitAll()
+                        .antMatchers("/api/image-create/templates/random").permitAll()
                         .antMatchers("/ws/**").permitAll()
                         .antMatchers("/uploads/**").permitAll()
                         .antMatchers("/", "/index.html", "/static/**", "/js/**", "/css/**", "/img/**", "/assets/**", "/icons/**", "/favicon.ico", "favicon.svg").permitAll()

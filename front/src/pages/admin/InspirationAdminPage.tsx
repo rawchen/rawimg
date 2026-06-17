@@ -15,6 +15,7 @@ import {
   Image,
   Upload,
   Spin,
+  Switch,
 } from 'antd';
 import {
   PlusOutlined,
@@ -46,6 +47,8 @@ interface InspirationTemplate {
   category: string;
   imageUrl: string | null;
   sortOrder: number;
+  attachExampleImage: number;
+  requireUserPhoto: number;
   createTime?: string;
   updateTime?: string;
 }
@@ -63,6 +66,7 @@ const categoryOptions = [
   '3D渲染',
   '传统绘画',
   '抽象艺术',
+  '概念分解'
 ];
 
 export function InspirationAdminPage() {
@@ -111,6 +115,8 @@ export function InspirationAdminPage() {
       prompt: template.prompt,
       category: template.category,
       sortOrder: template.sortOrder,
+      attachExampleImage: template.attachExampleImage === 1,
+      requireUserPhoto: template.requireUserPhoto === 1,
     });
     setImageUrl(template.imageUrl || '');
     setEditModalVisible(true);
@@ -119,7 +125,7 @@ export function InspirationAdminPage() {
   const handleAdd = () => {
     setEditingTemplate(null);
     form.resetFields();
-    form.setFieldsValue({ sortOrder: 0 });
+    form.setFieldsValue({ sortOrder: 0, attachExampleImage: false, requireUserPhoto: false });
     setImageUrl('');
     setEditModalVisible(true);
   };
@@ -184,7 +190,12 @@ export function InspirationAdminPage() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const data = { ...values, imageUrl: imageUrl || null };
+      const data = {
+        ...values,
+        imageUrl: imageUrl || null,
+        attachExampleImage: values.attachExampleImage ? 1 : 0,
+        requireUserPhoto: values.requireUserPhoto ? 1 : 0,
+      };
 
       if (editingTemplate) {
         await inspirationAdminApi.update(editingTemplate.id, data);
@@ -270,6 +281,24 @@ export function InspirationAdminPage() {
       dataIndex: 'sortOrder',
       key: 'sortOrder',
       width: 80,
+    },
+    {
+      title: '贴案例图',
+      dataIndex: 'attachExampleImage',
+      key: 'attachExampleImage',
+      width: 80,
+      render: (val: number) => (
+        <Tag color={val === 1 ? 'green' : 'default'}>{val === 1 ? '是' : '否'}</Tag>
+      ),
+    },
+    {
+      title: '需上传照片',
+      dataIndex: 'requireUserPhoto',
+      key: 'requireUserPhoto',
+      width: 90,
+      render: (val: number) => (
+        <Tag color={val === 1 ? 'orange' : 'default'}>{val === 1 ? '是' : '否'}</Tag>
+      ),
     },
     {
       title: '创建时间',
@@ -410,7 +439,6 @@ export function InspirationAdminPage() {
               <Form.Item
                 label="排序"
                 name="sortOrder"
-                extra="数字越小越靠前"
                 className="flex-1"
               >
                 <InputNumber min={0} className="w-full" />
@@ -446,6 +474,26 @@ export function InspirationAdminPage() {
               </div>
               <p className="text-gray-400 text-xs mt-2">上传示例图片（可选）</p>
             </Form.Item>
+
+            <div className="flex gap-6">
+              <Form.Item
+                name="attachExampleImage"
+                label="贴案例图到图一"
+                valuePropName="checked"
+                extra="开启后，使用此灵感时自动将案例图贴到上传图列表"
+              >
+                <Switch />
+              </Form.Item>
+
+              <Form.Item
+                name="requireUserPhoto"
+                label="需要上传照片"
+                valuePropName="checked"
+                extra="开启后，使用此灵感时会提示用户需要上传真实照片"
+              >
+                <Switch />
+              </Form.Item>
+            </div>
           </Form>
         </Modal>
       </div>

@@ -91,7 +91,7 @@ aliyun:
     bucket-name: xxx
     custom-domain:
     sts-expiration: 3600
-    upload-folder: inspiration
+    upload-folder: rawimg
 
 # Logging
 logging:

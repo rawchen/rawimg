@@ -178,7 +178,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-transparent outline-none transition-all"
                 placeholder="请输入用户名"
                 required
                 minLength={3}
@@ -194,7 +194,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-transparent outline-none transition-all"
                     placeholder="请输入邮箱"
                     required
                   />
@@ -207,7 +207,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                       type="text"
                       value={emailCode}
                       onChange={(e) => setEmailCode(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-transparent outline-none transition-all"
                       placeholder="请输入邮箱验证码"
                       required
                       maxLength={6}
@@ -231,7 +231,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-transparent outline-none transition-all"
                 placeholder="请输入密码"
                 required
                 minLength={6}
@@ -246,7 +246,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   type="text"
                   value={captcha}
                   onChange={(e) => setCaptcha(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-transparent outline-none transition-all"
                   placeholder="请输入计算结果"
                   required
                 />
@@ -263,7 +263,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
                 <LoadingOutlined className="text-lg" spin />

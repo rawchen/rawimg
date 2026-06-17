@@ -36,4 +36,14 @@ public class InspirationTemplate extends BaseEntity {
      * 排序
      */
     private Integer sortOrder;
+
+    /**
+     * 是否将案例图贴到图一（0-否，1-是）
+     */
+    private Integer attachExampleImage;
+
+    /**
+     * 是否需要上传自己的照片（0-否，1-是）
+     */
+    private Integer requireUserPhoto;
 }

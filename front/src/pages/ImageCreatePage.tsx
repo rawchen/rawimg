@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { message, Spin, Modal } from 'antd';
+import { message, Spin, Modal, Image } from 'antd';
 import {
   CloudUploadOutlined,
   DownloadOutlined,
@@ -26,6 +26,8 @@ interface InspirationTemplate {
   category: string;
   imageUrl: string | null;
   sortOrder: number;
+  attachExampleImage?: number;
+  requireUserPhoto?: number;
 }
 
 export function ImageCreatePage() {
@@ -42,7 +44,10 @@ export function ImageCreatePage() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [randomTemplates, setRandomTemplates] = useState<InspirationTemplate[]>([]);
   const [selectedInspiration, setSelectedInspiration] = useState<InspirationTemplate | null>(null);
+  const [currentInspiration, setCurrentInspiration] = useState<InspirationTemplate | null>(null);
   const [inspirationModalVisible, setInspirationModalVisible] = useState(false);
+  const [hoveredTemplate, setHoveredTemplate] = useState<InspirationTemplate | null>(null);
+  const [hoverPreviewVisible, setHoverPreviewVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -232,6 +237,7 @@ export function ImageCreatePage() {
     setUploadedImages([]);
     setUploadedFiles([]);
     setCreatedImage(null);
+    setCurrentInspiration(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -252,7 +258,9 @@ export function ImageCreatePage() {
   // 使用此灵感
   const handleUseInspiration = (template: InspirationTemplate) => {
     setPrompt(template.prompt);
-    if (template.imageUrl) {
+    setCurrentInspiration(template);
+    // 只有当 attachExampleImage 为 1 且有图片时才添加示例图
+    if (template.attachExampleImage === 1 && template.imageUrl) {
       // 清空现有图片，添加示例图片
       setUploadedImages([template.imageUrl]);
       setUploadedFiles([]);
@@ -281,22 +289,27 @@ export function ImageCreatePage() {
               className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg"
               style={{ aspectRatio: '16/9' }}
             >
-              <img
+              <Image
                 src={createdImage || previewImage}
                 alt="创作结果"
                 className="w-full h-full object-contain"
+                rootClassName="w-full h-full"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                preview={{
+                  mask: <div className="text-white">点击预览</div>,
+                }}
               />
 
               {/* 示例标签 */}
               {!createdImage && (
-                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded z-10 pointer-events-none">
                   示例
                 </div>
               )}
 
               {/* Loading提示 */}
               {loading && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
                   <div className="bg-white rounded-xl px-6 py-4 flex items-center gap-3">
                     <Spin size="default" />
                     <span className="text-gray-700">正在创作中...</span>
@@ -378,12 +391,22 @@ export function ImageCreatePage() {
                   <div
                     key={`${template.id}-${index}`}
                     onClick={() => handleInspirationClick(template)}
-                    className="flex-shrink-0 w-24 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all"
+                    onMouseEnter={() => {
+                      if (template.imageUrl) {
+                        setHoveredTemplate(template);
+                        setHoverPreviewVisible(true);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoverPreviewVisible(false);
+                      setHoveredTemplate(null);
+                    }}
+                    className="flex-shrink-0 w-20 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all"
                   >
-                    <div className="w-24 h-20 relative">
+                    <div className="w-20 h-20 relative">
                       {template.imageUrl ? (
                         <img
-                          src={template.imageUrl!}
+                          src={template.imageUrl}
                           alt={template.title}
                           className="w-full h-full object-cover"
                         />
@@ -431,9 +454,14 @@ export function ImageCreatePage() {
 
             {/* 参考图上传 */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <h3 className="font-semibold text-gray-900">参考图（可选）</h3>
-                <span className="text-xs text-gray-400">最多上传5张</span>
+                {currentInspiration?.requireUserPhoto === 1 && (
+                  <span className="text-xs text-orange-500 font-medium animate-pulse">
+                    该模板需上传真实照片
+                  </span>
+                )}
+                <span className="text-xs text-gray-400 ml-auto">最多上传5张</span>
               </div>
               <p className="text-xs text-gray-400 mb-3">帮助模型理解你想要的风格和构图</p>
 
@@ -575,11 +603,17 @@ export function ImageCreatePage() {
           <div>
             {/* 图片示例 */}
             {selectedInspiration.imageUrl && (
-              <img
-                src={selectedInspiration.imageUrl!}
-                alt={selectedInspiration.title}
-                className="w-full h-64 object-contain rounded-lg mb-4"
-              />
+              <div className="flex justify-center mb-4">
+                <Image
+                  src={selectedInspiration.imageUrl}
+                  alt={selectedInspiration.title}
+                  className="rounded-lg"
+                  style={{ maxHeight: 256, objectFit: 'contain' }}
+                  preview={{
+                    mask: <div className="text-white">点击预览大图</div>,
+                  }}
+                />
+              </div>
             )}
 
             {/* 提示词 */}
@@ -607,6 +641,23 @@ export function ImageCreatePage() {
           </div>
         )}
       </Modal>
+
+      {/* 悬停预览浮层 */}
+      {hoverPreviewVisible && hoveredTemplate?.imageUrl && (
+        <div className="fixed bottom-8 right-8 z-50 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 max-w-xs">
+            <img
+              src={hoveredTemplate.imageUrl}
+              alt={hoveredTemplate.title}
+              className="w-full max-h-64 object-contain"
+            />
+            <div className="p-2 bg-white">
+              <p className="text-sm font-medium text-gray-900 truncate">{hoveredTemplate.title}</p>
+              <p className="text-xs text-gray-500">{hoveredTemplate.category}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
