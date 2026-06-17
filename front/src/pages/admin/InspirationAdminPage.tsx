@@ -47,8 +47,8 @@ interface InspirationTemplate {
   category: string;
   imageUrl: string | null;
   sortOrder: number;
-  attachExampleImage: number;
-  requireUserPhoto: number;
+  attachExampleImage?: number;
+  requireUserPhoto?: number;
   createTime?: string;
   updateTime?: string;
 }
