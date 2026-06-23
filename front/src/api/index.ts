@@ -467,6 +467,63 @@ export const imageCreateApi = {
     }>;
   },
 
+  // 异步创建图片
+  createImageAsync: (files: File[], prompt: string, size: string) => {
+    const formData = new FormData();
+    if (files && files.length > 0) {
+      files.forEach(file => formData.append('files', file));
+    }
+    formData.append('prompt', prompt);
+    formData.append('size', size);
+    return api.post<{ taskId: string }>('/image-create/create_async', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<{ taskId: string }>;
+  },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      msg?: string;
+    }>('/image-create/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取任务图片
+  getTaskImage: (taskId: string) =>
+    api.get<{
+      taskId: string;
+      imageUrl: string;
+      prompt: string;
+    }>('/image-create/image', { params: { id: taskId } }) as unknown as Promise<{
+      taskId: string;
+      imageUrl: string;
+      prompt: string;
+    }>,
+
+  // 获取用户的任务历史
+  getHistory: (page = 1, size = 10, taskType?: string, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-create/history', { params: { page, size, taskType, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-create/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+
   getTemplates: (category?: string) =>
     api.get<{
       id: number;
@@ -564,6 +621,36 @@ export const inspirationAdminApi = {
     api.delete<void>('/admin/inspiration/batch', { data: ids }) as unknown as Promise<void>,
 };
 
+// Admin Image Task API
+export const adminImageTaskApi = {
+  list: (page = 1, size = 20, userId?: number, taskType?: string, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/admin/image-tasks/list', { params: { page, size, userId, taskType, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  get: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/admin/image-tasks/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+
+  delete: (taskId: string) =>
+    api.delete<void>(`/admin/image-tasks/${taskId}`) as unknown as Promise<void>,
+
+  deleteBatch: (taskIds: string[]) =>
+    api.delete<void>('/admin/image-tasks/batch', { data: taskIds }) as unknown as Promise<void>,
+
+  getStats: () =>
+    api.get<{ total: number; pending: number; done: number; error: number }>('/admin/image-tasks/stats') as unknown as Promise<{ total: number; pending: number; done: number; error: number }>,
+};
+
 interface InspirationTemplate {
   id: number;
   title: string;
@@ -573,6 +660,23 @@ interface InspirationTemplate {
   sortOrder: number;
   createTime?: string;
   updateTime?: string;
+}
+
+// 图像任务记录类型
+export interface ImageTaskRecord {
+  id: number;
+  taskId: string;
+  userId: number;
+  taskType: string;
+  status: string;
+  prompt: string;
+  size: string;
+  referenceImageUrls: string | null;
+  resultImageUrl: string | null;
+  errorMsg: string | null;
+  duration: number | null;
+  createTime: string;
+  updateTime: string;
 }
 
 export default api;

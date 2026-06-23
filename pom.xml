@@ -150,6 +150,12 @@
             <artifactId>aliyun-java-sdk-core</artifactId>
             <version>4.6.0</version>
         </dependency>
+        <!-- Aliyun OSS SDK -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
 
         <!-- Test -->
         <dependency>

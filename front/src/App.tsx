@@ -24,6 +24,7 @@ import { VipPackagesPage } from '@/pages/admin/VipPackagesPage';
 import { RechargePage } from '@/pages/RechargePage';
 import { FeedbackPage } from '@/pages/admin/FeedbackPage';
 import { InspirationAdminPage } from '@/pages/admin/InspirationAdminPage';
+import { ImageTasksPage } from '@/pages/admin/ImageTasksPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { ImageEnhancePage } from '@/pages/ImageEnhancePage.tsx';
 import { ImageCreatePage } from '@/pages/ImageCreatePage.tsx';
@@ -85,6 +86,7 @@ function AppContent() {
             <Route path="/admin/user-actions" element={<ProtectedRoute requireAdmin><UserActionsPage /></ProtectedRoute>} />
             <Route path="/admin/feedback" element={<ProtectedRoute requireAdmin><FeedbackPage /></ProtectedRoute>} />
             <Route path="/admin/inspiration" element={<ProtectedRoute requireAdmin><InspirationAdminPage /></ProtectedRoute>} />
+            <Route path="/admin/image-tasks" element={<ProtectedRoute requireAdmin><ImageTasksPage /></ProtectedRoute>} />
             <Route path="/admin/config" element={<ProtectedRoute requireAdmin><ConfigPage /></ProtectedRoute>} />
 
           {/* 404 - Catch all unmatched routes */}

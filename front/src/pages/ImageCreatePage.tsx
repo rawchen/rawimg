@@ -1,13 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { message, Spin, Modal, Image } from 'antd';
+import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
 import {
   CloudUploadOutlined,
   DownloadOutlined,
   PlusOutlined,
   CloseOutlined,
   BulbOutlined,
+  HistoryOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
-import { imageCreateApi } from '@/api';
+import { imageCreateApi, ImageTaskRecord } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
 
 // 图片尺寸选项
@@ -49,6 +51,14 @@ export function ImageCreatePage() {
   const [hoveredTemplate, setHoveredTemplate] = useState<InspirationTemplate | null>(null);
   const [hoverPreviewVisible, setHoverPreviewVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  // 生成历史相关状态
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState<ImageTaskRecord[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<ImageTaskRecord | null>(null);
+  const [historyDetailModalVisible, setHistoryDetailModalVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -196,12 +206,52 @@ export function ImageCreatePage() {
 
     setLoading(true);
     try {
-      const result = await imageCreateApi.createImage(uploadedFiles, prompt, selectedSize);
-      setCreatedImage(result.createdUrl);
-      message.success('图像创作成功');
+      // 使用异步接口
+      const { taskId } = await imageCreateApi.createImageAsync(uploadedFiles, prompt, selectedSize);
+      message.info('任务已提交，正在处理中...');
+
+      // 轮询任务结果
+      const pollInterval = 5000; // 5秒轮询一次
+      const maxPolls = 120; // 最多轮询120次（10分钟）
+      let pollCount = 0;
+
+      const poll = async () => {
+        try {
+          const result = await imageCreateApi.getTaskResult(taskId);
+
+          if (result.status === 'done') {
+            setCreatedImage(result.imageUrl || null);
+            message.success('图像创作成功');
+            setLoading(false);
+            return;
+          } else if (result.status === 'error') {
+            message.error(result.msg || '图像创作失败');
+            setLoading(false);
+            return;
+          } else if (result.status === 'not_found') {
+            message.error('任务不存在或已过期');
+            setLoading(false);
+            return;
+          }
+
+          // status === 'pending'，继续轮询
+          pollCount++;
+          if (pollCount < maxPolls) {
+            setTimeout(poll, pollInterval);
+          } else {
+            message.error('任务处理超时，请稍后重试');
+            setLoading(false);
+          }
+        } catch (error: any) {
+          message.error(error.message || '查询任务状态失败');
+          setLoading(false);
+        }
+      };
+
+      // 开始轮询
+      setTimeout(poll, 2000); // 2秒后开始第一次轮询
     } catch (error: any) {
       message.error(error.message || '图像创作失败');
-    } finally {
       setLoading(false);
     }
   };
@@ -268,6 +318,48 @@ export function ImageCreatePage() {
     setInspirationModalVisible(false);
   };
 
+  // 确保URL有https前缀
+  const ensureHttpsUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return 'https://' + url;
+  };
+
+  // 加载生成历史
+  const loadHistory = useCallback(async (page = 1) => {
+    setHistoryLoading(true);
+    try {
+      const result = await imageCreateApi.getHistory(page, 12, undefined, 'done');
+      setHistoryRecords(result.records);
+      setHistoryTotal(result.total);
+      setHistoryPage(result.current);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // 打开历史弹窗
+  const handleOpenHistory = () => {
+    setHistoryModalVisible(true);
+    loadHistory(1);
+  };
+
+  // 点击历史记录项
+  const handleHistoryClick = (record: ImageTaskRecord) => {
+    setSelectedHistory(record);
+    setHistoryDetailModalVisible(true);
+  };
+
+  // 使用历史记录的提示词
+  const handleUseHistoryPrompt = (record: ImageTaskRecord) => {
+    setPrompt(record.prompt);
+    setCreatedImage(ensureHttpsUrl(record.resultImageUrl) || null);
+    setHistoryDetailModalVisible(false);
+    setHistoryModalVisible(false);
+  };
+
   return (
     <div className="flex-1 bg-[#F5F7FA]">
       <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
@@ -312,7 +404,7 @@ export function ImageCreatePage() {
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
                   <div className="bg-white rounded-xl px-6 py-4 flex items-center gap-3">
                     <Spin size="default" />
-                    <span className="text-gray-700">正在创作中...</span>
+                    <span className="text-gray-700">正在创作中，请耐心等待...</span>
                   </div>
                 </div>
               )}
@@ -434,13 +526,22 @@ export function ImageCreatePage() {
             <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">描述画面</h3>
-                <button
-                  onClick={handleOpenTemplates}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-                >
-                  <BulbOutlined />
-                  灵感示例
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleOpenHistory}
+                    className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
+                  >
+                    <HistoryOutlined />
+                    生成历史
+                  </button>
+                  <button
+                    onClick={handleOpenTemplates}
+                    className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                  >
+                    <BulbOutlined />
+                    灵感示例
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-gray-400 mb-3">先说主体、场景、时间氛围，再补充想要的细节和风格</p>
               <textarea
@@ -507,7 +608,7 @@ export function ImageCreatePage() {
                   : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/30'
               }`}
             >
-              {loading ? '创作中...' : '开始创作'}
+              {loading ? '处理中...' : '开始创作'}
             </button>
 
             {/* 提示信息 */}
@@ -519,8 +620,9 @@ export function ImageCreatePage() {
               <ul className="text-sm text-gray-600 space-y-1">
                 <li>• 描述越详细，生成效果越好</li>
                 <li>• 可上传参考图帮助AI理解风格</li>
-                <li>• 处理时间约 30-120 秒</li>
+                <li>• 处理时间约 30-180 秒</li>
                 <li>• 有参考图时将使用图片编辑模式</li>
+                <li>• 任务提交后请耐心等待，页面可刷新</li>
               </ul>
             </div>
           </div>
@@ -563,21 +665,37 @@ export function ImageCreatePage() {
               {templates.map(template => (
                 <div
                   key={template.id}
-                  onClick={() => handleSelectTemplate(template)}
-                  className="bg-gray-50 rounded-lg p-3 cursor-pointer hover:bg-orange-50 hover:border-orange-300 border border-transparent transition-all"
+                  onClick={() => {
+                    setSelectedInspiration(template);
+                    setInspirationModalVisible(true);
+                  }}
+                  className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
                 >
-                  {template.imageUrl && (
-                    <img
-                      src={template.imageUrl!}
-                      alt={template.title}
-                      className="w-full h-24 object-cover rounded mb-2"
-                    />
-                  )}
-                  <h4 className="font-medium text-gray-900 text-sm mb-1">{template.title}</h4>
-                  <p className="text-xs text-gray-500 line-clamp-2">{template.prompt}</p>
-                  <span className="inline-block mt-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
-                    {template.category}
-                  </span>
+                  {/* 图片 */}
+                  <div className="relative w-full h-24">
+                    {template.imageUrl ? (
+                      <img
+                        src={template.imageUrl}
+                        alt={template.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center">
+                        <span className="text-2xl">✨</span>
+                      </div>
+                    )}
+                    {/* 分类标签 */}
+                    <div className="absolute top-2 right-2">
+                      <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded shadow-sm">
+                        {template.category}
+                      </span>
+                    </div>
+                  </div>
+                  {/* 内容 */}
+                  <div className="p-3">
+                    <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">{template.title}</h4>
+                    <p className="text-xs text-gray-500 line-clamp-2">{template.prompt}</p>
+                  </div>
                 </div>
               ))}
 
@@ -658,6 +776,157 @@ export function ImageCreatePage() {
           </div>
         </div>
       )}
+
+      {/* 生成历史弹窗 */}
+      <Modal
+        title="生成历史"
+        open={historyModalVisible}
+        onCancel={() => setHistoryModalVisible(false)}
+        footer={null}
+        width={800}
+      >
+        {historyLoading ? (
+          <div className="flex justify-center py-8">
+            <Spin />
+          </div>
+        ) : historyRecords.length === 0 ? (
+          <Empty description="暂无生成历史" />
+        ) : (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {historyRecords.map(record => (
+                <div
+                  key={record.taskId}
+                  onClick={() => handleHistoryClick(record)}
+                  className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
+                >
+                  {/* 结果图片 */}
+                  <div className="relative w-full h-32">
+                    {record.resultImageUrl ? (
+                      <img
+                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        alt="生成结果"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400">无图片</span>
+                      </div>
+                    )}
+                    {/* 参考图缩略图 */}
+                    {record.referenceImageUrls && (
+                      <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
+                        <img
+                          src={ensureHttpsUrl(JSON.parse(record.referenceImageUrls)[0]) || ''}
+                          alt="参考图"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {/* 状态标签 */}
+                    <div className="absolute top-2 left-2">
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        record.status === 'done' ? 'bg-green-500 text-white' :
+                        record.status === 'pending' ? 'bg-blue-500 text-white' :
+                        'bg-red-500 text-white'
+                      }`}>
+                        {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
+                      </span>
+                    </div>
+                  </div>
+                  {/* 提示词 */}
+                  <div className="p-2">
+                    <p className="text-xs text-gray-600 line-clamp-2">{record.prompt}</p>
+                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                      <ClockCircleOutlined className="text-xs" />
+                      <span>{new Date(record.createTime).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 分页 */}
+            {historyTotal > 12 && (
+              <div className="flex justify-center mt-4">
+                <Pagination
+                  current={historyPage}
+                  total={historyTotal}
+                  pageSize={12}
+                  onChange={(page) => loadHistory(page)}
+                  showSizeChanger={false}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 历史详情弹窗 */}
+      <Modal
+        title="生成详情"
+        open={historyDetailModalVisible}
+        onCancel={() => setHistoryDetailModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        {selectedHistory && (
+          <div>
+            {/* 结果图片 */}
+            {selectedHistory.resultImageUrl && (
+              <div className="relative mb-4">
+                <Image
+                  src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ''}
+                  alt="生成结果"
+                  className="rounded-lg w-full"
+                  style={{ maxHeight: 400, objectFit: 'contain' }}
+                  preview={{
+                    mask: <div className="text-white">点击预览大图</div>,
+                  }}
+                />
+                {/* 参考图 */}
+                {selectedHistory.referenceImageUrls && (
+                  <div className="absolute bottom-4 right-4 w-24 h-24 rounded-lg border-2 border-white shadow-lg overflow-hidden">
+                    <Image
+                      src={ensureHttpsUrl(JSON.parse(selectedHistory.referenceImageUrls)[0]) || ''}
+                      alt="参考图"
+                      className="w-full h-full object-cover"
+                      preview={{
+                        mask: <div className="text-white text-xs">预览</div>,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 提示词 */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">提示词</h4>
+              <div className="max-h-32 overflow-y-auto">
+                <p className="text-sm text-gray-600">{selectedHistory.prompt}</p>
+              </div>
+            </div>
+
+            {/* 其他信息 */}
+            <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
+              <span>尺寸: {selectedHistory.size}</span>
+              <span>类型: {selectedHistory.taskType === 'create' ? '创作' : '增强'}</span>
+              {selectedHistory.duration && (
+                <span>耗时: {(selectedHistory.duration / 1000).toFixed(1)}s</span>
+              )}
+              <span>时间: {new Date(selectedHistory.createTime).toLocaleString()}</span>
+            </div>
+
+            {/* 使用按钮 */}
+            <button
+              onClick={() => handleUseHistoryPrompt(selectedHistory)}
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+            >
+              使用此提示词
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
