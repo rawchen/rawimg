@@ -1,39 +1,42 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import enhanceBf from '@/assets/media/enhance-bf.webp';
 import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
 import tunerBf from '@/assets/media/tuner-bf.webp';
 import outfitBf from '@/assets/media/outfit-bf.webp';
+import demoBefore from '@/assets/image-enhance/1.jpg';
+import demoAfter from '@/assets/image-enhance/2.jpg';
 import {
-  HighlightOutlined,
-  BgColorsOutlined,
-  PictureOutlined,
-  ScissorOutlined,
-  EyeOutlined,
-  SkinOutlined,
-  SwapOutlined,
-  CheckOutlined,
-  StarFilled,
-  PlayCircleOutlined,
-  ExpandOutlined,
-  SmileOutlined,
-  ThunderboltOutlined,
-  SafetyOutlined,
-  GlobalOutlined,
-  CustomerServiceOutlined,
-  RocketOutlined,
-  ArrowRightOutlined,
-  PlusOutlined,
-  MinusOutlined,
-  CameraOutlined,
-} from '@ant-design/icons';
+  Wand2,
+  Palette,
+  Image,
+  Scissors,
+  Eye,
+  Sparkles,
+  ArrowLeftRight,
+  Check,
+  Star,
+  PlayCircle,
+  Expand,
+  Smile,
+  Zap,
+  ShieldCheck,
+  Globe,
+  Headphones,
+  Rocket,
+  ArrowRight,
+  Plus,
+  Minus,
+  Camera,
+  ChevronRight,
+} from 'lucide-react';
 
 const featureCards = [
   {
     title: '图像创作',
     description: '发挥你的想象力尽情创作',
-    icon: <BgColorsOutlined className="text-2xl" />,
+    icon: <Palette className="w-6 h-6" />,
     // gradient: 'from-blue-500 to-cyan-600',
     href: '/create',
     rotation: '-2deg',
@@ -42,7 +45,7 @@ const featureCards = [
   {
     title: '图像增强',
     description: '一键提升照片质量',
-    icon: <HighlightOutlined className="text-2xl" />,
+    icon: <Wand2 className="w-6 h-6" />,
     // gradient: 'from-amber-500 to-orange-600',
     href: '/enhance',
     rotation: '-5deg',
@@ -51,7 +54,7 @@ const featureCards = [
   {
     title: 'AI 背景移除',
     description: '智能识别主体，一键去除背景',
-    icon: <ScissorOutlined className="text-2xl" />,
+    icon: <Scissors className="w-6 h-6" />,
     // gradient: 'from-pink-500 to-rose-600',
     href: '/create',
     rotation: '3deg',
@@ -60,7 +63,7 @@ const featureCards = [
   {
     title: '智能修图',
     description: 'AI 驱动的人像美容',
-    icon: <SkinOutlined className="text-2xl" />,
+    icon: <Sparkles className="w-6 h-6" />,
     // gradient: 'from-violet-500 to-purple-600',
     href: '/create',
     rotation: '-3deg',
@@ -69,7 +72,7 @@ const featureCards = [
   {
     title: '图像放大',
     description: '无损放大，保持清晰细节',
-    icon: <ExpandOutlined className="text-2xl" />,
+    icon: <Expand className="w-6 h-6" />,
     // gradient: 'from-emerald-500 to-teal-600',
     href: '/create',
     rotation: '5deg',
@@ -83,19 +86,19 @@ const userPersonas = [
     description: '强大的 RAW 解码能力，一键处理 CR3、NEF 等格式文件，让每一张照片都呈现出专业级的画质效果。',
     color: 'bg-gradient-to-r from-am' +
       'ber-500 to-orange-500',
-    icon: <CameraOutlined className="text-2xl" />,
+    icon: <Camera className="w-6 h-6" />,
   },
   {
     title: '内容创作者',
     description: '从智能背景移除到 AI 美颜，一站式解决图片处理需求，让你的内容更快更好地发布到各大平台。',
     color: 'bg-gradient-to-r from-pink-500 to-rose-500',
-    icon: <SmileOutlined className="text-2xl" />,
+    icon: <Smile className="w-6 h-6" />,
   },
   {
     title: '电商卖家',
     description: '批量处理商品图片，智能抠图换背景，让你的产品展示更加专业，提升转化率。',
     color: 'bg-gradient-to-r from-violet-500 to-purple-500',
-    icon: <RocketOutlined className="text-2xl" />,
+    icon: <Rocket className="w-6 h-6" />,
   },
 ];
 
@@ -107,18 +110,18 @@ const toolTabs = [
 ];
 
 const tools = [
-  { key: 'enhance', name: '图像增强器', desc: '一键提升照片质量', icon: <HighlightOutlined />, category: 'image', hot: true },
-  { key: 'expand', name: 'AI 图像扩展器', desc: '智能扩展图片边界', icon: <ExpandOutlined />, category: 'image', new: true },
-  { key: 'restore', name: '照片修复', desc: '修复老照片损伤', icon: <PictureOutlined />, category: 'image' },
-  { key: 'remove', name: 'AI 物体移除器', desc: '智能移除不需要的元素', icon: <ScissorOutlined />, category: 'image' },
-  { key: 'bgremove', name: '背景移除器', desc: '一键抠图换背景', icon: <BgColorsOutlined />, category: 'image', hot: true },
-  { key: 'filter', name: 'AI 滤镜', desc: '专业级滤镜效果', icon: <BgColorsOutlined />, category: 'image' },
-  { key: 'beauty', name: 'AI 美颜', desc: '自然美颜效果', icon: <SkinOutlined />, category: 'portrait' },
-  { key: 'hairstyle', name: 'AI 发型', desc: '智能换发型', icon: <SmileOutlined />, category: 'portrait', hot: true },
-  { key: 'eye', name: '睁眼修复', desc: '修复闭眼照片', icon: <EyeOutlined />, category: 'portrait' },
-  { key: 'face', name: 'AI 换脸', desc: '智能人脸替换', icon: <SwapOutlined />, category: 'portrait' },
-  { key: 'venhance', name: 'AI 视频增强器', desc: '提升视频画质', icon: <PlayCircleOutlined />, category: 'video' },
-  { key: 'vbgremove', name: '视频背景移除', desc: '智能视频抠图', icon: <ScissorOutlined />, category: 'video', new: true },
+  { key: 'enhance', name: '图像增强器', desc: '一键提升照片质量', icon: <Wand2 className="w-5 h-5" />, category: 'image', hot: true },
+  { key: 'expand', name: 'AI 图像扩展器', desc: '智能扩展图片边界', icon: <Expand className="w-5 h-5" />, category: 'image', new: true },
+  { key: 'restore', name: '照片修复', desc: '修复老照片损伤', icon: <Image className="w-5 h-5" />, category: 'image' },
+  { key: 'remove', name: 'AI 物体移除器', desc: '智能移除不需要的元素', icon: <Scissors className="w-5 h-5" />, category: 'image' },
+  { key: 'bgremove', name: '背景移除器', desc: '一键抠图换背景', icon: <Palette className="w-5 h-5" />, category: 'image', hot: true },
+  { key: 'filter', name: 'AI 滤镜', desc: '专业级滤镜效果', icon: <Palette className="w-5 h-5" />, category: 'image' },
+  { key: 'beauty', name: 'AI 美颜', desc: '自然美颜效果', icon: <Sparkles className="w-5 h-5" />, category: 'portrait' },
+  { key: 'hairstyle', name: 'AI 发型', desc: '智能换发型', icon: <Smile className="w-5 h-5" />, category: 'portrait', hot: true },
+  { key: 'eye', name: '睁眼修复', desc: '修复闭眼照片', icon: <Eye className="w-5 h-5" />, category: 'portrait' },
+  { key: 'face', name: 'AI 换脸', desc: '智能人脸替换', icon: <ArrowLeftRight className="w-5 h-5" />, category: 'portrait' },
+  { key: 'venhance', name: 'AI 视频增强器', desc: '提升视频画质', icon: <PlayCircle className="w-5 h-5" />, category: 'video' },
+  { key: 'vbgremove', name: '视频背景移除', desc: '智能视频抠图', icon: <Scissors className="w-5 h-5" />, category: 'video', new: true },
 ];
 
 const reviews = [
@@ -192,10 +195,10 @@ const faqs = [
 ];
 
 const trustBadges = [
-  { icon: <SafetyOutlined className="text-3xl" />, label: '数据安全', desc: '端到端加密' },
-  { icon: <GlobalOutlined className="text-3xl" />, label: '全球加速', desc: 'CDN 分发' },
-  { icon: <ThunderboltOutlined className="text-3xl" />, label: '极速处理', desc: 'GPU 加速' },
-  { icon: <CustomerServiceOutlined className="text-3xl" />, label: '专业支持', desc: '7x24 小时' },
+  { icon: <ShieldCheck className="w-8 h-8" />, label: '数据安全', desc: '端到端加密' },
+  { icon: <Globe className="w-8 h-8" />, label: '全球加速', desc: 'CDN 分发' },
+  { icon: <Zap className="w-8 h-8" />, label: '极速处理', desc: 'GPU 加速' },
+  { icon: <Headphones className="w-8 h-8" />, label: '专业支持', desc: '7x24 小时' },
 ];
 
 // CSS animations styles
@@ -321,11 +324,61 @@ export function LandingPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [hoveredFeatureIndex, setHoveredFeatureIndex] = useState<number | null>(null);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
+  const [sliderPosition, setSliderPosition] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Hero loaded animation
     setTimeout(() => setHeroLoaded(true), 100);
   }, []);
+
+  // Slider drag handlers
+  const handleSliderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleSliderTouchStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !sliderRef.current) return;
+
+    const rect = sliderRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setSliderPosition(percentage);
+  }, [isDragging]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDragging || !sliderRef.current) return;
+
+    const touch = e.touches[0];
+    const rect = sliderRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    setSliderPosition(percentage);
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // 监听鼠标事件
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp, handleTouchMove]);
 
   // Scroll animation observer
   useEffect(() => {
@@ -482,15 +535,15 @@ export function LandingPage() {
           {/* Trust Indicators */}
           <div className={`relative mt-10 flex flex-wrap items-center justify-center gap-6 text-gray-500 text-sm transition-all duration-700 delay-600 ${heroLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
-              <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
+              <Check className="w-4 h-4 text-green-500 transition-transform hover:scale-125 duration-300" />
               <span>AI 辅助</span>
             </div>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
-              <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
+              <Check className="w-4 h-4 text-green-500 transition-transform hover:scale-125 duration-300" />
               <span>在线编辑</span>
             </div>
             <div className="flex items-center space-x-2 hover:text-green-600 transition-colors duration-300">
-              <CheckOutlined className="text-green-500 transition-transform hover:scale-125 duration-300" />
+              <Check className="w-4 h-4 text-green-500 transition-transform hover:scale-125 duration-300" />
               <span>云端处理</span>
             </div>
           </div>
@@ -505,14 +558,69 @@ export function LandingPage() {
           </h2>
 
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Video/Image Preview */}
+            {/* Image Preview - Before/After Comparison */}
             <div className="lg:w-2/3">
-              <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <PlayCircleOutlined className="text-4xl text-white" />
+              <div
+                ref={sliderRef}
+                className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg select-none"
+                style={{ aspectRatio: '16/10' }}
+              >
+                {/* 前图（增强后） */}
+                <img
+                  src={demoAfter}
+                  alt="增强后"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  draggable={false}
+                />
+
+                {/* 后图（原图）- 使用clip-path裁剪 */}
+                <div
+                  className="absolute inset-0"
+                  style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
+                >
+                  <img
+                    src={demoBefore}
+                    alt="原图"
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                </div>
+
+                {/* 分割线 - 整个区域可拖动 */}
+                <div
+                  className="absolute top-0 bottom-0 w-8 -ml-4 cursor-ew-resize group"
+                  style={{ left: `${sliderPosition}%` }}
+                  onMouseDown={handleSliderMouseDown}
+                  onTouchStart={handleSliderTouchStart}
+                >
+                  {/* 视觉分割线 */}
+                  <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white shadow-lg -translate-x-1/2">
+                    <div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 md:w-6 md:h-6 bg-white rounded-full shadow-lg flex items-center justify-center">
+                      <svg viewBox="0 0 24 24" fill="currentColor"
+                           className="w-3 h-3 md:w-5 md:h-5 rotate-90 text-gray-800">
+                        <path fillRule="evenodd"
+                              d="M11.47 4.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L12 6.31 8.78 9.53a.75.75 0 0 1-1.06-1.06l3.75-3.75Zm-3.75 9.75a.75.75 0 0 1 1.06 0L12 17.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 0-1.06Z"
+                              clipRule="evenodd"/>
+                      </svg>
+                    </div>
                   </div>
-                  <p className="text-gray-500">编辑器预览</p>
+                </div>
+
+                {/* 标签 */}
+                <div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                  原图
+                </div>
+                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                  增强后
+                </div>
+
+                {/* 像素对比显示 */}
+                <div
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap">
+                  <span>800 × 450</span>
+                  <span className="text-gray-200"><ChevronRight className="w-4 h-4"/></span>
+                  <span className="text-orange-400 font-medium">1920 × 1080</span>
                 </div>
               </div>
             </div>
@@ -538,7 +646,7 @@ export function LandingPage() {
                       <h3 className="font-semibold">{persona.title}</h3>
                     </div>
                     <div className={`transition-transform duration-300 ${activePersona === index ? 'rotate-180' : ''}`}>
-                      {activePersona === index ? <MinusOutlined /> : <PlusOutlined className="text-gray-400" />}
+                      {activePersona === index ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4 text-gray-400" />}
                     </div>
                   </div>
                   <div className={`overflow-hidden transition-all duration-500 ease-out ${
@@ -592,7 +700,7 @@ export function LandingPage() {
             {filteredTools.map((tool, index) => (
               <Link
                 key={tool.key}
-                to="/editor"
+                to="/create"
                 className="group bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300 cursor-pointer overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -600,7 +708,7 @@ export function LandingPage() {
                   <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-gradient-to-br group-hover:from-amber-500 group-hover:to-orange-600 group-hover:text-white group-hover:scale-110 transition-all duration-300">
                     {tool.icon}
                   </div>
-                  <ArrowRightOutlined className="text-gray-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-300" />
+                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all duration-300" />
                 </div>
                 <h3 className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-orange-600 transition-colors duration-300">{tool.name}</h3>
                 <p className="text-xs text-gray-500">{tool.desc}</p>
@@ -648,7 +756,7 @@ export function LandingPage() {
                 <p className="text-sm text-gray-600 mb-3">{review.content}</p>
                 <div className="flex gap-0.5">
                   {[...Array(review.rating)].map((_, i) => (
-                    <StarFilled key={i} className="text-orange-500 text-xs hover:scale-125 transition-transform duration-200" style={{ transitionDelay: `${i * 50}ms` }} />
+                    <Star key={i} className="w-3 h-3 text-orange-500 fill-orange-500 hover:scale-125 transition-transform duration-200" style={{ transitionDelay: `${i * 50}ms` }} />
                   ))}
                 </div>
               </div>
@@ -671,7 +779,7 @@ export function LandingPage() {
                 <p className="text-sm text-gray-600 mb-3">{review.content}</p>
                 <div className="flex gap-0.5">
                   {[...Array(review.rating)].map((_, i) => (
-                    <StarFilled key={i} className="text-orange-500 text-sm" />
+                    <Star key={i} className="w-4 h-4 text-orange-500 fill-orange-500" />
                   ))}
                 </div>
               </div>
@@ -717,9 +825,9 @@ export function LandingPage() {
                 <span className="text-gray-500">/月</span>
               </div>
               <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><CheckOutlined className="text-green-500" />每月 10 次 AI 处理</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><CheckOutlined className="text-green-500" />基础 RAW 解码</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><CheckOutlined className="text-green-500" />标准画质导出</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><Check className="w-4 h-4 text-green-500" />每月 10 次 AI 处理</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><Check className="w-4 h-4 text-green-500" />基础 RAW 解码</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><Check className="w-4 h-4 text-green-500" />标准画质导出</li>
               </ul>
               <button onClick={handleStartEdit} className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
                 免费开始
@@ -738,11 +846,11 @@ export function LandingPage() {
                 <span className="text-white/80">/月</span>
               </div>
               <ul className="space-y-2 mb-6 text-sm">
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300"><CheckOutlined />无限 AI 处理</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-100"><CheckOutlined />完整 RAW 解码</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-200"><CheckOutlined />高清画质导出</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-300"><CheckOutlined />全部 AI 滤镜</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-400"><CheckOutlined />批量处理</li>
+                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300"><Check className="w-4 h-4" />无限 AI 处理</li>
+                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-100"><Check className="w-4 h-4" />完整 RAW 解码</li>
+                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-200"><Check className="w-4 h-4" />高清画质导出</li>
+                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-300"><Check className="w-4 h-4" />全部 AI 滤镜</li>
+                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-400"><Check className="w-4 h-4" />批量处理</li>
               </ul>
               <button onClick={handleStartEdit} className="w-full py-3 bg-white text-orange-600 rounded-full font-semibold hover:shadow-lg hover:bg-gray-100 transition-all duration-300 cursor-pointer">
                 立即订阅
@@ -758,10 +866,10 @@ export function LandingPage() {
                 <span className="text-gray-500">/月</span>
               </div>
               <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><CheckOutlined className="text-green-500" />专业版全部功能</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><CheckOutlined className="text-green-500" />API 接入</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><CheckOutlined className="text-green-500" />团队协作</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-300"><CheckOutlined className="text-green-500" />私有化部署</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><Check className="w-4 h-4 text-green-500" />专业版全部功能</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><Check className="w-4 h-4 text-green-500" />API 接入</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><Check className="w-4 h-4 text-green-500" />团队协作</li>
+                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-300"><Check className="w-4 h-4 text-green-500" />私有化部署</li>
               </ul>
               <button className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
                 联系销售
@@ -789,9 +897,9 @@ export function LandingPage() {
                 >
                   <span className="font-medium text-gray-900 group-hover:text-orange-600 transition-colors duration-300">{faq.question}</span>
                   {activeFaq === index ? (
-                    <MinusOutlined className="text-orange-500 transition-transform duration-300 rotate-0" />
+                    <Minus className="w-4 h-4 text-orange-500 transition-transform duration-300 rotate-0" />
                   ) : (
-                    <PlusOutlined className="text-gray-400 group-hover:text-orange-500 group-hover:rotate-90 transition-all duration-300" />
+                    <Plus className="w-4 h-4 text-gray-400 group-hover:text-orange-500 group-hover:rotate-90 transition-all duration-300" />
                   )}
                 </button>
                 <div
@@ -840,7 +948,7 @@ export function LandingPage() {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <CameraOutlined className="text-white" />
+                  <Camera className="w-4 h-4 text-white" />
                 </div>
                 <span className="text-xl font-bold text-white">RawImg</span>
               </div>

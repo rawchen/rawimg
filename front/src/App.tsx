@@ -31,9 +31,11 @@ import { ImageCreatePage } from '@/pages/ImageCreatePage.tsx';
 
 function AppContent() {
   const location = useLocation();
+  const isLandingPage = location.pathname === '/';
   const isAdminPage = location.pathname.startsWith('/admin');
   const isEditorPage = location.pathname.startsWith('/editor');
-  const isLandingPage = location.pathname === '/';
+  const isCreatePage = location.pathname === '/create';
+  const isEnhancePage = location.pathname === '/enhance';
 
   return (
     <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
@@ -93,7 +95,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && !isLandingPage && <Footer />}
+      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && <Footer />}
     </div>
   );
 }

@@ -489,9 +489,9 @@ export function ImageCreatePage() {
 
   return (
     <div className="flex-1 bg-[#F5F7FA]">
-      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         {/* 标题区域 */}
-        <div className="text-center mb-8 md:mb-12">
+        <div className="text-center mb-8 md:mb-10">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
             AI 图像创作
           </h1>
@@ -502,7 +502,7 @@ export function ImageCreatePage() {
 
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* 左侧结果展示区域 */}
-          <div className="lg:w-[56%] order-2 lg:order-1">
+          <div className="lg:w-[54%] order-2 lg:order-1">
             {/* 生成的图片展示 */}
             <div
               className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg"
@@ -756,11 +756,8 @@ export function ImageCreatePage() {
                 使用提示
               </h3>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• 描述越详细，生成效果越好</li>
-                <li>• 可上传参考图帮助AI理解风格</li>
-                <li>• 处理时间约 30-180 秒</li>
-                <li>• 有参考图时将使用图片编辑模式</li>
-                <li>• 任务提交后请耐心等待，页面可刷新</li>
+                <li>• 描述越详细，生成效果越好，可上传参考图帮助AI理解风格</li>
+                <li>• 任务提交后等待处理时间约30秒-2分钟，页面可刷新</li>
               </ul>
             </div>
           </div>

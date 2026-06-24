@@ -216,9 +216,9 @@ export function ImageEnhancePage() {
 
   return (
     <div className="flex-1 bg-[#F5F7FA]">
-      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         {/* 标题区域 */}
-        <div className="text-center mb-8 md:mb-12">
+        <div className="text-center mb-8 md:mb-10">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
             在线 AI 图像增强器 & 图像放大器
           </h1>
@@ -229,7 +229,7 @@ export function ImageEnhancePage() {
 
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* 左侧对比图区域 */}
-          <div className="lg:w-[56%] order-2 lg:order-1">
+          <div className="lg:w-[54%] order-2 lg:order-1">
 
             {/* 对比图 */}
             <div
@@ -268,7 +268,7 @@ export function ImageEnhancePage() {
                 {/* 视觉分割线 */}
                 <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white shadow-lg -translate-x-1/2">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 md:w-6 md:h-6 bg-white rounded-full shadow-lg flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 md:w-6 md:h-6 rotate-90 text-gray-800">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 md:w-5 md:h-5 rotate-90 text-gray-800">
                       <path fillRule="evenodd" d="M11.47 4.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L12 6.31 8.78 9.53a.75.75 0 0 1-1.06-1.06l3.75-3.75Zm-3.75 9.75a.75.75 0 0 1 1.06 0L12 17.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
                   </div>
