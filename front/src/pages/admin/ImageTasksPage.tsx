@@ -34,6 +34,27 @@ const ensureHttpsUrl = (url: string | null | undefined): string | null => {
   return 'https://' + url;
 };
 
+// 格式化耗时显示
+const formatDuration = (durationMs: number | null | undefined): string | null => {
+  if (!durationMs) return null;
+  const seconds = durationMs / 1000;
+
+  if (seconds < 60) {
+    // 60秒内：x.xs
+    return `${seconds.toFixed(1)}s`;
+  } else if (seconds < 3600) {
+    // 1分钟到60分钟：xmxs（秒数取整）
+    const minutes = Math.floor(seconds / 60);
+    const remainSeconds = Math.floor(seconds % 60);
+    return `${minutes}m${remainSeconds}s`;
+  } else {
+    // 60分钟以外：xhxm（分钟数取整）
+    const hours = Math.floor(seconds / 3600);
+    const remainMinutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h${remainMinutes}m`;
+  }
+};
+
 export function ImageTasksPage() {
   const [tasks, setTasks] = useState<ImageTaskRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -178,7 +199,7 @@ export function ImageTasksPage() {
       key: 'duration',
       width: 80,
       render: (duration: number | null) =>
-        duration ? `${(duration / 1000).toFixed(1)}s` : '-',
+        duration ? formatDuration(duration) : '-',
     },
     {
       title: '创建时间',
@@ -376,7 +397,7 @@ export function ImageTasksPage() {
                 </div>
                 <div>
                   <span className="text-gray-500">耗时：</span>
-                  <span>{selectedTask.duration ? `${(selectedTask.duration / 1000).toFixed(1)}s` : '-'}</span>
+                  <span>{selectedTask.duration ? formatDuration(selectedTask.duration) : '-'}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">创建时间：</span>

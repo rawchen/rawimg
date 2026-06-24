@@ -7,15 +7,12 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ImageTaskService;
-import com.rawchen.service.OssUploadService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,20 +27,20 @@ public class ImageCreateAsyncController {
 
     private final ImageTaskService imageTaskService;
     private final AsyncImageTaskExecutor asyncImageTaskExecutor;
-    private final OssUploadService ossUploadService;
 
     /**
      * 异步创建图片 - 纯文字生成或带参考图编辑
+     * 前端已通过STS上传图片到OSS，这里只接收OSS URL
      *
-     * @param files  上传的参考图片（可选，最多5张）
-     * @param prompt 创作提示词
-     * @param size   图片尺寸
-     * @param user   当前登录用户
+     * @param referenceUrls 参考图的OSS URL列表（可选，JSON数组格式）
+     * @param prompt        创作提示词
+     * @param size          图片尺寸
+     * @param user          当前登录用户
      * @return 任务ID
      */
     @PostMapping("/create_async")
     public R<CreateAsyncResponse> createImageAsync(
-            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @RequestParam(value = "referenceUrls", required = false) String referenceUrls,
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "size", defaultValue = "1024x1024") String size,
             @AuthenticationPrincipal SysUser user) {
@@ -52,28 +49,17 @@ public class ImageCreateAsyncController {
             return R.badRequest("请输入描述内容");
         }
 
-        if (files != null && files.size() > 5) {
-            return R.badRequest("最多上传5张参考图片");
+        // 解析参考图URL列表
+        List<String> refUrlList = null;
+        if (referenceUrls != null && !referenceUrls.isEmpty()) {
+            refUrlList = JSON.parseArray(referenceUrls, String.class);
+            if (refUrlList != null && refUrlList.size() > 5) {
+                return R.badRequest("最多上传5张参考图片");
+            }
         }
 
         // 生成任务ID
         String taskId = UUID.randomUUID().toString();
-
-        // 处理参考图上传到OSS
-        String referenceImageUrls = null;
-        if (files != null && !files.isEmpty()) {
-            List<String> uploadedUrls = new ArrayList<>();
-            for (MultipartFile file : files) {
-                try {
-                    String fileName = "reference/" + UUID.randomUUID().toString().replace("-", "") + ".jpg";
-                    String url = ossUploadService.uploadStream(file.getInputStream(), fileName, file.getContentType());
-                    uploadedUrls.add(url);
-                } catch (Exception e) {
-                    log.error("Upload reference image failed: {}", e.getMessage());
-                }
-            }
-            referenceImageUrls = JSON.toJSONString(uploadedUrls);
-        }
 
         // 创建任务记录
         ImageTask task = new ImageTask();
@@ -83,14 +69,14 @@ public class ImageCreateAsyncController {
         task.setStatus("pending");
         task.setPrompt(prompt);
         task.setSize(size);
-        task.setReferenceImageUrls(referenceImageUrls);
+        task.setReferenceImageUrls(referenceUrls);
         imageTaskService.save(task);
 
         // 异步执行任务
-        if (files == null || files.isEmpty()) {
+        if (refUrlList == null || refUrlList.isEmpty()) {
             asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size);
         } else {
-            asyncImageTaskExecutor.executeEditTask(taskId, files, prompt, size);
+            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size);
         }
 
         CreateAsyncResponse response = new CreateAsyncResponse();

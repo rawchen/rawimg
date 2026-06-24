@@ -467,7 +467,7 @@ export const imageCreateApi = {
     }>;
   },
 
-  // 异步创建图片
+  // 异步创建图片（旧版本，已废弃）
   createImageAsync: (files: File[], prompt: string, size: string) => {
     const formData = new FormData();
     if (files && files.length > 0) {
@@ -477,6 +477,19 @@ export const imageCreateApi = {
     formData.append('size', size);
     return api.post<{ taskId: string }>('/image-create/create_async', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<{ taskId: string }>;
+  },
+
+  // 异步创建图片 - 通过OSS URL（推荐）
+  createImageAsyncWithUrls: (referenceUrls: string | undefined, prompt: string, size: string) => {
+    const params = new URLSearchParams();
+    if (referenceUrls) {
+      params.append('referenceUrls', referenceUrls);
+    }
+    params.append('prompt', prompt);
+    params.append('size', size);
+    return api.post<{ taskId: string }>('/image-create/create_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }) as unknown as Promise<{ taskId: string }>;
   },
 

@@ -31,6 +31,15 @@ import {
 
 const featureCards = [
   {
+    title: '图像创作',
+    description: '发挥你的想象力尽情创作',
+    icon: <BgColorsOutlined className="text-2xl" />,
+    // gradient: 'from-blue-500 to-cyan-600',
+    href: '/create',
+    rotation: '-2deg',
+    image: outfitBf,
+  },
+  {
     title: '图像增强',
     description: '一键提升照片质量',
     icon: <HighlightOutlined className="text-2xl" />,
@@ -44,7 +53,7 @@ const featureCards = [
     description: '智能识别主体，一键去除背景',
     icon: <ScissorOutlined className="text-2xl" />,
     // gradient: 'from-pink-500 to-rose-600',
-    href: '/editor',
+    href: '/create',
     rotation: '3deg',
     image: eraserBf,
   },
@@ -53,7 +62,7 @@ const featureCards = [
     description: 'AI 驱动的人像美容',
     icon: <SkinOutlined className="text-2xl" />,
     // gradient: 'from-violet-500 to-purple-600',
-    href: '/editor',
+    href: '/create',
     rotation: '-3deg',
     image: retouchBf,
   },
@@ -62,18 +71,9 @@ const featureCards = [
     description: '无损放大，保持清晰细节',
     icon: <ExpandOutlined className="text-2xl" />,
     // gradient: 'from-emerald-500 to-teal-600',
-    href: '/editor',
+    href: '/create',
     rotation: '5deg',
     image: tunerBf,
-  },
-  {
-    title: 'AI 滤镜',
-    description: '一键应用专业级滤镜',
-    icon: <BgColorsOutlined className="text-2xl" />,
-    // gradient: 'from-blue-500 to-cyan-600',
-    href: '/editor',
-    rotation: '-2deg',
-    image: outfitBf,
   },
 ];
 
@@ -346,8 +346,8 @@ export function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleStartEdit = () => navigate('/editor');
-  const handleGoToGalleries = () => navigate('/galleries');
+  const handleStartEdit = () => navigate('/create');
+  const handleGoToGalleries = () => navigate('/editor');
 
   const filteredTools = activeToolTab === 'all'
     ? tools
@@ -469,13 +469,13 @@ export function LandingPage() {
               onClick={handleStartEdit}
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-lg font-semibold rounded-full hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
             >
-              开始编辑
+              开始创作
             </button>
             <button
               onClick={handleGoToGalleries}
               className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 text-lg font-semibold rounded-full border-2 border-gray-200 hover:border-orange-500 hover:text-orange-600 hover:-translate-y-1 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
             >
-              浏览图集
+              在线修图
             </button>
           </div>
 

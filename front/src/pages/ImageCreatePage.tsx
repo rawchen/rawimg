@@ -1,15 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
 import {
-  CloudUploadOutlined,
   DownloadOutlined,
   PlusOutlined,
   CloseOutlined,
   BulbOutlined,
   HistoryOutlined,
   ClockCircleOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
-import { imageCreateApi, ImageTaskRecord } from '@/api';
+import { imageCreateApi, ossApi, ImageTaskRecord } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
 
 // 图片尺寸选项
@@ -34,11 +34,14 @@ interface InspirationTemplate {
 
 export function ImageCreatePage() {
   const [prompt, setPrompt] = useState('');
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]); // 本地预览图
+  const [uploadedOssUrls, setUploadedOssUrls] = useState<string[]>([]); // OSS URL
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null); // 正在上传的图片索引
   const [selectedSize, setSelectedSize] = useState('1920x1080');
   const [createdImage, setCreatedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null); // 任务提交时间戳
+  const [currentElapsed, setCurrentElapsed] = useState<number>(0); // 当前耗时（秒）
   const [templates, setTemplates] = useState<InspirationTemplate[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('全部');
@@ -59,6 +62,8 @@ export function ImageCreatePage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<ImageTaskRecord | null>(null);
   const [historyDetailModalVisible, setHistoryDetailModalVisible] = useState(false);
+  // 实时更新pending任务耗时
+  const [, setHistoryUpdateTick] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -104,6 +109,29 @@ export function ImageCreatePage() {
     };
   }, [isPaused, randomTemplates.length]);
 
+  // 实时更新任务耗时（每秒更新）
+  useEffect(() => {
+    if (!loading || !taskSubmitTime) return;
+
+    const interval = setInterval(() => {
+      setCurrentElapsed(Math.floor((Date.now() - taskSubmitTime) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, taskSubmitTime]);
+
+  // 实时更新历史记录中pending任务的耗时显示
+  useEffect(() => {
+    const hasPending = historyRecords.some(r => r.status === 'pending');
+    if (!hasPending) return;
+
+    const interval = setInterval(() => {
+      setHistoryUpdateTick(t => t + 1); // 触发重新渲染
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [historyRecords]);
+
   // 加载模板
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
@@ -127,41 +155,78 @@ export function ImageCreatePage() {
     loadTemplates();
   };
 
-  // 处理文件上传
-  const handleFileSelect = useCallback((files: FileList | null) => {
+  // 处理文件上传 - 通过STS直接上传到OSS
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
 
-    const newFiles: File[] = [];
-    const newImages: string[] = [];
+    const fileArray = Array.from(files);
+    if (uploadedImages.length + fileArray.length > 5) {
+      message.warning('最多上传5张图片');
+      return;
+    }
 
-    Array.from(files).forEach(file => {
+    // 获取STS Token
+    let stsToken;
+    try {
+      stsToken = await ossApi.getStsToken();
+    } catch (error) {
+      message.error('获取上传凭证失败');
+      return;
+    }
+
+    // 动态加载 ali-oss
+    const OSS = (await import('ali-oss')).default;
+
+    const ossClient = new OSS({
+      region: stsToken.region,
+      accessKeyId: stsToken.accessKeyId,
+      accessKeySecret: stsToken.accessKeySecret,
+      stsToken: stsToken.securityToken,
+      bucket: stsToken.bucketName,
+    });
+
+    // 逐个上传文件
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const currentIndex = uploadedImages.length + i;
+
       if (!file.type.startsWith('image/')) {
         message.error(`${file.name} 不是图片文件`);
-        return;
+        continue;
       }
 
-      if (uploadedFiles.length + newFiles.length >= 5) {
-        message.warning('最多上传5张图片');
-        return;
-      }
+      setUploadingIndex(currentIndex);
 
-      newFiles.push(file);
+      // 本地预览
       const reader = new FileReader();
-      reader.onload = e => {
-        newImages.push(e.target?.result as string);
-        if (newImages.length === newFiles.length) {
-          setUploadedFiles(prev => [...prev, ...newFiles]);
-          setUploadedImages(prev => [...prev, ...newImages]);
+      reader.onload = async (e) => {
+        const localUrl = e.target?.result as string;
+        setUploadedImages(prev => [...prev, localUrl]);
+
+        // 上传到OSS
+        try {
+          const ext = file.name.split('.').pop() || 'jpg';
+          const fileName = `reference/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+          const result = await ossClient.put(fileName, file);
+          const ossUrl = `${stsToken.customDomain}/${result.name}`;
+
+          setUploadedOssUrls(prev => [...prev, ossUrl]);
+        } catch (error) {
+          message.error(`${file.name} 上传失败`);
+          // 移除失败的预览图
+          setUploadedImages(prev => prev.slice(0, -1));
+        } finally {
+          setUploadingIndex(null);
         }
       };
       reader.readAsDataURL(file);
-    });
-  }, [uploadedFiles.length]);
+    }
+  }, [uploadedImages.length]);
 
   // 移除图片
   const handleRemoveImage = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setUploadedOssUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   // 提交创作
@@ -205,10 +270,15 @@ export function ImageCreatePage() {
     }
 
     setLoading(true);
+    setTaskSubmitTime(Date.now()); // 记录任务提交时间
+    setCurrentElapsed(0); // 重置耗时计数
     try {
-      // 使用异步接口
-      const { taskId } = await imageCreateApi.createImageAsync(uploadedFiles, prompt, selectedSize);
-      message.info('任务已提交，正在处理中...');
+      // 构建参考图URL JSON数组
+      const referenceUrls = uploadedOssUrls.length > 0 ? JSON.stringify(uploadedOssUrls) : undefined;
+
+      // 使用异步接口（只传递URL，不传递文件）
+      const { taskId } = await imageCreateApi.createImageAsyncWithUrls(referenceUrls, prompt, selectedSize);
+      message.info('任务已提交，可稍后在生成历史查看');
 
       // 轮询任务结果
       const pollInterval = 5000; // 5秒轮询一次
@@ -223,14 +293,17 @@ export function ImageCreatePage() {
             setCreatedImage(result.imageUrl || null);
             message.success('图像创作成功');
             setLoading(false);
+            setTaskSubmitTime(null);
             return;
           } else if (result.status === 'error') {
             message.error(result.msg || '图像创作失败');
             setLoading(false);
+            setTaskSubmitTime(null);
             return;
           } else if (result.status === 'not_found') {
             message.error('任务不存在或已过期');
             setLoading(false);
+            setTaskSubmitTime(null);
             return;
           }
 
@@ -241,10 +314,12 @@ export function ImageCreatePage() {
           } else {
             message.error('任务处理超时，请稍后重试');
             setLoading(false);
+            setTaskSubmitTime(null);
           }
         } catch (error: any) {
           message.error(error.message || '查询任务状态失败');
           setLoading(false);
+          setTaskSubmitTime(null);
         }
       };
 
@@ -253,6 +328,7 @@ export function ImageCreatePage() {
     } catch (error: any) {
       message.error(error.message || '图像创作失败');
       setLoading(false);
+      setTaskSubmitTime(null);
     }
   };
 
@@ -285,9 +361,10 @@ export function ImageCreatePage() {
   const handleReset = () => {
     setPrompt('');
     setUploadedImages([]);
-    setUploadedFiles([]);
+    setUploadedOssUrls([]);
     setCreatedImage(null);
     setCurrentInspiration(null);
+    setUploadingIndex(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -309,11 +386,11 @@ export function ImageCreatePage() {
   const handleUseInspiration = (template: InspirationTemplate) => {
     setPrompt(template.prompt);
     setCurrentInspiration(template);
-    // 只有当 attachExampleImage 为 1 且有图片时才添加示例图
+    // 只有当 attachExampleImage 为 1 且有图片时才添加示例图片URL
     if (template.attachExampleImage === 1 && template.imageUrl) {
-      // 清空现有图片，添加示例图片
+      // 清空现有图片，添加示例图片URL
       setUploadedImages([template.imageUrl]);
-      setUploadedFiles([]);
+      setUploadedOssUrls([template.imageUrl]); // 直接使用imageUrl作为OSS URL
     }
     setInspirationModalVisible(false);
   };
@@ -325,11 +402,61 @@ export function ImageCreatePage() {
     return 'https://' + url;
   };
 
+  // 格式化耗时显示（毫秒）
+  const formatDuration = (durationMs: number | null | undefined): string | null => {
+    if (!durationMs) return null;
+    return formatDurationFromSeconds(durationMs / 1000);
+  };
+
+  // 格式化耗时显示（秒）
+  const formatDurationFromSeconds = (seconds: number): string => {
+    if (seconds < 60) {
+      // 60秒内：xs（整数）
+      return `${Math.floor(seconds)}s`;
+    } else if (seconds < 3600) {
+      // 1分钟到60分钟：xmxs
+      const minutes = Math.floor(seconds / 60);
+      const remainSeconds = Math.floor(seconds % 60);
+      return `${minutes}m${remainSeconds}s`;
+    } else {
+      // 60分钟以外：xhxm
+      const hours = Math.floor(seconds / 3600);
+      const remainMinutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}h${remainMinutes}m`;
+    }
+  };
+
+  // 计算pending任务的实时耗时
+  const getPendingElapsed = (createTime: string): string => {
+    const elapsedMs = Date.now() - new Date(createTime).getTime();
+    return formatDurationFromSeconds(elapsedMs / 1000);
+  };
+
+  // 格式化日期显示
+  const formatDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const dateYear = date.getFullYear();
+
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    if (dateYear === currentYear) {
+      // 当前年份：MM-dd
+      return `${month}/${day}`;
+    } else {
+      // 其他年份：yyyy-MM-dd
+      return `${dateYear}/${month}/${day}`;
+    }
+  };
+
   // 加载生成历史
   const loadHistory = useCallback(async (page = 1) => {
     setHistoryLoading(true);
     try {
-      const result = await imageCreateApi.getHistory(page, 12, undefined, 'done');
+      const result = await imageCreateApi.getHistory(page, 12);
       setHistoryRecords(result.records);
       setHistoryTotal(result.total);
       setHistoryPage(result.current);
@@ -402,9 +529,11 @@ export function ImageCreatePage() {
               {/* Loading提示 */}
               {loading && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
-                  <div className="bg-white rounded-xl px-6 py-4 flex items-center gap-3">
-                    <Spin size="default" />
-                    <span className="text-gray-700">正在创作中，请耐心等待...</span>
+                  <div className="bg-white rounded-xl px-6 py-4 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Spin size="default" />
+                      <span className="text-gray-700">任务已提交，可稍后在生成历史查看 {formatDurationFromSeconds(currentElapsed)}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -573,16 +702,25 @@ export function ImageCreatePage() {
                     className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
                   >
                     <img src={img} alt={`参考图${index + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => handleRemoveImage(index)}
-                      className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
-                    >
-                      <CloseOutlined className="text-xs" />
-                    </button>
+                    {/* 上传中提示 */}
+                    {uploadingIndex === index && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <LoadingOutlined className="text-white text-lg" />
+                      </div>
+                    )}
+                    {/* 删除按钮（上传完成后显示） */}
+                    {uploadingIndex !== index && (
+                      <button
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
+                      >
+                        <CloseOutlined className="text-xs" />
+                      </button>
+                    )}
                   </div>
                 ))}
 
-                {uploadedImages.length < 5 && (
+                {uploadedImages.length < 5 && uploadingIndex === null && (
                   <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-orange-400 transition-colors">
                     <input
                       ref={fileInputRef}
@@ -823,23 +961,34 @@ export function ImageCreatePage() {
                         />
                       </div>
                     )}
-                    {/* 状态标签 */}
-                    <div className="absolute top-2 left-2">
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        record.status === 'done' ? 'bg-green-500 text-white' :
-                        record.status === 'pending' ? 'bg-blue-500 text-white' :
-                        'bg-red-500 text-white'
-                      }`}>
-                        {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
-                      </span>
-                    </div>
                   </div>
                   {/* 提示词 */}
                   <div className="p-2">
                     <p className="text-xs text-gray-600 line-clamp-2">{record.prompt}</p>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                      <ClockCircleOutlined className="text-xs" />
-                      <span>{new Date(record.createTime).toLocaleDateString()}</span>
+                    {/* 日期和状态 */}
+                    <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <ClockCircleOutlined className="text-xs" />
+                        <span>{formatDate(record.createTime)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* 耗时 */}
+                        {record.status === 'pending' ? (
+                          <span className="text-gray-500">{getPendingElapsed(record.createTime)}</span>
+                        ) : (
+                          formatDuration(record.duration) && (
+                            <span className="text-gray-500">{formatDuration(record.duration)}</span>
+                          )
+                        )}
+                        {/* 状态标签 */}
+                        <span className={`px-2 py-0.5 rounded ${
+                          record.status === 'done' ? 'bg-green-500 text-white' :
+                          record.status === 'pending' ? 'bg-blue-500 text-white' :
+                          'bg-red-500 text-white'
+                        }`}>
+                          {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -873,11 +1022,11 @@ export function ImageCreatePage() {
           <div>
             {/* 结果图片 */}
             {selectedHistory.resultImageUrl && (
-              <div className="relative mb-4">
+              <div className="relative mb-4 flex justify-center">
                 <Image
                   src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ''}
                   alt="生成结果"
-                  className="rounded-lg w-full"
+                  className="rounded-lg"
                   style={{ maxHeight: 400, objectFit: 'contain' }}
                   preview={{
                     mask: <div className="text-white">点击预览大图</div>,
@@ -911,10 +1060,10 @@ export function ImageCreatePage() {
             <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
               <span>尺寸: {selectedHistory.size}</span>
               <span>类型: {selectedHistory.taskType === 'create' ? '创作' : '增强'}</span>
-              {selectedHistory.duration && (
-                <span>耗时: {(selectedHistory.duration / 1000).toFixed(1)}s</span>
+              {formatDuration(selectedHistory.duration) && (
+                <span>耗时: {formatDuration(selectedHistory.duration)}</span>
               )}
-              <span>时间: {new Date(selectedHistory.createTime).toLocaleString()}</span>
+              <span>时间: {formatDate(selectedHistory.createTime)}</span>
             </div>
 
             {/* 使用按钮 */}

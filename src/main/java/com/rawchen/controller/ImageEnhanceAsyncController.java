@@ -5,13 +5,11 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ImageTaskService;
-import com.rawchen.service.OssUploadService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -26,45 +24,29 @@ public class ImageEnhanceAsyncController {
 
     private final ImageTaskService imageTaskService;
     private final AsyncImageTaskExecutor asyncImageTaskExecutor;
-    private final OssUploadService ossUploadService;
 
     /**
-     * 异步增强图片
+     * 异步增强图片 - 前端已通过STS上传图片到OSS
      *
-     * @param file     上传的图片
-     * @param category 图片类别
-     * @param prompt   自定义提示词（可选）
-     * @param user     当前登录用户
+     * @param referenceUrl 参考图的OSS URL
+     * @param category     图片类别
+     * @param prompt       自定义提示词（可选）
+     * @param user         当前登录用户
      * @return 任务ID
      */
     @PostMapping("/enhance_async")
     public R<EnhanceAsyncResponse> enhanceImageAsync(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam("referenceUrl") String referenceUrl,
             @RequestParam(value = "category", defaultValue = "general") String category,
             @RequestParam(value = "prompt", required = false) String prompt,
             @AuthenticationPrincipal SysUser user) {
 
-        if (file.isEmpty()) {
-            return R.badRequest("请上传图片文件");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            return R.badRequest("只支持图片文件");
+        if (referenceUrl == null || referenceUrl.trim().isEmpty()) {
+            return R.badRequest("请上传图片");
         }
 
         // 生成任务ID
         String taskId = UUID.randomUUID().toString();
-
-        // 上传原图到OSS
-        String referenceImageUrl;
-        try {
-            String fileName = "reference/" + UUID.randomUUID().toString().replace("-", "") + ".jpg";
-            referenceImageUrl = ossUploadService.uploadStream(file.getInputStream(), fileName, file.getContentType());
-        } catch (Exception e) {
-            log.error("Upload reference image failed: {}", e.getMessage());
-            return R.fail("上传参考图片失败");
-        }
 
         // 构建增强提示词
         String enhancePrompt = buildEnhancePrompt(category, prompt);
@@ -76,11 +58,11 @@ public class ImageEnhanceAsyncController {
         task.setTaskType("enhance");
         task.setStatus("pending");
         task.setPrompt(enhancePrompt);
-        task.setReferenceImageUrls("[\"" + referenceImageUrl + "\"]");
+        task.setReferenceImageUrls("[\"" + referenceUrl + "\"]");
         imageTaskService.save(task);
 
         // 异步执行任务
-        asyncImageTaskExecutor.executeEnhanceTask(taskId, file, enhancePrompt);
+        asyncImageTaskExecutor.executeEnhanceTaskWithUrl(taskId, referenceUrl, enhancePrompt);
 
         EnhanceAsyncResponse response = new EnhanceAsyncResponse();
         response.setTaskId(taskId);
