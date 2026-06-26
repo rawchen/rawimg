@@ -99,7 +99,7 @@ public class GptUtil {
                     .header("Authorization", "Bearer " + apiKey)
                     .form("model", model)
                     .form("prompt", prompt)
-                    .timeout(180000);
+                    .timeout(10 * 60 * 1000);
 
             // 添加多张图片
             for (MultipartFile file : files) {
@@ -170,7 +170,7 @@ public class GptUtil {
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .body(requestBody.toJSONString())
-                    .timeout(180000)
+                    .timeout(10 * 60 * 1000)
                     .execute();
 
             String body = response.body();
