@@ -12,6 +12,54 @@ import {
 import { imageCreateApi, ossApi, ImageTaskRecord } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
 
+// 页面标题闪烁 hook
+function useTitleFlash() {
+  const flashRef = useRef<number | null>(null);
+  const originalTitle = useRef<string>(document.title);
+  const isFlashing = useRef(false);
+
+  const startFlash = useCallback((status: 'done' | 'error' = 'done') => {
+    if (isFlashing.current) return;
+    isFlashing.current = true;
+    originalTitle.current = document.title;
+
+    const successText = '生图 ✅';
+    const errorText = '生图 ❌';
+    let showIcon = false;
+    const flash = () => {
+      if (!isFlashing.current) return;
+      document.title = showIcon
+        ? (status === 'done' ? successText : errorText)
+        : '生图';
+      showIcon = !showIcon;
+      flashRef.current = window.setTimeout(flash, 600);
+    };
+    flash();
+  }, []);
+
+  const stopFlash = useCallback(() => {
+    if (!isFlashing.current) return;
+    isFlashing.current = false;
+    if (flashRef.current) {
+      clearTimeout(flashRef.current);
+      flashRef.current = null;
+    }
+    document.title = originalTitle.current;
+  }, []);
+
+  // 页面获得焦点时停止闪烁
+  useEffect(() => {
+    const handleFocus = () => stopFlash();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      stopFlash();
+    };
+  }, [stopFlash]);
+
+  return { startFlash };
+}
+
 // 图片尺寸选项
 const sizeOptions = [
   { value: '1024x1024', label: '1:1', desc: '正方形', displayWidth: 16, displayHeight: 16 },
@@ -33,6 +81,7 @@ interface InspirationTemplate {
 }
 
 export function ImageCreatePage() {
+  const { startFlash } = useTitleFlash();
   const [prompt, setPrompt] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]); // 本地预览图
   const [uploadedOssUrls, setUploadedOssUrls] = useState<string[]>([]); // OSS URL
@@ -294,11 +343,13 @@ export function ImageCreatePage() {
             message.success('图像创作成功');
             setLoading(false);
             setTaskSubmitTime(null);
+            startFlash('done'); // 开始标题闪烁（成功）
             return;
           } else if (result.status === 'error') {
             message.error(result.msg || '图像创作失败');
             setLoading(false);
             setTaskSubmitTime(null);
+            startFlash('error'); // 开始标题闪烁（失败）
             return;
           } else if (result.status === 'not_found') {
             message.error('任务不存在或已过期');
