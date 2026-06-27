@@ -4,6 +4,7 @@ import com.rawchen.entity.ImageTask;
 import com.rawchen.util.GptUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +26,9 @@ public class AsyncImageTaskExecutor {
     private final GptUtil gptUtil;
     private final ImageTaskService imageTaskService;
     private final OssUploadService ossUploadService;
+
+    @Value("${aliyun.oss.custom-domain}")
+    private String customDomain;
 
     /**
      * 异步执行图片创作任务（纯文字生成）
@@ -84,8 +88,20 @@ public class AsyncImageTaskExecutor {
      * 从URL下载图片到内存
      */
     private byte[] downloadImageFromUrl(String imageUrl) throws IOException {
-        java.net.URL url = new java.net.URL(imageUrl);
-        try (InputStream is = url.openStream();
+        // 确保 URL 有协议前缀
+        String normalizedUrl = imageUrl;
+        if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+            normalizedUrl = "https://" + imageUrl;
+        }
+        java.net.URL url = new java.net.URL(normalizedUrl);
+
+        // 使用 HttpURLConnection 添加 Referer 头绕过防盗链
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+        conn.setRequestProperty("Referer", "https://" + customDomain);
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(30000);
+
+        try (InputStream is = conn.getInputStream();
              java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];
             int bytesRead;
@@ -93,6 +109,8 @@ public class AsyncImageTaskExecutor {
                 baos.write(buffer, 0, bytesRead);
             }
             return baos.toByteArray();
+        } finally {
+            conn.disconnect();
         }
     }
 
