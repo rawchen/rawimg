@@ -3,8 +3,9 @@
 @tailwind utilities;
 
 /* 防止滚动条出现时导致的布局抖动 */
-html {
-  /*overflow-y: scroll;*/
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
 }
 
 /* 自定义滚动条样式 */

@@ -382,6 +382,7 @@ export function LandingPage() {
 
   // Scroll animation observer
   useEffect(() => {
+    const scrollContainer = document.getElementById('scroll-container');
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -390,7 +391,7 @@ export function LandingPage() {
           }
         });
       },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px', root: scrollContainer }
     );
 
     const elements = document.querySelectorAll('.scroll-animate');
@@ -464,8 +465,8 @@ export function LandingPage() {
                   onMouseEnter={() => setHoveredFeatureIndex(index)}
                   onMouseLeave={() => setHoveredFeatureIndex(null)}
                 >
-                  <a
-                    href={feature.href}
+                  <Link
+                    to={feature.href}
                     className="feature-card group relative w-full aspect-[3/4] bg-white cursor-pointer"
                     style={{
                       '--rotation': isHovered ? '0deg' : feature.rotation,
@@ -485,7 +486,7 @@ export function LandingPage() {
                         <h3 className="text-sm leading-none text-white lg:text-base">{feature.title}</h3>
                       </div>
                     </div>
-                  </a>
+                  </Link>
                 </div>
               );
             })}
@@ -494,9 +495,9 @@ export function LandingPage() {
           {/* Mobile Feature Cards */}
           <div className="md:hidden grid grid-cols-2 gap-4 mb-8">
             {featureCards.slice(0, 4).map((feature) => (
-              <a
+              <Link
                 key={feature.title}
-                href={feature.href}
+                to={feature.href}
                 className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 {/* Background Image */}
@@ -509,7 +510,7 @@ export function LandingPage() {
                 <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center h-8 w-full bg-[rgba(0,0,0,0.30)] backdrop-blur-md transition-opacity duration-200">
                   <h3 className="text-sm leading-none text-white">{feature.title}</h3>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -959,7 +960,13 @@ export function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">编辑器</Link></li>
                 <li><Link to="/galleries" className="hover:text-white transition-colors cursor-pointer">图集</Link></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors cursor-pointer">定价</a></li>
+                <li><a onClick={() => {
+                  const container = document.getElementById('scroll-container');
+                  const pricing = document.getElementById('pricing');
+                  if (container && pricing) {
+                    container.scrollTo({ top: pricing.offsetTop - 80, behavior: 'smooth' });
+                  }
+                }} className="hover:text-white transition-colors cursor-pointer">定价</a></li>
               </ul>
             </div>
             <div>

@@ -34,13 +34,12 @@ const tools = [
   { key: 'hairstyle', name: '发型创意', icon: SquareScissors, new: true },
 ];
 
-export function Header() {
+export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const [dropdownPosition, setDropdownPosition] = useState({ left: 0 });
   const navigate = useNavigate();
@@ -51,6 +50,7 @@ export function Header() {
   const closeDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isLandingPage = location.pathname === '/';
+  const scrolled = scrolledProp ?? false;
 
   const openDropdown = () => {
     if (closeDropdownTimeoutRef.current) {
@@ -66,17 +66,9 @@ export function Header() {
     }, 100);
   };
 
-  // Scroll detection for LandingPage
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   // Update dropdown position when opened or scrolled
   useEffect(() => {
+    const scrollContainer = document.getElementById('scroll-container');
     const updatePosition = () => {
       if (toolsButtonRef.current && toolsDropdownOpen) {
         const rect = toolsButtonRef.current.getBoundingClientRect();
@@ -85,8 +77,8 @@ export function Header() {
     };
 
     updatePosition();
-    window.addEventListener('scroll', updatePosition);
-    return () => window.removeEventListener('scroll', updatePosition);
+    scrollContainer?.addEventListener('scroll', updatePosition);
+    return () => scrollContainer?.removeEventListener('scroll', updatePosition);
   }, [toolsDropdownOpen]);
 
   // Get or create a unique clientId for this browser
@@ -173,10 +165,10 @@ export function Header() {
     <>
       <header
         ref={headerRef}
-        className={`sticky top-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 shadow-custom ${
             scrolled
-                ? 'bg-white/80 backdrop-blur-xl shadow-sm'
-                : 'bg-[rgba(255,255,255,0.8)]'
+                ? 'bg-white/80 shadow-custom'
+                : 'bg-transparent'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 lg:px-8">

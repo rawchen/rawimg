@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { AuthProvider } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -39,10 +40,37 @@ function AppContent() {
   const isEnhancePage = location.pathname === '/enhance';
   const isRemovePage = location.pathname === '/remove';
 
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollElementRef = useRef<HTMLElement | null>(null);
+
+  // 使用回调 ref，确保在元素挂载时立即绑定事件
+  const handleScroll = useCallback((e: Event) => {
+    const target = e.target as HTMLElement;
+    setIsScrolled(target.scrollTop > 50);
+  }, []);
+
+  const scrollContainerRef = useCallback((element: HTMLElement | null) => {
+    if (scrollElementRef.current) {
+      scrollElementRef.current.removeEventListener('scroll', handleScroll);
+    }
+    scrollElementRef.current = element;
+    if (element) {
+      element.addEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollElementRef.current) {
+        scrollElementRef.current.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [handleScroll]);
+
   return (
-    <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      {!isEditorPage && <Header />}
-      <main className={isEditorPage ? 'flex-1 overflow-hidden' : 'flex-1 flex flex-col'}>
+    <div className={`flex flex-col h-screen overflow-hidden`}>
+      {!isEditorPage && <Header scrolled={isScrolled} />}
+      <main ref={scrollContainerRef} id="scroll-container" className={isEditorPage ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto mt-16'}>
         <Routes>
             {/* Landing Page */}
             <Route path="/" element={<LandingPage />} />
