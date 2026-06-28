@@ -10,17 +10,28 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { UserDropdown } from '@/components/auth/UserDropdown';
+import {
+  Sparkles,
+  Palette,
+  ImageUpscale,
+  ImagePlus,
+  PackageMinus,
+  ImageMinus,
+  Blend,
+  Panda,
+  SquareScissors,
+} from 'lucide-react';
 
 const tools = [
-  { key: 'create', name: '图像创作', icon: '✨', new: true },
-  { key: 'enhance', name: '图像增强', icon: '🎨', hot: true },
-  { key: 'expand', name: 'AI 图像扩展', icon: '📐', new: true },
-  { key: 'restore', name: '照片修复', icon: '🖼️' },
-  { key: 'remove', name: 'AI 物体移除', icon: '✂️' },
-  { key: 'bgremove', name: '背景移除', icon: '🎭', hot: true },
-  { key: 'filter', name: 'AI 滤镜', icon: '🌈' },
-  { key: 'beauty', name: 'AI 美颜', icon: '💄' },
-  { key: 'hairstyle', name: 'AI 发型', icon: '💇' },
+  { key: 'create', name: '生成创作', icon: Sparkles, hot: true },
+  { key: 'enhance', name: '图像增强', icon: Palette, hot: true },
+  { key: 'remove', name: '物体移除', icon: PackageMinus, hot: true },
+  { key: 'bgremove', name: '背景移除', icon: ImageMinus, hot: true },
+  { key: 'expand', name: '图像扩展', icon: ImageUpscale },
+  { key: 'restore', name: '照片修复', icon: ImagePlus },
+  { key: 'filter', name: '智能滤镜', icon: Blend },
+  { key: 'beauty', name: '智能美颜', icon: Panda },
+  { key: 'hairstyle', name: '发型创意', icon: SquareScissors, new: true },
 ];
 
 export function Header() {
@@ -325,14 +336,12 @@ export function Header() {
           <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 p-4 grid grid-cols-2 gap-0 w-96"
           >
             {tools.slice(0, 9).map((tool) => (
-              <a
+              <Link
                 key={tool.key}
-                href= {"/" + tool.key}
+                to={"/" + tool.key}
                 className="flex items-center space-x-2 text-gray-600 hover:bg-[rgba(224,225,225,0.6)] rounded-md text-sm px-4 py-1.5 cursor-pointer transition-colors group"
               >
-                <span className="text-gray-400 group-hover:text-orange-500 transition-colors">
-                  {tool.icon}
-                </span>
+                <tool.icon className="w-4 h-4 text-gray-400 group-hover:text-orange-500 transition-colors" />
                 <span>{tool.name}</span>
                 {tool.hot && (
                   <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">
@@ -344,7 +353,7 @@ export function Header() {
                     新
                   </span>
                 )}
-              </a>
+              </Link>
             ))}
           </div>
         </div>

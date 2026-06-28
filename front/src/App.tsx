@@ -28,6 +28,7 @@ import { ImageTasksPage } from '@/pages/admin/ImageTasksPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { ImageEnhancePage } from '@/pages/ImageEnhancePage.tsx';
 import { ImageCreatePage } from '@/pages/ImageCreatePage.tsx';
+import { ImageRemovePage } from '@/pages/ImageRemovePage.tsx';
 
 function AppContent() {
   const location = useLocation();
@@ -36,6 +37,7 @@ function AppContent() {
   const isEditorPage = location.pathname.startsWith('/editor');
   const isCreatePage = location.pathname === '/create';
   const isEnhancePage = location.pathname === '/enhance';
+  const isRemovePage = location.pathname === '/remove';
 
   return (
     <div className={`flex flex-col bg-gray-50 ${isEditorPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
@@ -70,6 +72,9 @@ function AppContent() {
             {/* Image Create Route */}
             <Route path="/create" element={<ImageCreatePage />} />
 
+            {/* Image Remove Route */}
+            <Route path="/remove" element={<ImageRemovePage />} />
+
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
             <Route path="/editor/:id" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
@@ -95,7 +100,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && <Footer />}
+      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && <Footer />}
     </div>
   );
 }

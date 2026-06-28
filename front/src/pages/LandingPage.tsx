@@ -56,7 +56,7 @@ const featureCards = [
     description: '智能识别主体，一键去除背景',
     icon: <Scissors className="w-6 h-6" />,
     // gradient: 'from-pink-500 to-rose-600',
-    href: '/create',
+    href: '/remove',
     rotation: '3deg',
     image: eraserBf,
   },
