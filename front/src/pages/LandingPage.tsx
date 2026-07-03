@@ -7,6 +7,13 @@ import tunerBf from '@/assets/media/tuner-bf.webp';
 import outfitBf from '@/assets/media/outfit-bf.webp';
 import demoBefore from '@/assets/image-enhance/1.jpg';
 import demoAfter from '@/assets/image-enhance/2.jpg';
+// 导入移除对比图
+import peopleBefore from '@/assets/image-remove/obr-people-before.jpg';
+import peopleAfter from '@/assets/image-remove/obr-people-after.jpg';
+import textBefore from '@/assets/image-remove/obr-text-before.jpg';
+import textAfter from '@/assets/image-remove/obr-text-after.jpg';
+import watermarkBefore from '@/assets/image-remove/obr-watermark-before.jpg';
+import watermarkAfter from '@/assets/image-remove/obr-watermark-after.jpg';
 import {
   Wand2,
   Palette,
@@ -30,6 +37,7 @@ import {
   Minus,
   Camera,
   ChevronRight,
+  ArrowUp,
 } from 'lucide-react';
 
 const featureCards = [
@@ -201,6 +209,14 @@ const trustBadges = [
   { icon: <Headphones className="w-8 h-8" />, label: '专业支持', desc: '7x24 小时' },
 ];
 
+// 首页对比图配置
+const heroDemoSlides = [
+  { key: 'people', before: peopleBefore, after: peopleAfter, label: '人物移除' },
+  { key: 'text', before: textBefore, after: textAfter, label: '文字移除' },
+  { key: 'watermark', before: watermarkBefore, after: watermarkAfter, label: '水印移除' },
+  { key: 'enhance', before: demoBefore, after: demoAfter, label: '图像增强' },
+];
+
 // CSS animations styles
 const animationStyles = `
   @keyframes fade-in-up {
@@ -327,11 +343,41 @@ export function LandingPage() {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   useEffect(() => {
     // Hero loaded animation
     setTimeout(() => setHeroLoaded(true), 100);
   }, []);
+
+  // 幻灯片自动切换
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % heroDemoSlides.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Scroll to top listener
+  useEffect(() => {
+    const scrollContainer = document.getElementById('scroll-container');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      setShowScrollTop(scrollContainer.scrollTop > 300);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    const scrollContainer = document.getElementById('scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Slider drag handlers
   const handleSliderMouseDown = (e: React.MouseEvent) => {
@@ -555,7 +601,7 @@ export function LandingPage() {
       <section className="py-16 px-4 bg-white scroll-animate">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-4xl font-bold text-center text-gray-900 mb-12">
-            RawImg：适合你的 AI 图像编辑器
+            适合你的 AI 图像编辑器
           </h2>
 
           <div className="flex flex-col lg:flex-row gap-8">
@@ -566,21 +612,21 @@ export function LandingPage() {
                 className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg select-none"
                 style={{ aspectRatio: '16/10' }}
               >
-                {/* 前图（增强后） */}
+                {/* 前图（处理后） */}
                 <img
-                  src={demoAfter}
-                  alt="增强后"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  src={heroDemoSlides[currentSlideIndex].after}
+                  alt="处理后"
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                   draggable={false}
                 />
 
                 {/* 后图（原图）- 使用clip-path裁剪 */}
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 transition-opacity duration-500"
                   style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
                 >
                   <img
-                    src={demoBefore}
+                    src={heroDemoSlides[currentSlideIndex].before}
                     alt="原图"
                     className="w-full h-full object-cover"
                     draggable={false}
@@ -612,16 +658,23 @@ export function LandingPage() {
                 <div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded">
                   原图
                 </div>
-                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
-                  增强后
+                <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded transition-all duration-300">
+                  {heroDemoSlides[currentSlideIndex].label}
                 </div>
 
-                {/* 像素对比显示 */}
-                <div
-                  className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1.5 rounded-full flex items-center gap-2 whitespace-nowrap">
-                  <span>800 × 450</span>
-                  <span className="text-gray-200"><ChevronRight className="w-4 h-4"/></span>
-                  <span className="text-orange-400 font-medium">1920 × 1080</span>
+                {/* 幻灯片指示器 */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                  {heroDemoSlides.map((slide, index) => (
+                    <button
+                      key={slide.key}
+                      onClick={() => setCurrentSlideIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                        index === currentSlideIndex
+                          ? 'bg-orange-500 w-4'
+                          : 'bg-white/60 hover:bg-white'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -1012,6 +1065,18 @@ export function LandingPage() {
           </button>
         </div>
       </div>
+
+      {/* Scroll to Top Button */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed right-6 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center ${
+          showScrollTop
+            ? 'opacity-100 translate-y-0 lg:bottom-16 bottom-6'
+            : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+      >
+        <ArrowUp className="w-5 h-5" />
+      </button>
     </div>
   );
 }

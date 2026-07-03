@@ -184,17 +184,31 @@ export function ImageEnhancePage() {
     }
   };
 
+  // 生成下载文件名：yyyyMMddHHmmss_随机2位.jpg
+  const generateDownloadFileName = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const random = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+    return `${year}${month}${day}${hours}${minutes}${seconds}_${random}.jpg`;
+  };
+
   // 下载增强后的图片
   const handleDownload = async () => {
     if (!enhancedImage) return;
 
+    const fileName = generateDownloadFileName();
     try {
       const response = await fetch(enhancedImage);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'enhanced-image.png';
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -203,7 +217,7 @@ export function ImageEnhancePage() {
       // 如果是base64，直接下载
       const a = document.createElement('a');
       a.href = enhancedImage;
-      a.download = 'enhanced-image.png';
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

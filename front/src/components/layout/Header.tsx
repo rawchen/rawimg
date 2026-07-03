@@ -331,6 +331,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
               <Link
                 key={tool.key}
                 to={"/" + tool.key}
+                onClick={() => setToolsDropdownOpen(false)}
                 className="flex items-center space-x-2 text-gray-600 hover:bg-[rgba(224,225,225,0.6)] rounded-md text-sm px-4 py-1.5 cursor-pointer transition-colors group"
               >
                 <tool.icon className="w-4 h-4 text-gray-400 group-hover:text-orange-500 transition-colors" />
