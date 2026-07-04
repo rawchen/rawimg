@@ -101,13 +101,24 @@ public class OssUploadServiceImpl implements OssUploadService {
     @Override
     public String uploadFile(org.springframework.web.multipart.MultipartFile file, String folder) {
         try {
-            // 生成文件名：时间戳_随机两位.jpg
-            String fileName = folder + generateFileName();
-            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
             String contentType = file.getContentType();
             if (contentType == null) {
                 contentType = "image/jpeg";
             }
+
+            // 根据内容类型确定扩展名
+            String extension = ".jpg";
+            if ("image/png".equals(contentType)) {
+                extension = ".png";
+            } else if ("image/gif".equals(contentType)) {
+                extension = ".gif";
+            } else if ("image/webp".equals(contentType)) {
+                extension = ".webp";
+            }
+
+            // 生成文件名：时间戳_随机两位.扩展名
+            String fileName = folder + generateFileNameWithExtension(extension);
+            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
 
             InputStream inputStream = file.getInputStream();
             long contentLength = file.getSize();
@@ -129,11 +140,23 @@ public class OssUploadServiceImpl implements OssUploadService {
             URL url = new URL(imageUrl);
             InputStream inputStream = url.openStream();
 
-            // 默认使用jpeg格式
+            // 从URL推断内容类型和文件扩展名
             String contentType = "image/jpeg";
+            String extension = ".jpg";
+            String path = url.getPath();
+            if (path.endsWith(".png")) {
+                contentType = "image/png";
+                extension = ".png";
+            } else if (path.endsWith(".gif")) {
+                contentType = "image/gif";
+                extension = ".gif";
+            } else if (path.endsWith(".webp")) {
+                contentType = "image/webp";
+                extension = ".webp";
+            }
 
-            // 生成文件名：时间戳_随机两位.jpg
-            String fileName = folder + generateFileName();
+            // 生成文件名：时间戳_两位随机数字.扩展名
+            String fileName = folder + generateFileNameWithExtension(extension);
             String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
 
             uploadToOss(inputStream, objectKey, contentType, -1);
@@ -186,9 +209,16 @@ public class OssUploadServiceImpl implements OssUploadService {
      * 生成唯一文件名：年月日时分秒_两位随机数字.jpg
      */
     public static String generateFileName() {
+        return generateFileNameWithExtension(".jpg");
+    }
+
+    /**
+     * 生成唯一文件名：年月日时分秒_两位随机数字.扩展名
+     */
+    public static String generateFileNameWithExtension(String extension) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
         String timestamp = sdf.format(new java.util.Date());
         String random = String.format("%02d", new Random().nextInt(100));
-        return timestamp + "_" + random + ".jpg";
+        return timestamp + "_" + random + extension;
     }
 }

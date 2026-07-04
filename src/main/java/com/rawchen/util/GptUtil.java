@@ -31,6 +31,9 @@ public class GptUtil {
     @Value("${gpt.image.model}")
     private String model;
 
+    @Value("${oss.custom-domain:cdn.rawchen.com}")
+    private String cdnDomain;
+
     /**
      * 调用GPT图像编辑API增强图片
      *
@@ -154,12 +157,50 @@ public class GptUtil {
      * 从URL下载文件到临时文件
      */
     private File downloadUrlToFile(String url, String prefix) throws IOException {
-        File tempFile = File.createTempFile(prefix, ".jpg");
-        HttpRequest.get(url)
-                .timeout(60000)
-                .execute()
-                .writeBody(tempFile);
-        return tempFile;
+        // 从URL中提取文件扩展名
+        String extension = ".png";
+        int lastDot = url.lastIndexOf('.');
+        int queryIndex = url.indexOf('?', lastDot);
+        if (lastDot > 0) {
+            if (queryIndex > lastDot) {
+                extension = url.substring(lastDot, queryIndex);
+            } else if (queryIndex == -1) {
+                extension = url.substring(lastDot);
+            }
+        }
+        if (extension.length() > 5) {
+            extension = extension.substring(0, 5);
+        }
+
+        File tempFile = File.createTempFile(prefix, extension);
+
+        int maxRetries = 3;
+        Exception lastException = null;
+
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                HttpRequest.get(url)
+                        .header("Referer", "https://" + cdnDomain + "/")
+                        .timeout(60000)
+                        .execute()
+                        .writeBody(tempFile);
+
+                if (tempFile.length() > 0) {
+                    log.info("Downloaded file from {}, size: {} bytes", url, tempFile.length());
+                    return tempFile;
+                }
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Download attempt {} failed: {}", i + 1, e.getMessage());
+            }
+            if (i < maxRetries - 1) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignored) {}
+            }
+        }
+
+        throw new IOException("无法下载文件: " + url + (lastException != null ? ", " + lastException.getMessage() : ""));
     }
 
     /**
