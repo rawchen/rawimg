@@ -94,7 +94,7 @@ public class GptUtil {
      */
     public String expandImage(String imageUrl, String maskUrl, String size) {
         // 固定提示词，不暴露给前端
-        String prompt = "图一为原图+白底填充，图2为黑白mask。自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容";
+        String prompt = "自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容";
 
         File imageFile = null;
         File maskFile = null;
