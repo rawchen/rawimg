@@ -36,9 +36,23 @@ public class OnlineUserService {
     private int targetFakeCount = 0;
     private long nextRefreshTime = 0;
 
+    // Config cache
+    private volatile int cachedBaseCount = 0;
+    private long nextConfigRefreshTime = 0;
+    private static final long CONFIG_REFRESH_INTERVAL = 60_000L; // 1分钟刷新一次配置
+
     @PostConstruct
     public void init() {
+        refreshConfigCache();
         refreshFakeCount();
+    }
+
+    private void refreshConfigCache() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime >= nextConfigRefreshTime) {
+            cachedBaseCount = configService.getConfigIntValue(FAKE_BASE_COUNT_KEY, 0);
+            nextConfigRefreshTime = currentTime + CONFIG_REFRESH_INTERVAL;
+        }
     }
 
     public void registerSession(WebSocketSession session, String clientId) {
@@ -93,7 +107,9 @@ public class OnlineUserService {
     // Refresh fake active count with random interval and smooth transition
     @Scheduled(fixedRate = 5000)
     public void refreshFakeCount() {
-        int baseCount = configService.getConfigIntValue(FAKE_BASE_COUNT_KEY, 0);
+        // Use cached config instead of querying database every time
+        refreshConfigCache();
+        int baseCount = cachedBaseCount;
 
         if (baseCount <= 0) {
             currentFakeCount = 0;

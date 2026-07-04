@@ -5,8 +5,8 @@ import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
 import tunerBf from '@/assets/media/tuner-bf.webp';
 import outfitBf from '@/assets/media/outfit-bf.webp';
-import demoBefore from '@/assets/image-enhance/1.jpg';
-import demoAfter from '@/assets/image-enhance/2.jpg';
+import demoBefore from '@/assets/image-enhance/before.jpg';
+import demoAfter from '@/assets/image-enhance/after.jpg';
 // 导入移除对比图
 import peopleBefore from '@/assets/image-remove/obr-people-before.jpg';
 import peopleAfter from '@/assets/image-remove/obr-people-after.jpg';
@@ -82,7 +82,7 @@ const featureCards = [
     description: '无损放大，保持清晰细节',
     icon: <Expand className="w-6 h-6" />,
     // gradient: 'from-emerald-500 to-teal-600',
-    href: '/create',
+    href: '/expand',
     rotation: '5deg',
     image: tunerBf,
   },

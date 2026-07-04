@@ -266,10 +266,10 @@ export function ImageRemovePage() {
         {/* 标题区域 */}
         <div className="text-center mb-8 md:mb-10">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
-            移除照片中不需要的物体 - AI 物体移除器
+            AI 物体移除器
           </h1>
           <p className="text-gray-500 text-sm md:text-base max-w-2xl mx-auto">
-            使用免费的 AI 物体移除器，在几秒钟内移除照片中不需要的物体。轻松擦除干扰元素，一键创建专业、干净的图像。
+            移除照片中不需要的物体，轻松擦除干扰元素，一键创建专业、干净的图像。
           </p>
         </div>
 

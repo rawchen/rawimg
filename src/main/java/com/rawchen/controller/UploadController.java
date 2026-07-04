@@ -2,6 +2,7 @@ package com.rawchen.controller;
 
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
+import com.rawchen.service.OssUploadService;
 import com.rawchen.service.UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +17,7 @@ import java.util.List;
 public class UploadController {
 
     private final UploadService uploadService;
+    private final OssUploadService ossUploadService;
 
     @PostMapping("/upload")
     public R<String> uploadImage(
@@ -26,6 +28,22 @@ public class UploadController {
             return R.unauthorized();
         }
         String url = uploadService.uploadImage(file);
+        return R.ok(url);
+    }
+
+    /**
+     * 上传图片到OSS（用于图像扩展等需要URL的场景）
+     */
+    @PostMapping("/upload/oss")
+    public R<String> uploadImageToOss(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "folder", defaultValue = "expand-temp/") String folder,
+            @AuthenticationPrincipal SysUser user) {
+
+        if (user == null) {
+            return R.unauthorized();
+        }
+        String url = ossUploadService.uploadFile(file, folder);
         return R.ok(url);
     }
 

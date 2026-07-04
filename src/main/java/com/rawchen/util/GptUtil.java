@@ -85,6 +85,84 @@ public class GptUtil {
     }
 
     /**
+     * 调用GPT图像扩展API - 扩展图片边界
+     *
+     * @param imageUrl 合成图片URL（白色背景+原图按位置摆放）
+     * @param maskUrl  遮罩图片URL（原图部分黑色#000000，扩展部分白色#ffffff）
+     * @param size     扩展后的图片尺寸
+     * @return 扩展后的图片URL或Base64数据
+     */
+    public String expandImage(String imageUrl, String maskUrl, String size) {
+        // 固定提示词，不暴露给前端
+        String prompt = "图一为原图+白底填充，图2为黑白mask。自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容";
+
+        File imageFile = null;
+        File maskFile = null;
+        try {
+            // 从URL下载图片到临时文件
+            imageFile = downloadUrlToFile(imageUrl, "gpt_image_");
+//            maskFile = downloadUrlToFile(maskUrl, "gpt_mask_");
+
+            String fullUrl = apiUrl + "/v1/images/edits";
+            HttpRequest request = HttpRequest.post(fullUrl)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .form("image", imageFile)
+                    .form("mask", maskUrl)
+                    .form("model", model)
+                    .form("prompt", prompt)
+                    .timeout(10 * 60 * 1000);
+
+            // 添加尺寸参数
+            if (size != null && !size.isEmpty()) {
+                request.form("size", size);
+            }
+
+            HttpResponse response = request.execute();
+            String body = response.body();
+            log.info("GPT image expand API response status: {}", response.getStatus());
+
+            if (response.isOk()) {
+                JSONObject json = JSON.parseObject(body);
+                if (json.containsKey("data")) {
+                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
+                    if (imageData.containsKey("url")) {
+                        return imageData.getString("url");
+                    } else if (imageData.containsKey("b64_json")) {
+                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    }
+                }
+                log.error("GPT image expand API unexpected response: {}", body);
+                throw new RuntimeException("图像扩展失败，API返回异常");
+            } else {
+                log.error("GPT image expand API error: status={}, body={}", response.getStatus(), body);
+                throw new RuntimeException("图像扩展失败: " + body);
+            }
+        } catch (Exception e) {
+            log.error("GPT image expand API error: {}", e.getMessage());
+            throw new RuntimeException("图像扩展失败: " + e.getMessage());
+        } finally {
+            if (imageFile != null && imageFile.exists()) {
+                FileUtil.del(imageFile);
+            }
+            if (maskFile != null && maskFile.exists()) {
+                FileUtil.del(maskFile);
+            }
+        }
+    }
+
+    /**
+     * 从URL下载文件到临时文件
+     */
+    private File downloadUrlToFile(String url, String prefix) throws IOException {
+        File tempFile = File.createTempFile(prefix, ".jpg");
+        HttpRequest.get(url)
+                .timeout(60000)
+                .execute()
+                .writeBody(tempFile);
+        return tempFile;
+    }
+
+    /**
      * 调用GPT图像编辑API - 支持多图上传
      *
      * @param files  上传的图片文件列表（最多5张）

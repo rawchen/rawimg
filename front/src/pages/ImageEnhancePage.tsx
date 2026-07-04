@@ -7,8 +7,8 @@ import {
 } from '@ant-design/icons';
 import { UserStar, ToolCase, Mountain, PawPrint, TypeOutline, ChevronRight } from 'lucide-react';
 import { imageEnhanceApi } from '@/api';
-import demoBefore from '@/assets/image-enhance/1.jpg';
-import demoAfter from '@/assets/image-enhance/2.jpg';
+import demoBefore from '@/assets/image-enhance/before.jpg';
+import demoAfter from '@/assets/image-enhance/after.jpg';
 
 // 图片类别配置
 const categories = [
@@ -234,7 +234,7 @@ export function ImageEnhancePage() {
         {/* 标题区域 */}
         <div className="text-center mb-8 md:mb-10">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
-            在线 AI 图像增强器 & 图像放大器
+            AI 图像增强器
           </h1>
           <p className="text-gray-500 text-sm md:text-base max-w-2xl mx-auto">
             使用 AI 图像增强器在线增强和放大图像。只需单击一下，即可提高清晰度、色彩和分辨率。

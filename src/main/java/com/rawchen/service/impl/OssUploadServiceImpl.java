@@ -12,8 +12,9 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.Base64;
-import java.util.UUID;
+import java.util.Random;
 
 /**
  * OSS后端上传服务实现
@@ -97,6 +98,55 @@ public class OssUploadServiceImpl implements OssUploadService {
         }
     }
 
+    @Override
+    public String uploadFile(org.springframework.web.multipart.MultipartFile file, String folder) {
+        try {
+            // 生成文件名：时间戳_随机两位.jpg
+            String fileName = folder + generateFileName();
+            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
+            String contentType = file.getContentType();
+            if (contentType == null) {
+                contentType = "image/jpeg";
+            }
+
+            InputStream inputStream = file.getInputStream();
+            long contentLength = file.getSize();
+
+            uploadToOss(inputStream, objectKey, contentType, contentLength);
+
+            inputStream.close();
+
+            return buildFullUrl(objectKey);
+        } catch (Exception e) {
+            log.error("Upload MultipartFile failed: {}", e.getMessage());
+            throw new RuntimeException("上传图片失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public String uploadFromUrlWithFolder(String imageUrl, String folder) {
+        try {
+            URL url = new URL(imageUrl);
+            InputStream inputStream = url.openStream();
+
+            // 默认使用jpeg格式
+            String contentType = "image/jpeg";
+
+            // 生成文件名：时间戳_随机两位.jpg
+            String fileName = folder + generateFileName();
+            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
+
+            uploadToOss(inputStream, objectKey, contentType, -1);
+
+            inputStream.close();
+
+            return buildFullUrl(objectKey);
+        } catch (Exception e) {
+            log.error("Upload from URL failed: {}", e.getMessage());
+            throw new RuntimeException("上传图片失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 构建完整的OSS URL
      */
@@ -133,9 +183,12 @@ public class OssUploadServiceImpl implements OssUploadService {
     }
 
     /**
-     * 生成唯一文件名
+     * 生成唯一文件名：年月日时分秒_两位随机数字.jpg
      */
-    public static String generateFileName(String extension) {
-        return UUID.randomUUID().toString().replace("-", "") + "." + extension;
+    public static String generateFileName() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+        String timestamp = sdf.format(new java.util.Date());
+        String random = String.format("%02d", new Random().nextInt(100));
+        return timestamp + "_" + random + ".jpg";
     }
 }

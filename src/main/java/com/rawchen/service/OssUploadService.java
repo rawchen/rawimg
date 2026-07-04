@@ -34,4 +34,22 @@ public interface OssUploadService {
      * @return OSS完整URL
      */
     String uploadFromUrl(String imageUrl, String fileName);
+
+    /**
+     * 上传MultipartFile到OSS指定文件夹
+     *
+     * @param file   上传的文件
+     * @param folder 文件夹路径（如 "expand-mask/"）
+     * @return OSS完整URL
+     */
+    String uploadFile(org.springframework.web.multipart.MultipartFile file, String folder);
+
+    /**
+     * 上传URL指向的图片到OSS指定文件夹
+     *
+     * @param imageUrl 外部图片URL
+     * @param folder   文件夹路径（如 "expand-mask/"）
+     * @return OSS完整URL
+     */
+    String uploadFromUrlWithFolder(String imageUrl, String folder);
 }

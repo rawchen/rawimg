@@ -175,6 +175,15 @@ export const userApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }) as unknown as Promise<string>;
   },
+
+  uploadImageToOss: (file: File, folder = 'expand-temp/') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
+    return api.post<string>('/upload/oss', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<string>;
+  },
 };
 
 // Admin API
@@ -461,6 +470,27 @@ export const imageRemoveApi = {
       originalFilename: string;
       removedUrl: string;
       category: string;
+    }>;
+  },
+};
+
+// Image Expand API
+export const imageExpandApi = {
+  expandImage: (imageUrl: string, maskUrl: string, size: string) => {
+    const params = new URLSearchParams();
+    params.append('imageUrl', imageUrl);
+    params.append('maskUrl', maskUrl);
+    params.append('size', size);
+    return api.post<{
+      originalFilename: string;
+      expandedUrl: string;
+      size: string;
+    }>('/image-expand/expand', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{
+      originalFilename: string;
+      expandedUrl: string;
+      size: string;
     }>;
   },
 };
