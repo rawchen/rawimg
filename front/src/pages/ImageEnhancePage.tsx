@@ -40,7 +40,7 @@ const getImageDimensions = (src: string): Promise<{ width: number; height: numbe
 };
 
 export function ImageEnhancePage() {
-  const [selectedCategory, setSelectedCategory] = useState('scenery');
+  const [selectedCategory, setSelectedCategory] = useState('portrait');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
