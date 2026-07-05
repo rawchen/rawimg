@@ -156,6 +156,59 @@ public class GptUtil {
     }
 
     /**
+     * 调用GPT图像抠图API - 移除背景
+     *
+     * @param file   上传的图片文件
+     * @param prompt 抠图提示词
+     * @param model  使用的模型名称
+     * @return 抠图后的图片URL或Base64数据
+     */
+    public String mattingImage(MultipartFile file, String prompt, String model) {
+        File tempFile = null;
+        try {
+            // 将MultipartFile转为临时文件
+            tempFile = File.createTempFile("gpt_matting_", "_" + file.getOriginalFilename());
+            file.transferTo(tempFile);
+
+            String fullUrl = apiUrl + "/v1/images/edits";
+            HttpRequest request = HttpRequest.post(fullUrl)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .form("image", tempFile)
+                    .form("model", model)
+                    .form("prompt", prompt)
+                    .timeout(10 * 60 * 1000);
+
+            HttpResponse response = request.execute();
+            String body = response.body();
+            log.info("GPT matting API response status: {}", response.getStatus());
+
+            if (response.isOk()) {
+                JSONObject json = JSON.parseObject(body);
+                if (json.containsKey("data")) {
+                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
+                    if (imageData.containsKey("url")) {
+                        return imageData.getString("url");
+                    } else if (imageData.containsKey("b64_json")) {
+                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    }
+                }
+                log.error("GPT matting API unexpected response: {}", body);
+                throw new RuntimeException("图像抠图失败，API返回异常");
+            } else {
+                log.error("GPT matting API error: status={}, body={}", response.getStatus(), body);
+                throw new RuntimeException("图像抠图失败: " + body);
+            }
+        } catch (IOException e) {
+            log.error("GPT matting API IO error: {}", e.getMessage());
+            throw new RuntimeException("图像上传失败: " + e.getMessage());
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                FileUtil.del(tempFile);
+            }
+        }
+    }
+
+    /**
      * 从URL下载文件到临时文件
      */
     private File downloadUrlToFile(String url, String prefix) throws IOException {

@@ -474,6 +474,55 @@ export const imageRemoveApi = {
   },
 };
 
+// Image Matting API
+export const imageMattingApi = {
+  // 异步抠图
+  mattingImageAsync: (originalImageUrl: string, subject: string, bgColor: string, model: string = 'gpt-image-2') => {
+    const params = new URLSearchParams();
+    params.append('originalImageUrl', originalImageUrl);
+    params.append('subject', subject);
+    params.append('bgColor', bgColor);
+    params.append('model', model);
+    return api.post<{ taskId: string; model: string }>('/image-matting/matting_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; model: string }>;
+  },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>('/image-matting/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取历史记录
+  getHistory: (page = 1, size = 12, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-matting/history', { params: { page, size, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-matting/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+};
+
 // Image Expand API
 export const imageExpandApi = {
   // 异步扩展图片

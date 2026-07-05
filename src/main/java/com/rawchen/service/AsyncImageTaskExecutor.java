@@ -140,6 +140,36 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
+     * 异步执行图片抠图任务
+     * @param taskId 任务ID
+     * @param originalImageUrl 原始图片URL
+     * @param prompt 抠图提示词
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeMattingTask(String taskId, String originalImageUrl, String prompt, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async matting task {} started with model {}", taskId, model);
+
+            // 从URL下载图片到内存
+            byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            MultipartFile file = new MemoryMultipartFile(imageData, "matting_original.png");
+
+            // 调用GPT抠图API
+            String result = gptUtil.mattingImage(file, prompt, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async matting task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async matting task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
      * 异步执行图片扩展任务
      * @param taskId 任务ID
      * @param originalImageUrl 原始图片URL
