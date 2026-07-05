@@ -93,11 +93,12 @@ public class GptUtil {
      * @param imageUrl 合成图片URL（白色背景+原图按位置摆放）
      * @param maskUrl  遮罩图片URL（原图部分黑色#000000，扩展部分白色#ffffff）
      * @param size     扩展后的图片尺寸
+     * @param model    使用的模型名称
      * @return 扩展后的图片URL或Base64数据
      */
-    public String expandImage(String imageUrl, String maskUrl, String size) {
+    public String expandImage(String imageUrl, String maskUrl, String size, String model) {
         // 固定提示词，不暴露给前端
-        String prompt = "自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容";
+        String prompt = "自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容，原图保持不变";
 
         File imageFile = null;
         File maskFile = null;
@@ -112,6 +113,7 @@ public class GptUtil {
                     .form("image", imageFile)
                     .form("mask", maskUrl)
                     .form("model", model)
+                    .form("input_fidelity", "high")
                     .form("prompt", prompt)
                     .timeout(10 * 60 * 1000);
 

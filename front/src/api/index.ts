@@ -476,23 +476,53 @@ export const imageRemoveApi = {
 
 // Image Expand API
 export const imageExpandApi = {
-  expandImage: (imageUrl: string, maskUrl: string, size: string) => {
+  // 异步扩展图片
+  expandImageAsync: (originalImageUrl: string, maskImageUrl: string, size: string, model: string = 'gpt-image-2') => {
     const params = new URLSearchParams();
-    params.append('imageUrl', imageUrl);
-    params.append('maskUrl', maskUrl);
+    params.append('originalImageUrl', originalImageUrl);
+    params.append('maskImageUrl', maskImageUrl);
     params.append('size', size);
-    return api.post<{
-      originalFilename: string;
-      expandedUrl: string;
-      size: string;
-    }>('/image-expand/expand', params, {
+    params.append('model', model);
+    return api.post<{ taskId: string; model: string }>('/image-expand/expand_async', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    }) as unknown as Promise<{
-      originalFilename: string;
-      expandedUrl: string;
-      size: string;
-    }>;
+    }) as unknown as Promise<{ taskId: string; model: string }>;
   },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      maskImageUrl?: string;
+      msg?: string;
+    }>('/image-expand/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      maskImageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取历史记录
+  getHistory: (page = 1, size = 12, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-expand/history', { params: { page, size, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-expand/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
 };
 
 // Image Create API
@@ -735,6 +765,9 @@ export interface ImageTaskRecord {
   prompt: string;
   size: string;
   referenceImageUrls: string | null;
+  originalImageUrl: string | null;
+  maskImageUrl: string | null;
+  model: string | null;
   resultImageUrl: string | null;
   errorMsg: string | null;
   duration: number | null;

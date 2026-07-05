@@ -140,6 +140,33 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
+     * 异步执行图片扩展任务
+     * @param taskId 任务ID
+     * @param originalImageUrl 原始图片URL
+     * @param maskImageUrl 遮罩图片URL（原图内容+透明扩展区域）
+     * @param size 扩展后的图片尺寸
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeExpandTask(String taskId, String originalImageUrl, String maskImageUrl, String size, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async expand task {} started with model {}", taskId, model);
+
+            // 调用GPT扩展API，maskUrl直接传递URL（API支持）
+            String result = gptUtil.expandImage(originalImageUrl, maskImageUrl, size, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async expand task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async expand task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
      * 异步执行图片创作任务（带参考图编辑）
      * @param fileDataList 文件内容列表（已读入内存）
      */

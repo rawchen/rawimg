@@ -48,6 +48,21 @@ public class ImageTask extends BaseEntity {
     private String referenceImageUrls;
 
     /**
+     * 原始图片URL（用于扩展/增强等任务的原图）
+     */
+    private String originalImageUrl;
+
+    /**
+     * 遮罩图片URL（用于扩展任务的mask图）
+     */
+    private String maskImageUrl;
+
+    /**
+     * 使用的模型名称（如：gpt-image-2, nano-banana-2-convert）
+     */
+    private String model;
+
+    /**
      * 生成的图片URL（OSS地址）- 存储值
      */
     private String resultImageUrl;

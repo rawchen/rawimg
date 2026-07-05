@@ -19,6 +19,10 @@ function useTitleFlash() {
   const isFlashing = useRef(false);
 
   const startFlash = useCallback((status: 'done' | 'error' = 'done') => {
+    // 如果页面已经聚焦，不需要闪烁
+    if (document.hasFocus() || document.visibilityState === 'visible') {
+      return;
+    }
     if (isFlashing.current) return;
     isFlashing.current = true;
     originalTitle.current = document.title;
@@ -47,12 +51,19 @@ function useTitleFlash() {
     document.title = originalTitle.current;
   }, []);
 
-  // 页面获得焦点时停止闪烁
+  // 页面获得焦点或变为可见时停止闪烁
   useEffect(() => {
     const handleFocus = () => stopFlash();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        stopFlash();
+      }
+    };
     window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopFlash();
     };
   }, [stopFlash]);
