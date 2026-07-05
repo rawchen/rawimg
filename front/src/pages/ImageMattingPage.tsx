@@ -20,7 +20,8 @@ function useTitleFlash() {
   const isFlashing = useRef(false);
 
   const startFlash = useCallback((status: 'done' | 'error' = 'done') => {
-    if (document.hasFocus() || document.visibilityState === 'visible') {
+    // 如果页面有焦点，不需要闪烁
+    if (document.hasFocus()) {
       return;
     }
     if (isFlashing.current) return;
