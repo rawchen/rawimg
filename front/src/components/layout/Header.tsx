@@ -24,12 +24,11 @@ import {
 
 const tools = [
   { key: 'create', name: '生成创作', icon: Sparkles, hot: true },
-  { key: 'enhance', name: '图像增强', icon: Palette, hot: true },
+  { key: 'enhance', name: '图像增强', icon: Palette },
   { key: 'remove', name: '物体移除', icon: PackageMinus, hot: true },
-  { key: 'matting', name: '背景移除', icon: ImageMinus, hot: true },
+  { key: 'matting', name: '背景移除', icon: ImageMinus },
   { key: 'expand', name: '图像扩展', icon: ImageUpscale },
   { key: 'restore', name: '照片修复', icon: ImagePlus },
-  { key: 'filter', name: '智能滤镜', icon: Blend },
   { key: 'beauty', name: '智能美颜', icon: Panda },
   { key: 'hairstyle', name: '发型创意', icon: SquareScissors, new: true },
 ];

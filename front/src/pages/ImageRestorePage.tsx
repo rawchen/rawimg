@@ -92,7 +92,7 @@ export function ImageRestorePage() {
   // 选择状态
   const [isColor, setIsColor] = useState(true); // 黑白/彩色，默认彩色
   const [isReal, setIsReal] = useState(true); // 干净/真实，默认真实（保留胶片颗粒）
-  const [clarityLevel, setClarityLevel] = useState('high'); // 清晰度中/高，默认高
+  const [isClear, setIsClear] = useState(true); // 一般/清晰，默认清晰
   const [selectedModel, setSelectedModel] = useState('gpt-image-2');
 
   // 图片状态
@@ -270,7 +270,7 @@ export function ImageRestorePage() {
         originalImageUrl,
         isColor ? 'color' : 'bw',
         isReal ? 'real' : 'clean',
-        clarityLevel,
+        isClear ? 'high' : 'medium',
         selectedModel
       );
       message.info('任务已提交，可稍后在生成历史查看');
@@ -519,7 +519,7 @@ export function ImageRestorePage() {
               >
                 <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white shadow-lg -translate-x-1/2">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-lg flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 rotate-90 text-gray-800">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 md:w-5 md:h-5 rotate-90 text-gray-800">
                       <path fillRule="evenodd" d="M11.47 4.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L12 6.31 8.78 9.53a.75.75 0 0 1-1.06-1.06l3.75-3.75Zm-3.75 9.75a.75.75 0 0 1 1.06 0L12 17.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -547,18 +547,18 @@ export function ImageRestorePage() {
               <div className="flex items-center justify-center gap-6 flex-wrap">
                 {/* 黑白/彩色 Switch */}
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm ${!isColor ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>黑白</span>
+                  <span className={`text-sm transition-colors ${!isColor ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>黑白</span>
                   <div
                     onClick={() => !loading && setIsColor(!isColor)}
-                    className={`relative flex items-center w-12 h-6 rounded-full transition-colors ${
+                    className={`relative flex items-center w-12 h-6 rounded-full transition-colors duration-200 ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${isColor ? 'bg-blue-500' : 'bg-gray-300'}`}
                   >
-                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
-                      isColor ? 'right-0.5' : 'left-0.5'
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                      isColor ? 'translate-x-6' : 'translate-x-0.5'
                     }`} />
                   </div>
-                  <span className={`text-sm ${isColor ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>彩色</span>
+                  <span className={`text-sm transition-colors ${isColor ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>彩色</span>
                 </div>
 
                 {/* 分隔线 */}
@@ -566,52 +566,37 @@ export function ImageRestorePage() {
 
                 {/* 干净/真实 Switch */}
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm ${!isReal ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>干净</span>
+                  <span className={`text-sm transition-colors ${!isReal ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>干净</span>
                   <div
                     onClick={() => !loading && setIsReal(!isReal)}
-                    className={`relative flex items-center w-12 h-6 rounded-full transition-colors ${
+                    className={`relative flex items-center w-12 h-6 rounded-full transition-colors duration-200 ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${isReal ? 'bg-blue-500' : 'bg-gray-300'}`}
                   >
-                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
-                      isReal ? 'right-0.5' : 'left-0.5'
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                      isReal ? 'translate-x-6' : 'translate-x-0.5'
                     }`} />
                   </div>
-                  <span className={`text-sm ${isReal ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>真实</span>
+                  <span className={`text-sm transition-colors ${isReal ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>真实</span>
                 </div>
 
                 {/* 分隔线 */}
                 <div className="w-px h-6 bg-gray-300" />
 
-                {/* 清晰度 中/高 */}
+                {/* 一般/清晰 Switch */}
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => !loading && setClarityLevel('medium')}
-                    disabled={loading}
-                    className={`px-3 py-1.5 rounded-lg border-2 transition-all text-sm ${
-                      loading
-                        ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                        : clarityLevel === 'medium'
-                          ? 'bg-blue-100 border-blue-500 text-blue-600'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300'
-                    }`}
+                  <span className={`text-sm transition-colors ${!isClear ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>一般</span>
+                  <div
+                    onClick={() => !loading && setIsClear(!isClear)}
+                    className={`relative flex items-center w-12 h-6 rounded-full transition-colors duration-200 ${
+                      loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    } ${isClear ? 'bg-blue-500' : 'bg-gray-300'}`}
                   >
-                    中
-                  </button>
-                  <button
-                    onClick={() => !loading && setClarityLevel('high')}
-                    disabled={loading}
-                    className={`px-3 py-1.5 rounded-lg border-2 transition-all text-sm ${
-                      loading
-                        ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                        : clarityLevel === 'high'
-                          ? 'bg-blue-100 border-blue-500 text-blue-600'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300'
-                    }`}
-                  >
-                    高
-                  </button>
-                  <span className="text-sm text-gray-500">清晰度</span>
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                      isClear ? 'translate-x-6' : 'translate-x-0.5'
+                    }`} />
+                  </div>
+                  <span className={`text-sm transition-colors ${isClear ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>清晰</span>
                 </div>
               </div>
             </div>
