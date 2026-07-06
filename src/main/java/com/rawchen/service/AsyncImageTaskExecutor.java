@@ -170,6 +170,36 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
+     * 异步执行老照片修复任务
+     * @param taskId 任务ID
+     * @param originalImageUrl 原始图片URL
+     * @param prompt 修复提示词
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeRestoreTask(String taskId, String originalImageUrl, String prompt, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async restore task {} started with model {}", taskId, model);
+
+            // 从URL下载图片到内存
+            byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            MultipartFile file = new MemoryMultipartFile(imageData, "restore_original.jpg");
+
+            // 调用GPT修复API（使用mattingImage方法，因为它支持图片编辑）
+            String result = gptUtil.restoreImage(file, prompt, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async restore task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async restore task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
      * 异步执行图片扩展任务
      * @param taskId 任务ID
      * @param originalImageUrl 原始图片URL

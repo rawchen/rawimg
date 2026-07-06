@@ -209,6 +209,59 @@ public class GptUtil {
     }
 
     /**
+     * 调用GPT图像修复API - 老照片修复
+     *
+     * @param file   上传的图片文件
+     * @param prompt 修复提示词
+     * @param model  使用的模型名称
+     * @return 修复后的图片URL或Base64数据
+     */
+    public String restoreImage(MultipartFile file, String prompt, String model) {
+        File tempFile = null;
+        try {
+            // 将MultipartFile转为临时文件
+            tempFile = File.createTempFile("gpt_restore_", "_" + file.getOriginalFilename());
+            file.transferTo(tempFile);
+
+            String fullUrl = apiUrl + "/v1/images/edits";
+            HttpRequest request = HttpRequest.post(fullUrl)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .form("image", tempFile)
+                    .form("model", model)
+                    .form("prompt", prompt)
+                    .timeout(10 * 60 * 1000);
+
+            HttpResponse response = request.execute();
+            String body = response.body();
+            log.info("GPT restore API response status: {}", response.getStatus());
+
+            if (response.isOk()) {
+                JSONObject json = JSON.parseObject(body);
+                if (json.containsKey("data")) {
+                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
+                    if (imageData.containsKey("url")) {
+                        return imageData.getString("url");
+                    } else if (imageData.containsKey("b64_json")) {
+                        return "data:image/jpeg;base64," + imageData.getString("b64_json");
+                    }
+                }
+                log.error("GPT restore API unexpected response: {}", body);
+                throw new RuntimeException("老照片修复失败，API返回异常");
+            } else {
+                log.error("GPT restore API error: status={}, body={}", response.getStatus(), body);
+                throw new RuntimeException("老照片修复失败: " + body);
+            }
+        } catch (IOException e) {
+            log.error("GPT restore API IO error: {}", e.getMessage());
+            throw new RuntimeException("图像上传失败: " + e.getMessage());
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                FileUtil.del(tempFile);
+            }
+        }
+    }
+
+    /**
      * 从URL下载文件到临时文件
      */
     private File downloadUrlToFile(String url, String prefix) throws IOException {
