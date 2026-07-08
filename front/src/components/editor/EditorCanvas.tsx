@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { cn } from '@/lib/utils';
 import { useWebGLRenderer } from '@/hooks/useWebGLRenderer';
+import { CropOverlay } from './CropOverlay';
 import type { EditParams } from '@/types';
 
 // Default edit params for showing original image
@@ -34,6 +35,7 @@ const defaultParams: EditParams = {
   vignette: 0,
   postCropVignette: { amount: 0, midpoint: 50, roundness: 50, feather: 50, highlights: 0 },
   grain: { amount: 0, size: 25, roughness: 50 },
+  crop: { x: 0, y: 0, width: 1, height: 1, aspectRatio: null },
 };
 
 interface EditorCanvasProps {
@@ -42,8 +44,8 @@ interface EditorCanvasProps {
 
 export function EditorCanvas({ className }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { currentImage, params, ui, setZoom, setPan } = useEditorStore();
-  const { setCanvas, isReady, loadImage, render } = useWebGLRenderer();
+  const { currentImage, params, ui, setZoom, setPan, completeCrop, setCropping } = useEditorStore();
+  const { setCanvas, isReady, loadImage, render, getRenderedPixels } = useWebGLRenderer();
 
   // Determine which params to use based on showingOriginal state
   const activeParams = ui.showingOriginal ? defaultParams : params;
@@ -166,6 +168,81 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
     };
   }, [isReady, imageLoaded, activeParams, currentImage, render, getPreviewDimensions]);
 
+  // Handle crop operation when cropPending is true
+  useEffect(() => {
+    if (!ui.cropPending || !currentImage || !isReady || !imageLoaded) return;
+
+    const crop = params.crop;
+    const preview = getPreviewDimensions(currentImage.width, currentImage.height);
+
+    // 先渲染当前编辑效果
+    render(activeParams, preview.width, preview.height, preview.scale);
+
+    // 获取渲染后的像素数据
+    const renderedPixels = getRenderedPixels();
+    if (!renderedPixels) {
+      console.error('Failed to get rendered pixels for crop');
+      return;
+    }
+
+    // 计算裁剪区域
+    const startX = Math.round(currentImage.width * crop.x * preview.scale);
+    const startY = Math.round(currentImage.height * crop.y * preview.scale);
+    const cropWidth = Math.round(currentImage.width * crop.width * preview.scale);
+    const cropHeight = Math.round(currentImage.height * crop.height * preview.scale);
+
+    // 从渲染数据中提取裁剪区域
+    const croppedData = new Uint8ClampedArray(cropWidth * cropHeight * 4);
+
+    for (let y = 0; y < cropHeight; y++) {
+      for (let x = 0; x < cropWidth; x++) {
+        const srcX = startX + x;
+        const srcY = startY + y;
+        const srcIndex = (srcY * preview.width + srcX) * 4;
+        const dstIndex = (y * cropWidth + x) * 4;
+
+        croppedData[dstIndex] = renderedPixels[srcIndex];
+        croppedData[dstIndex + 1] = renderedPixels[srcIndex + 1];
+        croppedData[dstIndex + 2] = renderedPixels[srcIndex + 2];
+        croppedData[dstIndex + 3] = renderedPixels[srcIndex + 3];
+      }
+    }
+
+    // 计算最终尺寸
+    const finalWidth = Math.round(currentImage.width * crop.width);
+    const finalHeight = Math.round(currentImage.height * crop.height);
+
+    // 如果预览尺寸小于最终尺寸，需要放大裁剪数据
+    if (preview.scale < 1) {
+      // 创建一个临时 canvas 来放大
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = cropWidth;
+      tempCanvas.height = cropHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+
+      const imageData = new ImageData(croppedData, cropWidth, cropHeight);
+      tempCtx.putImageData(imageData, 0, 0);
+
+      // 创建目标尺寸的 canvas
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = finalWidth;
+      finalCanvas.height = finalHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) return;
+
+      finalCtx.drawImage(tempCanvas, 0, 0, finalWidth, finalHeight);
+      const finalImageData = finalCtx.getImageData(0, 0, finalWidth, finalHeight);
+
+      completeCrop(finalImageData.data, finalWidth, finalHeight);
+    } else {
+      completeCrop(croppedData, finalWidth, finalHeight);
+    }
+
+    // 退出裁剪模式
+    setCropping(false);
+  }, [ui.cropPending, currentImage, isReady, imageLoaded, params.crop, activeParams, render, getRenderedPixels, getPreviewDimensions, completeCrop, setCropping]);
+
   // Pan handler
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
@@ -245,6 +322,17 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
             height: currentImage.height,
           }}
         />
+
+        {/* Crop overlay when in cropping mode */}
+        {ui.isCropping && (
+          <CropOverlay
+            canvasWidth={currentImage.width}
+            canvasHeight={currentImage.height}
+            imageWidth={currentImage.width}
+            imageHeight={currentImage.height}
+            zoom={ui.zoom}
+          />
+        )}
       </div>
 
       {/* Loading indicator */}

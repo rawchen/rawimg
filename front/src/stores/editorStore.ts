@@ -1,6 +1,39 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import type { EditParams, RawImage, EditorUIState, DEFAULT_EDIT_PARAMS } from '@/types';
+import type { EditParams, RawImage, EditorUIState, CropParams, DEFAULT_EDIT_PARAMS } from '@/types';
+
+// Create thumbnail from pixel data
+const createThumbnailFromData = (data: Uint8ClampedArray, width: number, height: number): string => {
+  const maxSize = 200;
+  const scale = Math.min(maxSize / width, maxSize / height);
+  const thumbWidth = Math.round(width * scale);
+  const thumbHeight = Math.round(height * scale);
+
+  // Create canvas for thumbnail
+  const canvas = document.createElement('canvas');
+  canvas.width = thumbWidth;
+  canvas.height = thumbHeight;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) return '';
+
+  // Create ImageData from source
+  const imageData = new ImageData(data, width, height);
+
+  // Create temporary canvas for source data
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = width;
+  srcCanvas.height = height;
+  const srcCtx = srcCanvas.getContext('2d');
+  if (!srcCtx) return '';
+
+  srcCtx.putImageData(imageData, 0, 0);
+
+  // Draw scaled version
+  ctx.drawImage(srcCanvas, 0, 0, thumbWidth, thumbHeight);
+
+  return canvas.toDataURL('image/jpeg', 0.8);
+};
 
 // Clone edit params for history
 const cloneParams = (params: EditParams): EditParams => {
@@ -59,6 +92,14 @@ interface EditorState {
   zoomTo: (zoom: number) => void;
   zoomTo100: () => void;
   setShowingOriginal: (showing: boolean) => void;
+  setCropping: (cropping: boolean) => void;
+
+  // Actions - Crop
+  setCrop: (crop: CropParams) => void;
+  setCropAspectRatio: (aspectRatio: number | null) => void;
+  resetCrop: () => void;
+  applyCrop: () => void;  // Request crop, EditorCanvas will execute
+  completeCrop: (croppedData: Uint8ClampedArray, width: number, height: number) => void;  // Called by EditorCanvas after crop
 
   // Actions - Loading
   setLoading: (loading: boolean) => void;
@@ -74,6 +115,8 @@ const DEFAULT_UI_STATE: EditorUIState = {
   showingOriginal: false,
   activePanel: 'light',
   isPanelCollapsed: false,
+  isCropping: false,
+  cropPending: false,  // Flag to trigger crop operation in EditorCanvas
 };
 
 // Import default params from types
@@ -131,6 +174,13 @@ const defaultEditParams: EditParams = {
     amount: 0,
     size: 25,
     roughness: 50,
+  },
+  crop: {
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    aspectRatio: null,
   },
 };
 
@@ -313,6 +363,163 @@ export const useEditorStore = create<EditorState>()(
       set((state) => ({
         ui: { ...state.ui, showingOriginal: showing }
       }));
+    },
+
+    setCropping: (cropping) => {
+      set((state) => ({
+        ui: { ...state.ui, isCropping: cropping }
+      }));
+    },
+
+    // Crop actions
+    setCrop: (crop) => {
+      set((state) => ({
+        params: { ...state.params, crop }
+      }));
+    },
+
+    setCropAspectRatio: (aspectRatio) => {
+      const state = get();
+      const image = state.currentImage;
+
+      if (aspectRatio === null) {
+        // 自由裁剪，保持当前裁剪区域
+        set((state) => ({
+          params: {
+            ...state.params,
+            crop: { ...state.params.crop, aspectRatio: null }
+          }
+        }));
+        return;
+      }
+
+      // 计算保持目标宽高比的最大裁剪区域
+      // 图片宽高比 = width / height
+      const imageAspect = image ? image.width / image.height : 1;
+
+      // 裁剪区域必须满足: width/height = targetAspect（考虑图片实际尺寸）
+      // 即: (w * imageWidth) / (h * imageHeight) = targetAspect
+      // 简化: w / h = targetAspect * imageHeight / imageWidth = targetAspect / imageAspect
+
+      // 方案1: 高度填满（h = 1）
+      // w = targetAspect / imageAspect
+      // 如果 w <= 1，方案可行
+      const width1 = aspectRatio / imageAspect;
+
+      // 方案2: 宽度填满（w = 1）
+      // h = imageAspect / aspectRatio
+      // 如果 h <= 1，方案可行
+      const height2 = imageAspect / aspectRatio;
+
+      let newWidth: number;
+      let newHeight: number;
+
+      if (width1 <= 1) {
+        // 方案1可行：高度填满
+        newWidth = width1;
+        newHeight = 1;
+      } else {
+        // 方案2：宽度填满
+        newWidth = 1;
+        newHeight = height2;
+      }
+
+      // 居中裁剪
+      const newX = (1 - newWidth) / 2;
+      const newY = (1 - newHeight) / 2;
+
+      console.log('setCropAspectRatio:', {
+        aspectRatio,
+        imageAspect,
+        width1,
+        height2,
+        selected: { w: newWidth, h: newHeight },
+        actualRatio: newWidth / newHeight,
+        pixelSize: {
+          w: Math.round(newWidth * (image?.width || 0)),
+          h: Math.round(newHeight * (image?.height || 0))
+        }
+      });
+
+      set((state) => ({
+        params: {
+          ...state.params,
+          crop: {
+            x: newX,
+            y: newY,
+            width: newWidth,
+            height: newHeight,
+            aspectRatio
+          }
+        }
+      }));
+    },
+
+    resetCrop: () => {
+      set((state) => ({
+        params: {
+          ...state.params,
+          crop: {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            aspectRatio: null
+          }
+        }
+      }));
+    },
+
+    applyCrop: () => {
+      // 设置裁剪待执行标志，EditorCanvas 会监听并执行实际裁剪
+      set((state) => ({
+        ui: { ...state.ui, cropPending: true }
+      }));
+    },
+
+    completeCrop: (croppedData: Uint8ClampedArray, newWidth: number, newHeight: number) => {
+      const state = get();
+      const image = state.currentImage;
+
+      if (!image) return;
+
+      // 创建裁剪后的图像对象
+      const croppedImage: RawImage = {
+        ...image,
+        width: newWidth,
+        height: newHeight,
+        decodedData: croppedData,
+        // 生成新的缩略图
+        thumbnail: createThumbnailFromData(croppedData, newWidth, newHeight),
+        editParams: {
+          ...image.editParams,
+          crop: {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            aspectRatio: null
+          }
+        }
+      };
+
+      // 保存历史并更新图像
+      get().pushHistory();
+      set({
+        currentImage: croppedImage,
+        params: {
+          ...state.params,
+          crop: {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            aspectRatio: null
+          }
+        },
+        ui: { ...state.ui, cropPending: false }
+      });
+      get().fitToScreen();
     },
 
     // Loading actions

@@ -233,6 +233,7 @@ const defaultEditParams: EditParams = {
   vignette: 0,
   postCropVignette: { amount: 0, midpoint: 50, roundness: 50, feather: 50, highlights: 0 },
   grain: { amount: 0, size: 25, roughness: 50 },
+  crop: { x: 0, y: 0, width: 1, height: 1, aspectRatio: null },
 };
 
 export function EditorToolbar() {
@@ -593,13 +594,6 @@ export function EditorToolbar() {
           title="适合屏幕"
         >
           适合
-        </button>
-        <button
-          onClick={zoomTo100}
-          className="px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-orange-600 text-xs transition-colors cursor-pointer"
-          title="100%"
-        >
-          100%
         </button>
       </div>
 

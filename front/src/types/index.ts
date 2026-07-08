@@ -335,6 +335,9 @@ export interface EditParams {
     size: number;           // 0-100, default 25
     roughness: number;      // 0-100, default 50
   };
+
+  // Crop
+  crop: CropParams;
 }
 
 /**
@@ -395,6 +398,13 @@ export const DEFAULT_EDIT_PARAMS: EditParams = {
     size: 25,
     roughness: 50,
   },
+  crop: {
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    aspectRatio: null,
+  },
 };
 
 /**
@@ -429,6 +439,44 @@ export interface ExportOptions {
 }
 
 /**
+ * 裁剪参数
+ */
+export interface CropParams {
+  x: number;        // 裁剪区域左上角 x（相对于原图百分比 0-1）
+  y: number;        // 裁剪区域左上角 y（相对于原图百分比 0-1）
+  width: number;    // 裁剪宽度（百分比 0-1）
+  height: number;   // 裁剪高度（百分比 0-1）
+  aspectRatio: number | null;  // 锁定的宽高比，null 表示自由裁剪
+}
+
+/**
+ * 尺寸调整参数
+ */
+export interface ResizeParams {
+  width: number;           // 目标宽度（像素）
+  height: number;          // 目标高度（像素）
+  aspectLocked: boolean;   // 是否锁定宽高比
+}
+
+/**
+ * 预设裁剪比例
+ */
+export interface AspectRatioPreset {
+  label: string;
+  value: number | null;  // null 表示自由裁剪
+}
+
+export const ASPECT_RATIOS: AspectRatioPreset[] = [
+  { label: '自由', value: null },
+  { label: '1:1', value: 1 },
+  { label: '2:3', value: 2/3 },
+  { label: '3:2', value: 3/2 },
+  { label: '16:9', value: 16/9 },
+  { label: '9:16', value: 9/16 },
+  { label: '18:9', value: 18/9 },
+];
+
+/**
  * Editor state for UI
  */
 export interface EditorUIState {
@@ -438,8 +486,10 @@ export interface EditorUIState {
   showHistogram: boolean;
   showBeforeAfter: boolean;
   showingOriginal: boolean; // 是否正在显示原图（用于实时对比）
-  activePanel: 'edit' | 'light' | 'color' | 'effects' | 'detail' | 'optics';
+  activePanel: 'light' | 'color' | 'effects' | 'detail' | 'optics' | 'crop';
   isPanelCollapsed: boolean;
+  isCropping: boolean;     // 是否处于裁剪模式
+  cropPending: boolean;    // 标记需要执行裁剪操作
 }
 
 /**

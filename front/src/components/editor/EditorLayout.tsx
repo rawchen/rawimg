@@ -40,6 +40,7 @@ const defaultEditParams: EditParams = {
   vignette: 0,
   postCropVignette: { amount: 0, midpoint: 50, roundness: 50, feather: 50, highlights: 0 },
   grain: { amount: 0, size: 25, roughness: 50 },
+  crop: { x: 0, y: 0, width: 1, height: 1, aspectRatio: null },
 };
 
 // Accept common image formats + RAW extensions

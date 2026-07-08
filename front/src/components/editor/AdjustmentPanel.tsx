@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { AdjustmentSlider } from './AdjustmentSlider';
+import { CropPanel } from './CropPanel';
 import { cn } from '@/lib/utils';
 import {
   RightOutlined,
@@ -9,6 +10,7 @@ import {
   FilterOutlined,
   AimOutlined,
   CameraOutlined,
+  ScissorOutlined,
 } from '@ant-design/icons';
 
 type PanelType = 'edit' | 'light' | 'color' | 'effects' | 'detail' | 'optics';
@@ -50,7 +52,7 @@ function PanelSection({ title, icon, defaultOpen = true, children }: PanelSectio
 }
 
 export function AdjustmentPanel() {
-  const { params, setParam, resetParam, pushHistory, ui, setActivePanel } = useEditorStore();
+  const { params, setParam, resetParam, pushHistory, ui, setActivePanel, setCropping, setCrop } = useEditorStore();
 
   // Helper to create slider handlers: onChange for real-time update, onCommit for history
   const createHandlers = <K extends keyof typeof params>(key: K) => {
@@ -63,21 +65,40 @@ export function AdjustmentPanel() {
     };
   };
 
+  // Handle panel change - enter crop mode on crop, exit crop mode on others
+  const handlePanelChange = (panel: typeof ui.activePanel) => {
+    if (panel === 'crop') {
+      // 进入裁剪模式时，初始化裁剪区域为整个图片
+      setCrop({
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        aspectRatio: null
+      });
+      setCropping(true);
+    } else if (ui.isCropping) {
+      // 退出裁剪模式
+      setCropping(false);
+    }
+    setActivePanel(panel);
+  };
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-white">
       {/* Panel Tabs */}
       <div className="flex border-b border-gray-200 px-2 py-1 gap-1 bg-gray-50">
         <button
-          onClick={() => setActivePanel('edit')}
+          onClick={() => handlePanelChange('crop')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
-            ui.activePanel === 'edit' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
+            ui.activePanel === 'crop' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
           )}
         >
-          编辑
+          裁剪
         </button>
         <button
-          onClick={() => setActivePanel('light')}
+          onClick={() => handlePanelChange('light')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
             ui.activePanel === 'light' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
@@ -86,7 +107,7 @@ export function AdjustmentPanel() {
           浅色
         </button>
         <button
-          onClick={() => setActivePanel('color')}
+          onClick={() => handlePanelChange('color')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
             ui.activePanel === 'color' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
@@ -95,7 +116,7 @@ export function AdjustmentPanel() {
           颜色
         </button>
         <button
-          onClick={() => setActivePanel('effects')}
+          onClick={() => handlePanelChange('effects')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
             ui.activePanel === 'effects' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
@@ -104,7 +125,7 @@ export function AdjustmentPanel() {
           效果
         </button>
         <button
-          onClick={() => setActivePanel('detail')}
+          onClick={() => handlePanelChange('detail')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
             ui.activePanel === 'detail' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
@@ -113,7 +134,7 @@ export function AdjustmentPanel() {
           细节
         </button>
         <button
-          onClick={() => setActivePanel('optics')}
+          onClick={() => handlePanelChange('optics')}
           className={cn(
             'px-2 py-1 text-xs rounded-lg transition-colors cursor-pointer',
             ui.activePanel === 'optics' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : 'text-gray-500 hover:text-orange-600 hover:bg-gray-100'
@@ -125,20 +146,8 @@ export function AdjustmentPanel() {
 
       {/* Panel Content */}
       <div className="py-2">
-        {ui.activePanel === 'edit' && (
-          <PanelSection title="编辑" icon={<span>✨</span>} defaultOpen>
-            <div className="flex gap-2 mb-3">
-              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
-                自动
-              </button>
-              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
-                黑白
-              </button>
-              <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-orange-100 hover:text-orange-600 transition-colors cursor-pointer">
-                HDR
-              </button>
-            </div>
-          </PanelSection>
+        {ui.activePanel === 'crop' && (
+          <CropPanel />
         )}
 
         {ui.activePanel === 'light' && (
