@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Base64;
@@ -73,7 +74,12 @@ public class OssUploadServiceImpl implements OssUploadService {
     public String uploadFromUrl(String imageUrl, String fileName) {
         try {
             URL url = new URL(imageUrl);
-            InputStream inputStream = url.openStream();
+            // 设置Referer防止防盗链403
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            String referer = url.getProtocol() + "://" + url.getHost();
+            connection.setRequestProperty("Referer", referer);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+            InputStream inputStream = connection.getInputStream();
 
             // 尝试从URL推断内容类型
             String contentType = "image/jpeg";
@@ -138,7 +144,12 @@ public class OssUploadServiceImpl implements OssUploadService {
     public String uploadFromUrlWithFolder(String imageUrl, String folder) {
         try {
             URL url = new URL(imageUrl);
-            InputStream inputStream = url.openStream();
+            // 设置Referer防止防盗链403
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            String referer = url.getProtocol() + "://" + url.getHost();
+            connection.setRequestProperty("Referer", referer);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+            InputStream inputStream = connection.getInputStream();
 
             // 从URL推断内容类型和文件扩展名
             String contentType = "image/jpeg";
