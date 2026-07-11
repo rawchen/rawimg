@@ -578,7 +578,7 @@ export function ImageCreatePage() {
 
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* 左侧结果展示区域 */}
-          <div className="lg:w-[54%] order-2 lg:order-1">
+          <div className="lg:w-[56%] order-2 lg:order-1">
             {/* 生成的图片展示 */}
             <div
               className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg"
@@ -635,7 +635,7 @@ export function ImageCreatePage() {
             )}
 
             {/* 尺寸选择 */}
-            <div className="mt-6">
+            <div className="mt-4">
               <div className="flex flex-wrap gap-2">
                 {sizeOptions.map(option => (
                   <button
@@ -666,7 +666,7 @@ export function ImageCreatePage() {
             </div>
 
             {/* 灵感示例滚动 */}
-            <div className="mt-6">
+            <div className="mt-4">
               <div className="flex items-center gap-2 mb-3">
                 <BulbOutlined className="text-orange-500" />
                 <h3 className="text-sm font-medium text-gray-700">灵感示例</h3>
@@ -726,7 +726,7 @@ export function ImageCreatePage() {
           </div>
 
           {/* 右侧输入区域 */}
-          <div className="lg:w-[44%] order-1 lg:order-2 flex flex-col gap-4">
+          <div className="lg:w-[41%] order-1 lg:order-2 flex flex-col gap-4">
             {/* 描述输入 */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
