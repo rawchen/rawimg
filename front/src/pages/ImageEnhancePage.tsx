@@ -1,14 +1,71 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { message, Spin } from 'antd';
+import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
 import {
   CloudUploadOutlined,
   DownloadOutlined,
   ReloadOutlined,
+  HistoryOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { UserStar, ToolCase, Mountain, PawPrint, TypeOutline, ChevronRight } from 'lucide-react';
-import { imageEnhanceApi } from '@/api';
+import { imageEnhanceApi, userApi, ImageTaskRecord } from '@/api';
 import demoBefore from '@/assets/image-enhance/before.jpg';
 import demoAfter from '@/assets/image-enhance/after.jpg';
+
+// 页面标题闪烁 hook
+function useTitleFlash() {
+  const flashRef = useRef<number | null>(null);
+  const originalTitle = useRef<string>(document.title);
+  const isFlashing = useRef(false);
+
+  const startFlash = useCallback((status: 'done' | 'error' = 'done') => {
+    if (document.hasFocus()) return;
+    if (isFlashing.current) return;
+    isFlashing.current = true;
+    originalTitle.current = document.title;
+
+    const successText = '✅';
+    const errorText = '❌';
+    let showIcon = false;
+    const flash = () => {
+      if (!isFlashing.current) return;
+      document.title = showIcon
+        ? (status === 'done' ? successText : errorText)
+        : 'AI 图像增强';
+      showIcon = !showIcon;
+      flashRef.current = window.setTimeout(flash, 600);
+    };
+    flash();
+  }, []);
+
+  const stopFlash = useCallback(() => {
+    if (!isFlashing.current) return;
+    isFlashing.current = false;
+    if (flashRef.current) {
+      clearTimeout(flashRef.current);
+      flashRef.current = null;
+    }
+    document.title = originalTitle.current;
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => stopFlash();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        stopFlash();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopFlash();
+    };
+  }, [stopFlash]);
+
+  return { startFlash };
+}
 
 // 图片类别配置
 const categories = [
@@ -30,7 +87,7 @@ const demoImages = [
 // 获取图片尺寸
 const getImageDimensions = (src: string): Promise<{ width: number; height: number }> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const img = new window.Image();
     img.onload = () => {
       resolve({ width: img.naturalWidth, height: img.naturalHeight });
     };
@@ -40,16 +97,52 @@ const getImageDimensions = (src: string): Promise<{ width: number; height: numbe
 };
 
 export function ImageEnhancePage() {
+  const { startFlash } = useTitleFlash();
+
   const [selectedCategory, setSelectedCategory] = useState('portrait');
+  const [selectedModel, setSelectedModel] = useState('gpt-image-2');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null);
+  const [currentElapsed, setCurrentElapsed] = useState<number>(0);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [enhancedDimensions, setEnhancedDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // 历史记录状态
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState<ImageTaskRecord[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<ImageTaskRecord | null>(null);
+  const [historyDetailModalVisible, setHistoryDetailModalVisible] = useState(false);
+  const [, setHistoryUpdateTick] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+
+  // 实时更新任务耗时
+  useEffect(() => {
+    if (!loading || !taskSubmitTime) return;
+    const interval = setInterval(() => {
+      setCurrentElapsed(Math.floor((Date.now() - taskSubmitTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [loading, taskSubmitTime]);
+
+  // 实时更新历史记录中pending任务的耗时
+  useEffect(() => {
+    const hasPending = historyRecords.some(r => r.status === 'pending');
+    if (!hasPending) return;
+    const interval = setInterval(() => {
+      setHistoryUpdateTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [historyRecords]);
 
   // 处理文件上传
   const handleFileSelect = useCallback(async (file: File) => {
@@ -58,46 +151,32 @@ export function ImageEnhancePage() {
       return;
     }
 
-    // 显示原始图片
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result as string;
-      setOriginalImage(dataUrl);
-      setEnhancedImage(null);
-      setSliderPosition(50);
-      setEnhancedDimensions(null);
+    setEnhancedImage(null);
+    setEnhancedDimensions(null);
+    setSliderPosition(50);
 
-      // 获取原始图片尺寸
+    // 上传图片到OSS
+    try {
+      message.info('正在上传图片...');
+      const ossUrl = await userApi.uploadImageToOss(file, 'enhance-temp/');
+      setOriginalImage(ossUrl);
+      setOriginalImageUrl(ossUrl);
+
+      // 获取图片尺寸
       try {
-        const dims = await getImageDimensions(dataUrl);
+        const dims = await getImageDimensions(ossUrl);
         setOriginalDimensions(dims);
       } catch {
         setOriginalDimensions(null);
       }
 
-      // 调用API增强图片
-      setLoading(true);
-      try {
-        const result = await imageEnhanceApi.enhanceImage(file, selectedCategory);
-        setEnhancedImage(result.enhancedUrl);
-
-        // 获取增强后图片尺寸
-        try {
-          const enhancedDims = await getImageDimensions(result.enhancedUrl);
-          setEnhancedDimensions(enhancedDims);
-        } catch {
-          setEnhancedDimensions(null);
-        }
-
-        message.success('图像增强成功');
-      } catch (error: any) {
-        message.error(error.message || '图像增强失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  }, [selectedCategory]);
+      message.success('图片上传成功');
+    } catch (error: any) {
+      message.error('图片上传失败: ' + error.message);
+      setOriginalImage(null);
+      setOriginalImageUrl(null);
+    }
+  }, []);
 
   // 点击上传按钮
   const handleUploadClick = () => {
@@ -109,6 +188,7 @@ export function ImageEnhancePage() {
     const file = e.target.files?.[0];
     if (file) {
       handleFileSelect(file);
+      e.target.value = '';
     }
   };
 
@@ -172,9 +252,84 @@ export function ImageEnhancePage() {
     };
   }, [handleMouseMove, handleTouchMove, handleMouseUp]);
 
+  // 提交增强任务
+  const handleSubmit = async () => {
+    if (!originalImage || !originalImageUrl) {
+      message.warning('请先上传图片');
+      return;
+    }
+
+    setLoading(true);
+    setTaskSubmitTime(Date.now());
+    setCurrentElapsed(0);
+
+    try {
+      message.info('正在提交增强任务...');
+      const { taskId } = await imageEnhanceApi.enhanceImageAsync(originalImageUrl, selectedCategory, undefined, selectedModel);
+      message.info('任务已提交，可稍后在生成历史查看');
+
+      // 轮询任务结果
+      const pollInterval = 5000;
+      const maxPolls = 120;
+      let pollCount = 0;
+
+      const poll = async () => {
+        try {
+          const result = await imageEnhanceApi.getTaskResult(taskId);
+
+          if (result.status === 'done' && result.imageUrl) {
+            setEnhancedImage(result.imageUrl);
+
+            // 获取增强后图片尺寸
+            try {
+              const enhancedDims = await getImageDimensions(result.imageUrl);
+              setEnhancedDimensions(enhancedDims);
+            } catch {
+              setEnhancedDimensions(null);
+            }
+
+            message.success('图像增强成功');
+            setLoading(false);
+            setTaskSubmitTime(null);
+            startFlash('done');
+          } else if (result.status === 'error') {
+            message.error(result.msg || '图像增强失败');
+            setLoading(false);
+            setTaskSubmitTime(null);
+            startFlash('error');
+          } else if (result.status === 'not_found') {
+            message.error('任务不存在或已过期');
+            setLoading(false);
+            setTaskSubmitTime(null);
+          } else {
+            pollCount++;
+            if (pollCount < maxPolls) {
+              setTimeout(poll, pollInterval);
+            } else {
+              message.error('任务处理超时，请稍后重试');
+              setLoading(false);
+              setTaskSubmitTime(null);
+            }
+          }
+        } catch (error: any) {
+          message.error(error.message || '查询任务状态失败');
+          setLoading(false);
+          setTaskSubmitTime(null);
+        }
+      };
+
+      setTimeout(poll, 2000);
+    } catch (error: any) {
+      message.error(error.message || '图像增强失败');
+      setLoading(false);
+      setTaskSubmitTime(null);
+    }
+  };
+
   // 重置
   const handleReset = () => {
     setOriginalImage(null);
+    setOriginalImageUrl(null);
     setEnhancedImage(null);
     setSliderPosition(50);
     setOriginalDimensions(null);
@@ -184,7 +339,7 @@ export function ImageEnhancePage() {
     }
   };
 
-  // 生成下载文件名：yyyyMMddHHmmss_随机2位.jpg
+  // 生成下载文件名
   const generateDownloadFileName = (): string => {
     const now = new Date();
     const year = now.getFullYear();
@@ -214,7 +369,6 @@ export function ImageEnhancePage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch {
-      // 如果是base64，直接下载
       const a = document.createElement('a');
       a.href = enhancedImage;
       a.download = fileName;
@@ -224,7 +378,85 @@ export function ImageEnhancePage() {
     }
   };
 
-  // 当前显示的图片（对比图或示例图）
+  // 历史记录相关
+  const ensureHttpsUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return 'https://' + url;
+  };
+
+  const formatDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const dateYear = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    if (dateYear === currentYear) return `${month}/${day}`;
+    else return `${dateYear}/${month}/${day}`;
+  };
+
+  const formatDurationFromSeconds = (seconds: number): string => {
+    if (seconds < 60) return `${Math.floor(seconds)}s`;
+    else if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60);
+      const remainSeconds = Math.floor(seconds % 60);
+      return `${minutes}m${remainSeconds}s`;
+    } else {
+      const hours = Math.floor(seconds / 3600);
+      const remainMinutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}h${remainMinutes}m`;
+    }
+  };
+
+  const formatDuration = (durationMs: number | null | undefined): string | null => {
+    if (!durationMs) return null;
+    return formatDurationFromSeconds(durationMs / 1000);
+  };
+
+  const getPendingElapsed = (createTime: string): string => {
+    const elapsedMs = Date.now() - new Date(createTime).getTime();
+    return formatDurationFromSeconds(elapsedMs / 1000);
+  };
+
+  const loadHistory = useCallback(async (page = 1) => {
+    setHistoryLoading(true);
+    try {
+      const result = await imageEnhanceApi.getHistory(page, 12);
+      setHistoryRecords(result.records);
+      setHistoryTotal(result.total);
+      setHistoryPage(result.current);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const handleOpenHistory = () => {
+    setHistoryModalVisible(true);
+    loadHistory(1);
+  };
+
+  const handleHistoryClick = (record: ImageTaskRecord) => {
+    setSelectedHistory(record);
+    setHistoryDetailModalVisible(true);
+  };
+
+  const handleUseHistory = (record: ImageTaskRecord) => {
+    if (record.originalImageUrl) {
+      setOriginalImage(ensureHttpsUrl(record.originalImageUrl));
+      setOriginalImageUrl(ensureHttpsUrl(record.originalImageUrl));
+      setEnhancedImage(ensureHttpsUrl(record.resultImageUrl));
+      setSliderPosition(50);
+    }
+    setHistoryDetailModalVisible(false);
+    setHistoryModalVisible(false);
+  };
+
+  // 当前显示的图片
   const displayBeforeImage = originalImage || demoImages[0].before;
   const displayAfterImage = enhancedImage || (originalImage ? originalImage : demoImages[0].after);
 
@@ -272,16 +504,15 @@ export function ImageEnhancePage() {
                 />
               </div>
 
-              {/* 分割线 - 整个区域可拖动 */}
+              {/* 分割线 */}
               <div
                 className="absolute top-0 bottom-0 w-8 -ml-4 cursor-ew-resize group"
                 style={{ left: `${sliderPosition}%` }}
                 onMouseDown={handleSliderMouseDown}
                 onTouchStart={handleSliderTouchStart}
               >
-                {/* 视觉分割线 */}
                 <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-white shadow-lg -translate-x-1/2">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 md:w-6 md:h-6 bg-white rounded-full shadow-lg flex items-center justify-center">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-lg flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 md:w-5 md:h-5 rotate-90 text-gray-800">
                       <path fillRule="evenodd" d="M11.47 4.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L12 6.31 8.78 9.53a.75.75 0 0 1-1.06-1.06l3.75-3.75Zm-3.75 9.75a.75.75 0 0 1 1.06 0L12 17.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
@@ -289,10 +520,7 @@ export function ImageEnhancePage() {
                 </div>
               </div>
 
-              {/* 标签 */}
-              {/*<div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded">*/}
-              {/*  原图*/}
-              {/*</div>*/}
+              {/* 示例标签 */}
               {!originalImage && (
                 <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded">
                   示例
@@ -314,7 +542,7 @@ export function ImageEnhancePage() {
               {loading && (
                 <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-3 py-2 rounded-full flex items-center gap-2 z-10">
                   <Spin size="small" />
-                  <span>正在增强...</span>
+                  <span>正在增强... {formatDurationFromSeconds(currentElapsed)}</span>
                 </div>
               )}
             </div>
@@ -324,8 +552,11 @@ export function ImageEnhancePage() {
               {categories.map((cat) => (
                   <button
                       key={cat.key}
-                      onClick={() => setSelectedCategory(cat.key)}
+                      onClick={() => !loading && setSelectedCategory(cat.key)}
+                      disabled={loading}
                       className={`flex flex-col items-center justify-center w-[72px] md:w-[96px] aspect-square rounded-xl transition-all ${
+                          loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      } ${
                           selectedCategory === cat.key
                               ? 'bg-orange-100 border-2 border-orange-500 text-orange-600'
                               : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -390,9 +621,55 @@ export function ImageEnhancePage() {
               </button>
             </div>
 
+            {/* 增强按钮 */}
+            {originalImage && (
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !originalImageUrl}
+                className={`w-full py-3 rounded-xl font-medium text-white transition-all ${
+                  loading || !originalImageUrl
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/30'
+                }`}
+              >
+                {loading ? '处理中...' : !originalImageUrl ? '正在上传图片...' : '开始增强'}
+              </button>
+            )}
+
             {/* 功能介绍 */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-3">AI 图像增强功能</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">AI 图像增强功能</h3>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleOpenHistory}
+                    className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
+                  >
+                    <HistoryOutlined />
+                    生成历史
+                  </button>
+                  {/* 模型切换开关 */}
+                  <div
+                    onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'nano-banana-2-convert' : 'gpt-image-2')}
+                    className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                      loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    } ${selectedModel === 'gpt-image-2' ? 'bg-orange-500' : 'bg-purple-500'}`}
+                  >
+                    <span className={`absolute text-xs font-medium transition-all ${
+                      selectedModel === 'gpt-image-2'
+                        ? 'left-2 text-white'
+                        : 'left-10 text-white'
+                    }`}>
+                      {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
+                    </span>
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                      selectedModel === 'gpt-image-2'
+                        ? 'right-1'
+                        : 'left-1'
+                    }`} />
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
                   <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
@@ -420,15 +697,163 @@ export function ImageEnhancePage() {
                 使用提示
               </h3>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• 支持 JPG、PNG 格式图片</li>
-                <li>• 选择正确的图片类别可获得更好效果</li>
+                <li>• 支持 JPG、PNG 格式，选择正确的图片类别可获得更好效果</li>
                 <li>• 处理时间约 30-60 秒，请耐心等待</li>
-                <li>• 增强后可拖动滑块对比效果</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 生成历史弹窗 */}
+      <Modal
+        title="生成历史"
+        open={historyModalVisible}
+        onCancel={() => setHistoryModalVisible(false)}
+        footer={null}
+        width={800}
+      >
+        {historyLoading ? (
+          <div className="flex justify-center py-8">
+            <Spin />
+          </div>
+        ) : historyRecords.length === 0 ? (
+          <Empty description="暂无生成历史" />
+        ) : (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {historyRecords.map(record => (
+                <div
+                  key={record.taskId}
+                  onClick={() => handleHistoryClick(record)}
+                  className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
+                >
+                  {/* 结果图片 */}
+                  <div className="relative w-full h-32">
+                    {record.resultImageUrl ? (
+                      <img
+                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        alt="生成结果"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400">无图片</span>
+                      </div>
+                    )}
+                    {/* 原图缩略图 */}
+                    {record.originalImageUrl && (
+                      <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
+                        <img
+                          src={ensureHttpsUrl(record.originalImageUrl) || ''}
+                          alt="原图"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {/* 信息 */}
+                  <div className="p-2">
+                    <p className="text-xs text-gray-600 truncate">{record.prompt || '图像增强'}</p>
+                    <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <ClockCircleOutlined className="text-xs" />
+                        <span>{formatDate(record.createTime)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {record.status === 'pending' ? (
+                          <span className="text-gray-500">{getPendingElapsed(record.createTime)}</span>
+                        ) : (
+                          formatDuration(record.duration) && (
+                            <span className="text-gray-500">{formatDuration(record.duration)}</span>
+                          )
+                        )}
+                        <span className={`px-2 py-0.5 rounded ${
+                          record.status === 'done' ? 'bg-green-500 text-white' :
+                          record.status === 'pending' ? 'bg-blue-500 text-white' :
+                          'bg-red-500 text-white'
+                        }`}>
+                          {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 分页 */}
+            {historyTotal > 12 && (
+              <div className="flex justify-center mt-4">
+                <Pagination
+                  current={historyPage}
+                  total={historyTotal}
+                  pageSize={12}
+                  onChange={(page) => loadHistory(page)}
+                  showSizeChanger={false}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 历史详情弹窗 */}
+      <Modal
+        title="生成详情"
+        open={historyDetailModalVisible}
+        onCancel={() => setHistoryDetailModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        {selectedHistory && (
+          <div>
+            {/* 结果图片 */}
+            {selectedHistory.resultImageUrl && (
+              <div className="relative mb-4 flex justify-center">
+                <Image
+                  src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ''}
+                  alt="生成结果"
+                  className="rounded-lg"
+                  style={{ maxHeight: 400, objectFit: 'contain' }}
+                  preview={{
+                    mask: <div className="text-white">点击预览大图</div>,
+                  }}
+                />
+                {/* 原图 */}
+                {selectedHistory.originalImageUrl && (
+                  <div className="absolute bottom-4 right-4 w-24 h-24 rounded-lg border-2 border-white shadow-lg overflow-hidden">
+                    <Image
+                      src={ensureHttpsUrl(selectedHistory.originalImageUrl) || ''}
+                      alt="原图"
+                      className="w-full h-full object-cover"
+                      preview={{
+                        mask: <div className="text-white text-xs">预览</div>,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 其他信息 */}
+            <div className="flex items-center gap-4 mb-4 text-xs text-gray-500 flex-wrap">
+              <span>提示词: {selectedHistory.prompt || '图像增强'}</span>
+              {formatDuration(selectedHistory.duration) && (
+                <span>耗时: {formatDuration(selectedHistory.duration)}</span>
+              )}
+              <span>时间: {formatDate(selectedHistory.createTime)}</span>
+            </div>
+
+            {/* 使用按钮 */}
+            <button
+              onClick={() => handleUseHistory(selectedHistory)}
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+            >
+              查看此记录
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

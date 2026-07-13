@@ -1,5 +1,6 @@
 package com.rawchen.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.ImageTask;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,6 +33,7 @@ public class ImageEnhanceAsyncController {
      * @param referenceUrl 参考图的OSS URL
      * @param category     图片类别
      * @param prompt       自定义提示词（可选）
+     * @param model        使用的模型（默认 gpt-image-2）
      * @param user         当前登录用户
      * @return 任务ID
      */
@@ -39,6 +42,7 @@ public class ImageEnhanceAsyncController {
             @RequestParam("referenceUrl") String referenceUrl,
             @RequestParam(value = "category", defaultValue = "general") String category,
             @RequestParam(value = "prompt", required = false) String prompt,
+            @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
             @AuthenticationPrincipal SysUser user) {
 
         if (referenceUrl == null || referenceUrl.trim().isEmpty()) {
@@ -58,14 +62,19 @@ public class ImageEnhanceAsyncController {
         task.setTaskType("enhance");
         task.setStatus("pending");
         task.setPrompt(enhancePrompt);
+        task.setModel(model);
+        task.setOriginalImageUrl(referenceUrl);
         task.setReferenceImageUrls("[\"" + referenceUrl + "\"]");
         imageTaskService.save(task);
 
         // 异步执行任务
         asyncImageTaskExecutor.executeEnhanceTaskWithUrl(taskId, referenceUrl, enhancePrompt);
 
+        log.info("Enhance task {} created for user {} with model {}", taskId, user.getId(), model);
+
         EnhanceAsyncResponse response = new EnhanceAsyncResponse();
         response.setTaskId(taskId);
+        response.setModel(model);
         return R.ok(response);
     }
 
@@ -88,6 +97,7 @@ public class ImageEnhanceAsyncController {
         response.setStatus(task.getStatus());
         if ("done".equals(task.getStatus())) {
             response.setImageUrl(task.getResultImageUrl());
+            response.setOriginalImageUrl(task.getOriginalImageUrl());
         } else if ("error".equals(task.getStatus())) {
             response.setMsg(task.getErrorMsg());
         }
@@ -113,6 +123,67 @@ public class ImageEnhanceAsyncController {
         response.setImageUrl(task.getResultImageUrl());
         response.setTaskId(task.getTaskId());
         response.setPrompt(task.getPrompt());
+        return R.ok(response);
+    }
+
+    /**
+     * 获取用户的增强任务历史列表
+     *
+     * @param page   页码
+     * @param size   每页大小
+     * @param status 任务状态（可选）
+     * @param user   当前登录用户
+     * @return 任务列表
+     */
+    @GetMapping("/history")
+    public R<TaskHistoryPageResponse> getHistory(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "12") Integer size,
+            @RequestParam(value = "status", required = false) String status,
+            @AuthenticationPrincipal SysUser user) {
+
+        IPage<ImageTask> taskPage = imageTaskService.getUserTaskPage(user.getId(), page, size, "enhance", status);
+
+        TaskHistoryPageResponse response = new TaskHistoryPageResponse();
+        response.setRecords(taskPage.getRecords());
+        response.setTotal(taskPage.getTotal());
+        response.setPages(taskPage.getPages());
+        response.setCurrent(taskPage.getCurrent());
+        response.setSize(taskPage.getSize());
+        return R.ok(response);
+    }
+
+    /**
+     * 获取任务详情
+     *
+     * @param id   任务ID
+     * @param user 当前登录用户
+     * @return 任务详情
+     */
+    @GetMapping("/task/{id}")
+    public R<TaskDetailResponse> getTaskDetail(
+            @PathVariable("id") String id,
+            @AuthenticationPrincipal SysUser user) {
+        ImageTask task = imageTaskService.getByTaskId(id);
+        if (task == null) {
+            return R.notFound("任务不存在");
+        }
+        // 验证任务属于当前用户
+        if (!task.getUserId().equals(user.getId())) {
+            return R.forbidden("无权访问此任务");
+        }
+
+        TaskDetailResponse response = new TaskDetailResponse();
+        response.setTaskId(task.getTaskId());
+        response.setTaskType(task.getTaskType());
+        response.setStatus(task.getStatus());
+        response.setPrompt(task.getPrompt());
+        response.setModel(task.getModel());
+        response.setOriginalImageUrl(task.getOriginalImageUrl());
+        response.setResultImageUrl(task.getResultImageUrl());
+        response.setErrorMsg(task.getErrorMsg());
+        response.setDuration(task.getDuration());
+        response.setCreateTime(task.getCreateTime());
         return R.ok(response);
     }
 
@@ -145,6 +216,7 @@ public class ImageEnhanceAsyncController {
     @Data
     public static class EnhanceAsyncResponse {
         private String taskId;
+        private String model;
     }
 
     /**
@@ -154,6 +226,7 @@ public class ImageEnhanceAsyncController {
     public static class TaskResultResponse {
         private String status;
         private String imageUrl;
+        private String originalImageUrl;
         private String msg;
     }
 
@@ -165,5 +238,34 @@ public class ImageEnhanceAsyncController {
         private String taskId;
         private String imageUrl;
         private String prompt;
+    }
+
+    /**
+     * 任务历史分页响应
+     */
+    @Data
+    public static class TaskHistoryPageResponse {
+        private List<ImageTask> records;
+        private Long total;
+        private Long pages;
+        private Long current;
+        private Long size;
+    }
+
+    /**
+     * 任务详情响应
+     */
+    @Data
+    public static class TaskDetailResponse {
+        private String taskId;
+        private String taskType;
+        private String status;
+        private String prompt;
+        private String model;
+        private String originalImageUrl;
+        private String resultImageUrl;
+        private String errorMsg;
+        private Long duration;
+        private java.time.LocalDateTime createTime;
     }
 }

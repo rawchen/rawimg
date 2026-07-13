@@ -436,22 +436,55 @@ export const feedbackApi = {
 
 // Image Enhance API
 export const imageEnhanceApi = {
-  enhanceImage: (file: File, category: string) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('category', category);
-    return api.post<{
-      originalFilename: string;
-      enhancedUrl: string;
-      category: string;
-    }>('/image-enhance/enhance', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }) as unknown as Promise<{
-      originalFilename: string;
-      enhancedUrl: string;
-      category: string;
-    }>;
+  // 异步增强图片 - 通过OSS URL
+  enhanceImageAsync: (referenceUrl: string, category: string, prompt?: string, model?: string) => {
+    const params = new URLSearchParams();
+    params.append('referenceUrl', referenceUrl);
+    params.append('category', category);
+    if (prompt) {
+      params.append('prompt', prompt);
+    }
+    if (model) {
+      params.append('model', model);
+    }
+    return api.post<{ taskId: string; model: string }>('/image-enhance/enhance_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; model: string }>;
   },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>('/image-enhance/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取历史记录
+  getHistory: (page = 1, size = 12, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-enhance/history', { params: { page, size, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-enhance/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
 };
 
 // Image Remove API
