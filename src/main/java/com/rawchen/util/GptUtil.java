@@ -28,8 +28,38 @@ public class GptUtil {
     @Value("${gpt.image.api-key}")
     private String apiKey;
 
+    @Value("${gpt.image.api-key-hr}")
+    private String apiKeyHr;
+
     @Value("${gpt.image.model}")
     private String model;
+
+    /**
+     * 判断尺寸是否为高分辨率(2K/4K)
+     */
+    private boolean isHighResolution(String size) {
+        if (size == null || size.isEmpty()) {
+            return false;
+        }
+        try {
+            String[] parts = size.split("x");
+            if (parts.length == 2) {
+                int width = Integer.parseInt(parts[0]);
+                int height = Integer.parseInt(parts[1]);
+                // 2K: 2560x1440, 4K: 3840x2160 等高分辨率
+                return width >= 2048 || height >= 2048;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return false;
+    }
+
+    /**
+     * 根据尺寸获取对应的API Key
+     */
+    private String getApiKeyBySize(String size) {
+        return isHighResolution(size) ? apiKeyHr : apiKey;
+    }
 
     @Value("${oss.custom-domain:cdn.rawchen.com}")
     private String cdnDomain;
@@ -108,8 +138,9 @@ public class GptUtil {
 //            maskFile = downloadUrlToFile(maskUrl, "gpt_mask_");
 
             String fullUrl = apiUrl + "/v1/images/edits";
+            String effectiveApiKey = getApiKeyBySize(size);
             HttpRequest request = HttpRequest.post(fullUrl)
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
                     .form("image", imageFile)
                     .form("mask", maskUrl)
                     .form("model", model)
@@ -322,8 +353,9 @@ public class GptUtil {
         List<File> tempFiles = new ArrayList<>();
         try {
             String fullUrl = apiUrl + "/v1/images/edits";
+            String effectiveApiKey = getApiKeyBySize(size);
             HttpRequest request = HttpRequest.post(fullUrl)
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
                     .form("model", model)
                     .form("prompt", prompt)
                     .timeout(10 * 60 * 1000);
@@ -383,6 +415,7 @@ public class GptUtil {
     public String generateImage(String prompt, String size) {
         try {
             String fullUrl = apiUrl + "/v1/images/generations";
+            String effectiveApiKey = getApiKeyBySize(size);
 
             JSONObject requestBody = new JSONObject();
             requestBody.put("model", model);
@@ -394,7 +427,7 @@ public class GptUtil {
             requestBody.put("output_format", "jpeg");
 
             HttpResponse response = HttpRequest.post(fullUrl)
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
                     .header("Content-Type", "application/json")
                     .body(requestBody.toJSONString())
                     .timeout(10 * 60 * 1000)

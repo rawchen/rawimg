@@ -80,6 +80,39 @@ const sizeOptions = [
   { value: '1080x1920', label: '9:16', desc: '竖屏', displayWidth: 11, displayHeight: 20 },
 ];
 
+// 分辨率选项
+const resolutionOptions = [
+  { value: '1K', label: '1K' },
+  { value: '2K', label: '2K' },
+  { value: '4K', label: '4K' },
+];
+
+// 判断比例是否支持高清分辨率切换
+const isHdSupported = (size: string) => {
+  return size === '1920x1080' || size === '1080x1920';
+};
+
+// 判断比例是否显示分辨率切换组件（所有比例都显示）
+const shouldShowResolutionToggle = () => true;
+
+// 根据比例和分辨率计算实际size
+const getActualSize = (baseSize: string, resolution: string) => {
+  if (!isHdSupported(baseSize)) return baseSize;
+
+  const isLandscape = baseSize === '1920x1080';
+
+  switch (resolution) {
+    case '1K':
+      return baseSize;
+    case '2K':
+      return isLandscape ? '2560x1440' : '1440x2560';
+    case '4K':
+      return isLandscape ? '3840x2160' : '2160x3840';
+    default:
+      return baseSize;
+  }
+};
+
 interface InspirationTemplate {
   id: number;
   title: string;
@@ -98,6 +131,7 @@ export function ImageCreatePage() {
   const [uploadedOssUrls, setUploadedOssUrls] = useState<string[]>([]); // OSS URL
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null); // 正在上传的图片索引
   const [selectedSize, setSelectedSize] = useState('1920x1080');
+  const [selectedResolution, setSelectedResolution] = useState('1K'); // 分辨率选择
   const [createdImage, setCreatedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null); // 任务提交时间戳
@@ -337,7 +371,8 @@ export function ImageCreatePage() {
       const referenceUrls = uploadedOssUrls.length > 0 ? JSON.stringify(uploadedOssUrls) : undefined;
 
       // 使用异步接口（只传递URL，不传递文件）
-      const { taskId } = await imageCreateApi.createImageAsyncWithUrls(referenceUrls, prompt, selectedSize);
+      const actualSize = getActualSize(selectedSize, selectedResolution);
+      const { taskId } = await imageCreateApi.createImageAsyncWithUrls(referenceUrls, prompt, actualSize);
       message.info('任务已提交，可稍后在生成历史查看');
 
       // 轮询任务结果
@@ -636,12 +671,18 @@ export function ImageCreatePage() {
 
             {/* 尺寸选择 */}
             <div className="mt-4">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {sizeOptions.map(option => (
                   <button
                     key={option.value}
-                    onClick={() => setSelectedSize(option.value)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                    onClick={() => {
+                      setSelectedSize(option.value);
+                      // 如果切换到不支持高清的尺寸，重置分辨率为1K
+                      if (!isHdSupported(option.value)) {
+                        setSelectedResolution('1K');
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border-2 transition-all ${
                       selectedSize === option.value
                         ? 'bg-orange-100 border-orange-500 text-orange-600'
                         : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300'
@@ -662,6 +703,44 @@ export function ImageCreatePage() {
                     <span className="text-xs text-gray-800">{option.desc}</span>
                   </button>
                 ))}
+
+                {/* 分辨率切换 */}
+                {shouldShowResolutionToggle() && (
+                  <div className={`relative flex items-center rounded-lg p-1 ml-1 ${
+                    isHdSupported(selectedSize) ? 'bg-white' : 'bg-white'
+                  }`}>
+                    {/* 滑动指示器 */}
+                    <div
+                      className={`absolute top-1 bottom-1 rounded transition-all duration-200 ${
+                        isHdSupported(selectedSize) ? 'bg-orange-500' : 'bg-gray-300'
+                      }`}
+                      style={{
+                        width: 'calc(33.333% - 4px)',
+                        left: selectedResolution === '1K' ? '4px' : selectedResolution === '2K' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 0px)',
+                      }}
+                    />
+                    {['1K', '2K', '4K'].map(res => (
+                      <button
+                        key={res}
+                        onClick={() => {
+                          if (isHdSupported(selectedSize)) {
+                            setSelectedResolution(res);
+                          }
+                        }}
+                        disabled={!isHdSupported(selectedSize)}
+                        className={`relative z-10 px-3 py-1 text-xs font-medium transition-colors duration-200 ${
+                          isHdSupported(selectedSize)
+                            ? selectedResolution === res
+                              ? 'text-white'
+                              : 'text-gray-600 hover:text-gray-900'
+                            : 'text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {res}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
