@@ -35,6 +35,7 @@ public class ImageCreateAsyncController {
      * @param referenceUrls 参考图的OSS URL列表（可选，JSON数组格式）
      * @param prompt        创作提示词
      * @param size          图片尺寸
+     * @param model         使用的模型（可选，默认gpt-image-2）
      * @param user          当前登录用户
      * @return 任务ID
      */
@@ -43,6 +44,7 @@ public class ImageCreateAsyncController {
             @RequestParam(value = "referenceUrls", required = false) String referenceUrls,
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "size", defaultValue = "1024x1024") String size,
+            @RequestParam(value = "model", required = false) String model,
             @AuthenticationPrincipal SysUser user) {
 
         if (prompt == null || prompt.trim().isEmpty()) {
@@ -70,13 +72,14 @@ public class ImageCreateAsyncController {
         task.setPrompt(prompt);
         task.setSize(size);
         task.setReferenceImageUrls(referenceUrls);
+        task.setModel(model);
         imageTaskService.save(task);
 
         // 异步执行任务
         if (refUrlList == null || refUrlList.isEmpty()) {
-            asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size);
+            asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model);
         } else {
-            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size);
+            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size, model);
         }
 
         CreateAsyncResponse response = new CreateAsyncResponse();

@@ -51,11 +51,11 @@ public class ImageCreateController {
             if (files == null || files.isEmpty()) {
                 // 没有图片，使用纯文字生成
                 log.info("Creating image from text prompt: {}", prompt);
-                resultUrl = gptUtil.generateImage(prompt, size);
+                resultUrl = gptUtil.generateImage(prompt, size, null);
             } else {
                 // 有图片，使用图片编辑
                 log.info("Creating image with {} reference images", files.size());
-                resultUrl = gptUtil.editImage(files, prompt, size);
+                resultUrl = gptUtil.editImage(files, prompt, size, null);
             }
 
             ImageCreateResponse response = new ImageCreateResponse();

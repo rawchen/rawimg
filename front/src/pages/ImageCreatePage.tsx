@@ -132,6 +132,7 @@ export function ImageCreatePage() {
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null); // 正在上传的图片索引
   const [selectedSize, setSelectedSize] = useState('1920x1080');
   const [selectedResolution, setSelectedResolution] = useState('1K'); // 分辨率选择
+  const [selectedModel, setSelectedModel] = useState('gpt-image-2'); // 模型选择
   const [createdImage, setCreatedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null); // 任务提交时间戳
@@ -372,7 +373,8 @@ export function ImageCreatePage() {
 
       // 使用异步接口（只传递URL，不传递文件）
       const actualSize = getActualSize(selectedSize, selectedResolution);
-      const { taskId } = await imageCreateApi.createImageAsyncWithUrls(referenceUrls, prompt, actualSize);
+      const effectiveModel = selectedModel === 'gpt-image-2' ? undefined : selectedModel;
+      const { taskId } = await imageCreateApi.createImageAsyncWithUrls(referenceUrls, prompt, actualSize, effectiveModel);
       message.info('任务已提交，可稍后在生成历史查看');
 
       // 轮询任务结果
@@ -825,6 +827,29 @@ export function ImageCreatePage() {
                     <BulbOutlined />
                     灵感示例
                   </button>
+                  {/* 模型切换开关 */}
+                  <div className="ml-auto flex items-center gap-2">
+                    {/*<span className="text-xs text-gray-500">模型:</span>*/}
+                    <div
+                      onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-3.1-flash-image-preview' : 'gpt-image-2')}
+                      className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                        loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      } ${selectedModel === 'gpt-image-2' ? 'bg-orange-500' : 'bg-purple-500'}`}
+                    >
+                    <span className={`absolute text-xs font-medium transition-all ${
+                      selectedModel === 'gpt-image-2'
+                        ? 'left-2 text-white'
+                        : 'left-10 text-white'
+                    }`}>
+                      {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
+                    </span>
+                      <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                        selectedModel === 'gpt-image-2'
+                          ? 'right-1'
+                          : 'left-1'
+                      }`} />
+                    </div>
+                  </div>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mb-3">先说主体、场景、时间氛围，再补充想要的细节和风格</p>
@@ -906,7 +931,7 @@ export function ImageCreatePage() {
 
             {/* 提示信息 */}
             <div className="bg-orange-100 rounded-xl p-4">
-              <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
                 <span className="text-orange-500">💡</span>
                 使用提示
               </h3>

@@ -55,9 +55,69 @@ public class GptUtil {
     }
 
     /**
-     * 根据尺寸获取对应的API Key
+     * 判断是否为2K分辨率
      */
-    private String getApiKeyBySize(String size) {
+    private boolean is2K(String size) {
+        if (size == null || size.isEmpty()) return false;
+        try {
+            String[] parts = size.split("x");
+            if (parts.length == 2) {
+                int width = Integer.parseInt(parts[0]);
+                int height = Integer.parseInt(parts[1]);
+                return (width == 2560 && height == 1440) || (width == 1440 && height == 2560);
+            }
+        } catch (NumberFormatException ignored) {}
+        return false;
+    }
+
+    /**
+     * 判断是否为4K分辨率
+     */
+    private boolean is4K(String size) {
+        if (size == null || size.isEmpty()) return false;
+        try {
+            String[] parts = size.split("x");
+            if (parts.length == 2) {
+                int width = Integer.parseInt(parts[0]);
+                int height = Integer.parseInt(parts[1]);
+                return (width == 3840 && height == 2160) || (width == 2160 && height == 3840);
+            }
+        } catch (NumberFormatException ignored) {}
+        return false;
+    }
+
+    /**
+     * 判断是否为nano模型
+     */
+    private boolean isNanoModel(String modelParam) {
+        if (modelParam == null) return false;
+        return modelParam.startsWith("gemini") || modelParam.startsWith("nano");
+    }
+
+    /**
+     * 获取实际的模型名称（nano模型根据分辨率调整）
+     */
+    private String getEffectiveModel(String modelParam, String size) {
+        if (modelParam == null) return model;
+        if (!isNanoModel(modelParam)) return modelParam;
+
+        // nano模型根据分辨率调整模型名
+        if (is4K(size)) {
+            return "gemini-3.1-flash-image-preview-4k";
+        } else if (is2K(size)) {
+            return "gemini-3.1-flash-image-preview-2k";
+        }
+        return "gemini-3.1-flash-image-preview";
+    }
+
+    /**
+     * 根据尺寸和模型获取对应的API Key
+     * nano模型始终使用默认apiKey，其他模型高分辨率使用apiKeyHr
+     */
+    private String getApiKeyBySizeAndModel(String size, String modelParam) {
+        if (isNanoModel(modelParam)) {
+            return apiKey; // nano模型始终使用默认key
+        }
         return isHighResolution(size) ? apiKeyHr : apiKey;
     }
 
@@ -138,7 +198,7 @@ public class GptUtil {
 //            maskFile = downloadUrlToFile(maskUrl, "gpt_mask_");
 
             String fullUrl = apiUrl + "/v1/images/edits";
-            String effectiveApiKey = getApiKeyBySize(size);
+            String effectiveApiKey = getApiKeyBySizeAndModel(size, model);
             HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
                     .form("image", imageFile)
@@ -347,16 +407,19 @@ public class GptUtil {
      *
      * @param files  上传的图片文件列表（最多5张）
      * @param prompt 编辑提示词
+     * @param size   图片尺寸
+     * @param modelParam 使用的模型（可选）
      * @return 生成的图片URL或Base64数据
      */
-    public String editImage(List<MultipartFile> files, String prompt, String size) {
+    public String editImage(List<MultipartFile> files, String prompt, String size, String modelParam) {
         List<File> tempFiles = new ArrayList<>();
         try {
             String fullUrl = apiUrl + "/v1/images/edits";
-            String effectiveApiKey = getApiKeyBySize(size);
+            String effectiveModel = getEffectiveModel(modelParam, size);
+            String effectiveApiKey = getApiKeyBySizeAndModel(size, modelParam);
             HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
-                    .form("model", model)
+                    .form("model", effectiveModel)
                     .form("prompt", prompt)
                     .timeout(10 * 60 * 1000);
 
@@ -410,15 +473,17 @@ public class GptUtil {
      *
      * @param prompt 生成提示词
      * @param size   图片尺寸（如：1024x1024, 2160x3840）
+     * @param modelParam 使用的模型（可选）
      * @return 生成的图片URL或Base64数据
      */
-    public String generateImage(String prompt, String size) {
+    public String generateImage(String prompt, String size, String modelParam) {
         try {
             String fullUrl = apiUrl + "/v1/images/generations";
-            String effectiveApiKey = getApiKeyBySize(size);
+            String effectiveModel = getEffectiveModel(modelParam, size);
+            String effectiveApiKey = getApiKeyBySizeAndModel(size, modelParam);
 
             JSONObject requestBody = new JSONObject();
-            requestBody.put("model", model);
+            requestBody.put("model", effectiveModel);
             requestBody.put("prompt", prompt);
             requestBody.put("n", 1);
             if (size != null && !size.isEmpty()) {

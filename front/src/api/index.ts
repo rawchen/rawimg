@@ -693,13 +693,16 @@ export const imageCreateApi = {
   },
 
   // 异步创建图片 - 通过OSS URL（推荐）
-  createImageAsyncWithUrls: (referenceUrls: string | undefined, prompt: string, size: string) => {
+  createImageAsyncWithUrls: (referenceUrls: string | undefined, prompt: string, size: string, model?: string) => {
     const params = new URLSearchParams();
     if (referenceUrls) {
       params.append('referenceUrls', referenceUrls);
     }
     params.append('prompt', prompt);
     params.append('size', size);
+    if (model) {
+      params.append('model', model);
+    }
     return api.post<{ taskId: string }>('/image-create/create_async', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }) as unknown as Promise<{ taskId: string }>;

@@ -34,11 +34,11 @@ public class AsyncImageTaskExecutor {
      * 异步执行图片创作任务（纯文字生成）
      */
     @Async("imageTaskExecutor")
-    public void executeCreateTask(String taskId, String prompt, String size) {
+    public void executeCreateTask(String taskId, String prompt, String size, String model) {
         long startTime = System.currentTimeMillis();
         try {
-            log.info("Async create task {} started", taskId);
-            String result = gptUtil.generateImage(prompt, size);
+            log.info("Async create task {} started with model {}", taskId, model);
+            String result = gptUtil.generateImage(prompt, size, model);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -52,12 +52,13 @@ public class AsyncImageTaskExecutor {
     /**
      * 异步执行图片创作任务（带参考图编辑）- 通过URL
      * @param referenceUrls 参考图URL列表
+     * @param model 使用的模型
      */
     @Async("imageTaskExecutor")
-    public void executeEditTaskWithUrls(String taskId, List<String> referenceUrls, String prompt, String size) {
+    public void executeEditTaskWithUrls(String taskId, List<String> referenceUrls, String prompt, String size, String model) {
         long startTime = System.currentTimeMillis();
         try {
-            log.info("Async edit task {} started with {} URLs", taskId, referenceUrls.size());
+            log.info("Async edit task {} started with {} URLs, model {}", taskId, referenceUrls.size(), model);
 
             // 从URL下载图片到内存
             List<MultipartFile> files = new ArrayList<>();
@@ -73,7 +74,7 @@ public class AsyncImageTaskExecutor {
                 }
             }
 
-            String result = gptUtil.editImage(files, prompt, size);
+            String result = gptUtil.editImage(files, prompt, size, model);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -240,7 +241,7 @@ public class AsyncImageTaskExecutor {
             for (int i = 0; i < fileDataList.size(); i++) {
                 files.add(new MemoryMultipartFile(fileDataList.get(i), fileNames.get(i)));
             }
-            String result = gptUtil.editImage(files, prompt, size);
+            String result = gptUtil.editImage(files, prompt, size, null);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
