@@ -257,18 +257,21 @@ public class GptUtil {
      */
     public String inpaintImage(String imageUrl, String maskUrl, String prompt, String model) {
         File imageFile = null;
+        File maskFile = null;
         try {
             // 从URL下载图片到临时文件
             imageFile = downloadUrlToFile(imageUrl, "gpt_inpaint_");
+            maskFile = downloadUrlToFile(maskUrl, "gpt_inpaint_");
 
             String fullUrl = apiUrl + "/v1/images/edits";
             String effectiveApiKey = getApiKeyBySizeAndModel(null, model);
             HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
                     .form("image", imageFile)
-                    .form("mask", maskUrl)
+                    .form("mask", maskFile)
                     .form("model", model)
                     .form("prompt", prompt)
+                    .form("input_fidelity", "high")
                     .timeout(10 * 60 * 1000);
 
             HttpResponse response = request.execute();
@@ -297,6 +300,9 @@ public class GptUtil {
         } finally {
             if (imageFile != null && imageFile.exists()) {
                 FileUtil.del(imageFile);
+            }
+            if (maskFile != null && maskFile.exists()) {
+                FileUtil.del(maskFile);
             }
         }
     }

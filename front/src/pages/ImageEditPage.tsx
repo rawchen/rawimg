@@ -86,7 +86,7 @@ const tools: ToolConfig[] = [
 
 // 预置提示词
 const presetPrompts = [
-  { key: 'remove', label: '去除', prompt: '去除选区内的内容，保持背景自然连贯' },
+  { key: 'remove', label: '去除', prompt: '去除mask中橙色选区内的内容' },
   { key: 'sky', label: '换天空', prompt: '把天空替换成晴朗的蓝天白云' },
   { key: 'pedestrian', label: '去路人', prompt: '把远处背景中多余的路人移除' },
   { key: 'hairstyle', label: '变发型', prompt: '把人物的短发变成柔顺的金色长卷发' },
