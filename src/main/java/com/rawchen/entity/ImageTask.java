@@ -58,7 +58,7 @@ public class ImageTask extends BaseEntity {
     private String maskImageUrl;
 
     /**
-     * 使用的模型名称（如：gpt-image-2, nano-banana-2-convert）
+     * 使用的模型名称（如：gpt-image-2, gemini-2.5-flash-image）
      */
     private String model;
 

@@ -681,7 +681,7 @@ export function ImageRestorePage() {
                   </button>
                   {/* 模型切换开关 */}
                   <div
-                    onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'nano-banana-2-convert' : 'gpt-image-2')}
+                    onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
                     className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${selectedModel === 'gpt-image-2' ? 'bg-blue-500' : 'bg-purple-500'}`}

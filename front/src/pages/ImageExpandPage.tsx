@@ -722,7 +722,7 @@ export function ImageExpandPage() {
                 maxWidth: `${450 * parseSize(selectedSize).width / parseSize(selectedSize).height}px`,
               }}
             >
-              {expandedImage && originalImageUrl ? (
+              {expandedImage && maskImageUrl ? (
                 // 扩展完成 - 对比滑块模式
                 <>
                   {/* 扩展结果图 */}
@@ -733,13 +733,13 @@ export function ImageExpandPage() {
                     draggable={false}
                   />
 
-                  {/* 原图 */}
+                  {/* 遮罩图（原图在目标画布中的位置） */}
                   <div
                     className="absolute inset-0"
                     style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
                   >
                     <img
-                      src={originalImageUrl}
+                      src={maskImageUrl}
                       alt="原图"
                       className="w-full h-full object-contain bg-white"
                       draggable={false}
@@ -963,7 +963,7 @@ export function ImageExpandPage() {
                   </button>
                   {/* 模型切换开关 */}
                   <div
-                    onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'nano-banana-2-convert' : 'gpt-image-2')}
+                    onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
                     className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${selectedModel === 'gpt-image-2' ? 'bg-orange-500' : 'bg-blue-500'}`}
