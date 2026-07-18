@@ -20,6 +20,7 @@ import {
   Blend,
   Panda,
   SquareScissors,
+  PenTool,
 } from 'lucide-react';
 
 const tools = [
@@ -28,9 +29,10 @@ const tools = [
   { key: 'remove', name: '物体移除', icon: PackageMinus, hot: true },
   { key: 'matting', name: '背景移除', icon: ImageMinus },
   { key: 'expand', name: '图像扩展', icon: ImageUpscale },
+  { key: 'edit', name: '局部改图', icon: PenTool, new: true },
   { key: 'restore', name: '照片修复', icon: ImagePlus },
   { key: 'beauty', name: '智能美颜', icon: Panda },
-  { key: 'hairstyle', name: '发型创意', icon: SquareScissors, new: true },
+  { key: 'hairstyle', name: '发型创意', icon: SquareScissors },
 ];
 
 export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {

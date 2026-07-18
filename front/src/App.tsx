@@ -33,6 +33,7 @@ import { ImageRemovePage } from '@/pages/ImageRemovePage.tsx';
 import { ImageExpandPage } from '@/pages/ImageExpandPage.tsx';
 import { ImageMattingPage } from '@/pages/ImageMattingPage.tsx';
 import { ImageRestorePage } from '@/pages/ImageRestorePage.tsx';
+import { ImageEditPage } from '@/pages/ImageEditPage.tsx';
 
 function AppContent() {
   const location = useLocation();
@@ -45,6 +46,7 @@ function AppContent() {
   const isExpandPage = location.pathname === '/expand';
   const isMattingPage = location.pathname === '/matting';
   const isRestorePage = location.pathname === '/restore';
+  const isEditPage = location.pathname === '/edit';
 
   const [isScrolled, setIsScrolled] = useState(false);
   const scrollElementRef = useRef<HTMLElement | null>(null);
@@ -118,6 +120,9 @@ function AppContent() {
             {/* Image Restore Route */}
             <Route path="/restore" element={<ImageRestorePage />} />
 
+            {/* Image Edit Route */}
+            <Route path="/edit" element={<ImageEditPage />} />
+
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
             <Route path="/editor/:id" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
@@ -143,7 +148,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && <Footer />}
+      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && !isEditPage && <Footer />}
     </div>
   );
 }

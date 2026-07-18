@@ -247,6 +247,61 @@ public class GptUtil {
     }
 
     /**
+     * 调用GPT图像局部改图API - 使用mask修改指定区域
+     *
+     * @param imageUrl 原始图片URL
+     * @param maskUrl  遮罩图片URL（纯色选区+透明背景）
+     * @param prompt   编辑提示词
+     * @param model    使用的模型名称
+     * @return 编辑后的图片URL或Base64数据
+     */
+    public String inpaintImage(String imageUrl, String maskUrl, String prompt, String model) {
+        File imageFile = null;
+        try {
+            // 从URL下载图片到临时文件
+            imageFile = downloadUrlToFile(imageUrl, "gpt_inpaint_");
+
+            String fullUrl = apiUrl + "/v1/images/edits";
+            String effectiveApiKey = getApiKeyBySizeAndModel(null, model);
+            HttpRequest request = HttpRequest.post(fullUrl)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
+                    .form("image", imageFile)
+                    .form("mask", maskUrl)
+                    .form("model", model)
+                    .form("prompt", prompt)
+                    .timeout(10 * 60 * 1000);
+
+            HttpResponse response = request.execute();
+            String body = response.body();
+            log.info("GPT inpaint API response status: {}", response.getStatus());
+
+            if (response.isOk()) {
+                JSONObject json = JSON.parseObject(body);
+                if (json.containsKey("data")) {
+                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
+                    if (imageData.containsKey("url")) {
+                        return imageData.getString("url");
+                    } else if (imageData.containsKey("b64_json")) {
+                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    }
+                }
+                log.error("GPT inpaint API unexpected response: {}", body);
+                throw new RuntimeException("局部改图失败，API返回异常");
+            } else {
+                log.error("GPT inpaint API error: status={}, body={}", response.getStatus(), body);
+                throw new RuntimeException("局部改图失败: " + body);
+            }
+        } catch (Exception e) {
+            log.error("GPT inpaint API error: {}", e.getMessage());
+            throw new RuntimeException("局部改图失败: " + e.getMessage());
+        } finally {
+            if (imageFile != null && imageFile.exists()) {
+                FileUtil.del(imageFile);
+            }
+        }
+    }
+
+    /**
      * 调用GPT图像抠图API - 移除背景
      *
      * @param file   上传的图片文件

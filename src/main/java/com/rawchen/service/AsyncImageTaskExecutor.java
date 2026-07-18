@@ -228,6 +228,33 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
+     * 异步执行局部改图任务
+     * @param taskId 任务ID
+     * @param originalImageUrl 原始图片URL
+     * @param maskImageUrl 遮罩图片URL（纯橘色选区+透明背景）
+     * @param prompt 编辑提示词
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeEditInpaintTask(String taskId, String originalImageUrl, String maskImageUrl, String prompt, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async edit inpaint task {} started with model {}", taskId, model);
+
+            // 调用GPT局部改图API
+            String result = gptUtil.inpaintImage(originalImageUrl, maskImageUrl, prompt, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async edit inpaint task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async edit inpaint task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
      * 异步执行图片创作任务（带参考图编辑）
      * @param fileDataList 文件内容列表（已读入内存）
      */

@@ -46,7 +46,7 @@ public class SecurityConfig {
                         .antMatchers("/", "/index.html", "/static/**", "/js/**", "/css/**", "/img/**", "/assets/**", "/icons/**", "/favicon.ico", "favicon.svg").permitAll()
                         .antMatchers("/*.js", "/*.css", "/*.png", "/*.jpg", "/*.ico").permitAll()
                         // 放行所有前端路由（非 API 和非静态资源）
-                        .antMatchers("/id/**", "/favorites", "/recharge", "/enhance", "/create", "/remove", "/expand", "/matting", "/restore", "/admin/**", "/profile", "/not-found", "/like", "/hot", "/down").permitAll()
+                        .antMatchers("/id/**", "/favorites", "/recharge", "/enhance", "/create", "/remove", "/expand", "/matting", "/restore", "/edit", "/admin/**", "/profile", "/not-found", "/like", "/hot", "/down").permitAll()
                         .antMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
                         .anyRequest().authenticated()
                 )
