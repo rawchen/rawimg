@@ -7,6 +7,7 @@ import {
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import { imageRestoreApi, userApi, ImageTaskRecord } from '@/api';
+import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 导入对比示例图
 import demoBefore from '@/assets/image-restore/before.jpg';
@@ -766,7 +767,7 @@ export function ImageRestorePage() {
                   <div className="relative w-full h-32">
                     {record.resultImageUrl ? (
                       <img
-                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
                         alt="生成结果"
                         className="w-full h-full object-cover"
                       />
@@ -779,7 +780,7 @@ export function ImageRestorePage() {
                     {record.originalImageUrl && (
                       <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
                         <img
-                          src={ensureHttpsUrl(record.originalImageUrl) || ''}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(record.originalImageUrl)) || ''}
                           alt="原图"
                           className="w-full h-full object-cover"
                         />

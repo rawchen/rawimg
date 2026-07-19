@@ -11,6 +11,7 @@ import { UserStar, ToolCase, Mountain, PawPrint, TypeOutline, ChevronRight } fro
 import { imageEnhanceApi, userApi, ImageTaskRecord } from '@/api';
 import demoBefore from '@/assets/image-enhance/before.jpg';
 import demoAfter from '@/assets/image-enhance/after.jpg';
+import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -732,7 +733,7 @@ export function ImageEnhancePage() {
                   <div className="relative w-full h-32">
                     {record.resultImageUrl ? (
                       <img
-                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
                         alt="生成结果"
                         className="w-full h-full object-cover"
                       />
@@ -745,7 +746,7 @@ export function ImageEnhancePage() {
                     {record.originalImageUrl && (
                       <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
                         <img
-                          src={ensureHttpsUrl(record.originalImageUrl) || ''}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(record.originalImageUrl)) || ''}
                           alt="原图"
                           className="w-full h-full object-cover"
                         />

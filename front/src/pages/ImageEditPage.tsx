@@ -7,12 +7,13 @@ import {
   ClockCircleOutlined,
   UndoOutlined,
   RedoOutlined,
-  ClearOutlined,
+  ClearOutlined, RollbackOutlined, RetweetOutlined,
 } from '@ant-design/icons';
 import { Paintbrush, Square, CircleDot, LucideIcon } from 'lucide-react';
 import { userApi, ImageTaskRecord, imageEditApi } from '@/api';
 import demoBefore from '@/assets/image-remove/obr-people-before.jpg';
 import demoAfter from '@/assets/image-remove/obr-people-after.jpg';
+import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -86,7 +87,7 @@ const tools: ToolConfig[] = [
 
 // 预置提示词
 const presetPrompts = [
-  { key: 'remove', label: '去除', prompt: '去除mask中橙色选区内的内容' },
+  { key: 'remove', label: '去除', prompt: '去除选区内的内容' },
   { key: 'sky', label: '换天空', prompt: '把天空替换成晴朗的蓝天白云' },
   { key: 'pedestrian', label: '去路人', prompt: '把远处背景中多余的路人移除' },
   { key: 'hairstyle', label: '变发型', prompt: '把人物的短发变成柔顺的金色长卷发' },
@@ -117,6 +118,8 @@ export function ImageEditPage() {
   // 选区工具状态
   const [selectedTool, setSelectedTool] = useState<ToolType>('brush');
   const [brushSize, setBrushSize] = useState(20);
+  const [brushMin, setBrushMin] = useState(5);
+  const [brushMax, setBrushMax] = useState(100);
   const [maskPaths, setMaskPaths] = useState<MaskPath[]>([]);
   const [pathIndex, setPathIndex] = useState(-1);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -124,11 +127,13 @@ export function ImageEditPage() {
   const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
   const [rectEnd, setRectEnd] = useState<{ x: number; y: number } | null>(null);
 
-  // Canvas相关
-  const [canvasScale, setCanvasScale] = useState(1);
-  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+  // 鼠标指示器位置（相对于容器）
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [cursorInCanvas, setCursorInCanvas] = useState(false);
+
+  // 涂抹大小预览
+  const [showBrushPreview, setShowBrushPreview] = useState(false);
+  const brushPreviewTimerRef = useRef<number | null>(null);
 
   // 提示词和模型
   const [prompt, setPrompt] = useState('');
@@ -157,6 +162,76 @@ export function ImageEditPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+
+  // 使用 ref 跟踪绘制状态（用于全局 mouseup）
+  const drawingStateRef = useRef({
+    isDrawing: false,
+    currentPoints: [] as { x: number; y: number }[],
+    selectedTool: 'brush' as ToolType,
+    brushSize: 20,
+    maskPaths: [] as MaskPath[],
+    pathIndex: -1,
+    rectStart: null as { x: number; y: number } | null,
+    rectEnd: null as { x: number; y: number } | null,
+  });
+
+  // 同步 state 到 ref
+  useEffect(() => {
+    drawingStateRef.current = {
+      isDrawing,
+      currentPoints,
+      selectedTool,
+      brushSize,
+      maskPaths,
+      pathIndex,
+      rectStart,
+      rectEnd,
+    };
+  }, [isDrawing, currentPoints, selectedTool, brushSize, maskPaths, pathIndex, rectStart, rectEnd]);
+
+  // 全局鼠标释放监听（处理鼠标移出容器后释放的情况）
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      const state = drawingStateRef.current;
+      if (!state.isDrawing) return;
+
+      if (state.selectedTool === 'brush' && state.currentPoints.length > 0) {
+        const newPath: MaskPath = {
+          type: 'brush',
+          points: state.currentPoints,
+          brushSize: state.brushSize,
+        };
+        const newPaths = [...state.maskPaths.slice(0, state.pathIndex + 1), newPath];
+        setMaskPaths(newPaths);
+        setPathIndex(newPaths.length - 1);
+      } else if (state.selectedTool === 'rect' && state.rectStart && state.rectEnd) {
+        const newPath: MaskPath = {
+          type: 'rect',
+          points: [state.rectStart, state.rectEnd],
+        };
+        const newPaths = [...state.maskPaths.slice(0, state.pathIndex + 1), newPath];
+        setMaskPaths(newPaths);
+        setPathIndex(newPaths.length - 1);
+        setRectStart(null);
+        setRectEnd(null);
+      } else if (state.selectedTool === 'lasso' && state.currentPoints.length > 2) {
+        const closedPoints = [...state.currentPoints, state.currentPoints[0]];
+        const newPath: MaskPath = {
+          type: 'lasso',
+          points: closedPoints,
+        };
+        const newPaths = [...state.maskPaths.slice(0, state.pathIndex + 1), newPath];
+        setMaskPaths(newPaths);
+        setPathIndex(newPaths.length - 1);
+      }
+
+      setIsDrawing(false);
+      setCurrentPoints([]);
+    };
+
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   // 实时更新任务耗时
   useEffect(() => {
@@ -288,6 +363,21 @@ export function ImageEditPage() {
             canvasRef.current.width = img.width;
             canvasRef.current.height = img.height;
           }
+
+          // 根据图片尺寸计算合适的涂抹大小（按对角线比例）
+          const diagonal = Math.sqrt(img.width * img.width + img.height * img.height);
+          const referenceDiagonal = 800; // 参考对角线长度（约565x565的正方形）
+          const scale = diagonal / referenceDiagonal;
+
+          // 基础大小20px，按比例缩放
+          const baseSize = 20;
+          const scaledSize = Math.round(baseSize * scale);
+          const minSize = Math.max(5, Math.round(5 * scale));
+          const maxSize = Math.max(100, Math.round(100 * scale));
+
+          setBrushSize(scaledSize);
+          setBrushMin(minSize);
+          setBrushMax(maxSize);
         };
         img.src = dataUrl;
       };
@@ -323,45 +413,77 @@ export function ImageEditPage() {
     e.preventDefault();
   };
 
-  // 获取canvas坐标
+  // 获取canvas坐标（考虑 objectFit: contain 的偏移）
   const getCanvasCoords = (e: React.MouseEvent | MouseEvent): { x: number; y: number } | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return null;
+    const container = containerRef.current;
+    if (!canvas || !container) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const canvasRatio = canvas.width / canvas.height;
+    const rectRatio = rect.width / rect.height;
+
+    // 计算实际内容区域（考虑 contain 后的偏移）
+    let contentX = rect.left;
+    let contentY = rect.top;
+    let contentWidth = rect.width;
+    let contentHeight = rect.height;
+
+    if (rectRatio > canvasRatio) {
+      // 容器更宽，左右有留白
+      contentWidth = rect.height * canvasRatio;
+      contentX = rect.left + (rect.width - contentWidth) / 2;
+    } else {
+      // 容器更高，上下有留白
+      contentHeight = rect.width / canvasRatio;
+      contentY = rect.top + (rect.height - contentHeight) / 2;
+    }
+
+    // 鼠标相对于内容区域的位置
+    const x = e.clientX - contentX;
+    const y = e.clientY - contentY;
+
+    // 检查是否在内容区域内
+    if (x < 0 || x > contentWidth || y < 0 || y > contentHeight) {
+      return null;
+    }
+
+    // 转换到 Canvas 逻辑坐标
+    const scaleX = canvas.width / contentWidth;
+    const scaleY = canvas.height / contentHeight;
 
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: x * scaleX,
+      y: y * scaleY,
     };
   };
 
   // Canvas鼠标事件
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (!originalImage || loading) return;
+    if (e.button !== 0) return; // 只处理左键
 
     const coords = getCanvasCoords(e);
     if (!coords) return;
 
-    if (e.button === 0) { // 左键绘制
-      setIsDrawing(true);
-      setCurrentPoints([coords]);
+    setIsDrawing(true);
+    setCurrentPoints([coords]);
 
-      if (selectedTool === 'rect') {
-        setRectStart(coords);
-        setRectEnd(coords);
-      }
-    } else if (e.button === 1 || e.button === 2) { // 中键或右键拖动
-      e.preventDefault();
-      setIsPanning(true);
-      setPanStart({ x: e.clientX, y: e.clientY, offsetX: canvasOffset.x, offsetY: canvasOffset.y });
+    if (selectedTool === 'rect') {
+      setRectStart(coords);
+      setRectEnd(coords);
     }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
     if (!originalImage) return;
+
+    // 更新鼠标位置（用于圆形指示器）
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
 
     const coords = getCanvasCoords(e);
     if (!coords) return;
@@ -375,28 +497,28 @@ export function ImageEditPage() {
         setCurrentPoints(prev => [...prev, coords]);
       }
     }
-
-    if (isPanning) {
-      const deltaX = e.clientX - panStart.x;
-      const deltaY = e.clientY - panStart.y;
-      setCanvasOffset({ x: panStart.offsetX + deltaX, y: panStart.offsetY + deltaY });
-    }
   };
 
-  const handleCanvasMouseUp = (e: React.MouseEvent) => {
-    if (isDrawing) {
-      const coords = getCanvasCoords(e);
+  const handleContainerMouseEnter = () => {
+    setCursorInCanvas(true);
+  };
 
+  const handleContainerMouseLeave = () => {
+    setCursorInCanvas(false);
+    setCursorPos(null);
+
+    // 如果正在绘制，保存当前路径但保持绘制状态（移入后继续新笔画）
+    if (isDrawing) {
       if (selectedTool === 'brush' && currentPoints.length > 0) {
         const newPath: MaskPath = {
           type: 'brush',
           points: currentPoints,
           brushSize,
         };
-        // 移除当前索引之后的所有路径，添加新路径
         const newPaths = [...maskPaths.slice(0, pathIndex + 1), newPath];
         setMaskPaths(newPaths);
         setPathIndex(newPaths.length - 1);
+        setCurrentPoints([]);
       } else if (selectedTool === 'rect' && rectStart && rectEnd) {
         const newPath: MaskPath = {
           type: 'rect',
@@ -407,8 +529,7 @@ export function ImageEditPage() {
         setPathIndex(newPaths.length - 1);
         setRectStart(null);
         setRectEnd(null);
-      } else if (selectedTool === 'lasso' && currentPoints.length > 2 && coords) {
-        // 圈选需要闭合
+      } else if (selectedTool === 'lasso' && currentPoints.length > 2) {
         const closedPoints = [...currentPoints, currentPoints[0]];
         const newPath: MaskPath = {
           type: 'lasso',
@@ -417,29 +538,66 @@ export function ImageEditPage() {
         const newPaths = [...maskPaths.slice(0, pathIndex + 1), newPath];
         setMaskPaths(newPaths);
         setPathIndex(newPaths.length - 1);
+        setCurrentPoints([]);
       }
-
-      setIsDrawing(false);
-      setCurrentPoints([]);
-    }
-
-    if (isPanning) {
-      setIsPanning(false);
+      // 不重置 isDrawing，保持绘制状态
     }
   };
 
-  const handleCanvasWheel = (e: React.WheelEvent) => {
-    if (!originalImage || loading) return;
-    e.preventDefault();
+  // 计算圆形指示器的显示大小
+  const getCursorSize = (): number => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return brushSize;
 
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setCanvasScale(prev => Math.max(0.1, Math.min(3, prev + delta)));
+    const rect = container.getBoundingClientRect();
+    const canvasRatio = canvas.width / canvas.height;
+    const rectRatio = rect.width / rect.height;
+
+    // 计算canvas实际显示的尺寸（考虑objectFit: contain）
+    let displayWidth: number;
+    let displayHeight: number;
+
+    if (rectRatio > canvasRatio) {
+      // 容器更宽，上下有留白
+      displayHeight = rect.height;
+      displayWidth = rect.height * canvasRatio;
+    } else {
+      // 容器更高，左右有留白
+      displayWidth = rect.width;
+      displayHeight = rect.width / canvasRatio;
+    }
+
+    // 计算缩放比例（显示尺寸 / 逻辑尺寸）
+    const scale = displayWidth / canvas.width;
+
+    return brushSize * scale;
   };
 
-  // 禁用右键菜单
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
+  // 处理涂抹大小调整，显示预览圆圈
+  const handleBrushSizeChange = (value: number) => {
+    setBrushSize(value);
+    setShowBrushPreview(true);
+
+    // 清除之前的定时器
+    if (brushPreviewTimerRef.current) {
+      clearTimeout(brushPreviewTimerRef.current);
+    }
+
+    // 1秒后隐藏预览
+    brushPreviewTimerRef.current = window.setTimeout(() => {
+      setShowBrushPreview(false);
+    }, 500);
   };
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (brushPreviewTimerRef.current) {
+        clearTimeout(brushPreviewTimerRef.current);
+      }
+    };
+  }, []);
 
   // 撤销/重做
   const handleUndo = () => {
@@ -460,7 +618,7 @@ export function ImageEditPage() {
     setPathIndex(-1);
   };
 
-  // 生成遮罩图片（纯橘色选区 + 透明背景）
+  // 生成遮罩图片（涂抹部分纯透明，其余部分原图像素）
   const generateMaskImage = async (): Promise<File> => {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -473,49 +631,57 @@ export function ImageEditPage() {
         return;
       }
 
-      // 透明背景
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // 先加载原图
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // 1. 绘制原图作为背景
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // 绘制遮罩路径
-      ctx.fillStyle = MASK_COLOR_SOLID;
-      ctx.strokeStyle = MASK_COLOR_SOLID;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+        // 2. 使用 destination-out 模式将涂抹部分"挖空"为透明
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-      const pathsToDraw = maskPaths.slice(0, pathIndex + 1);
+        const pathsToDraw = maskPaths.slice(0, pathIndex + 1);
 
-      for (const path of pathsToDraw) {
-        if (path.type === 'brush' && path.points.length > 0) {
-          ctx.lineWidth = path.brushSize || 20;
-          ctx.beginPath();
-          ctx.moveTo(path.points[0].x, path.points[0].y);
-          for (let i = 1; i < path.points.length; i++) {
-            ctx.lineTo(path.points[i].x, path.points[i].y);
+        for (const path of pathsToDraw) {
+          if (path.type === 'brush' && path.points.length > 0) {
+            ctx.lineWidth = path.brushSize || 20;
+            ctx.beginPath();
+            ctx.moveTo(path.points[0].x, path.points[0].y);
+            for (let i = 1; i < path.points.length; i++) {
+              ctx.lineTo(path.points[i].x, path.points[i].y);
+            }
+            ctx.stroke();
+          } else if (path.type === 'rect' && path.points.length === 2) {
+            const start = path.points[0];
+            const end = path.points[1];
+            ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
+          } else if (path.type === 'lasso' && path.points.length > 2) {
+            ctx.beginPath();
+            ctx.moveTo(path.points[0].x, path.points[0].y);
+            for (let i = 1; i < path.points.length; i++) {
+              ctx.lineTo(path.points[i].x, path.points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
           }
-          ctx.stroke();
-        } else if (path.type === 'rect' && path.points.length === 2) {
-          const start = path.points[0];
-          const end = path.points[1];
-          ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
-        } else if (path.type === 'lasso' && path.points.length > 2) {
-          ctx.beginPath();
-          ctx.moveTo(path.points[0].x, path.points[0].y);
-          for (let i = 1; i < path.points.length; i++) {
-            ctx.lineTo(path.points[i].x, path.points[i].y);
-          }
-          ctx.closePath();
-          ctx.fill();
         }
-      }
 
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('生成遮罩失败'));
-          return;
-        }
-        const file = new File([blob], 'mask.png', { type: 'image/png' });
-        resolve(file);
-      }, 'image/png');
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('生成遮罩失败'));
+            return;
+          }
+          const file = new File([blob], 'mask.png', { type: 'image/png' });
+          resolve(file);
+        }, 'image/png');
+      };
+      img.onerror = () => {
+        reject(new Error('加载原图失败'));
+      };
+      img.src = originalImage;
     });
   };
 
@@ -812,31 +978,55 @@ export function ImageEditPage() {
                 <div
                   ref={containerRef}
                   className="w-full h-full bg-gray-100 relative overflow-hidden flex items-center justify-center"
-                  style={{ cursor: isPanning ? 'grabbing' : 'crosshair' }}
+                  style={{ cursor: selectedTool === 'brush' ? 'none' : 'crosshair' }}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseEnter={handleContainerMouseEnter}
+                  onMouseLeave={handleContainerMouseLeave}
                 >
                   <canvas
                     ref={canvasRef}
                     className="bg-white shadow-lg"
                     style={{
-                      transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
-                      maxWidth: 'none',
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
                     }}
-                    onMouseDown={handleCanvasMouseDown}
-                    onMouseMove={handleCanvasMouseMove}
-                    onMouseUp={handleCanvasMouseUp}
-                    onMouseLeave={handleCanvasMouseUp}
-                    onWheel={handleCanvasWheel}
-                    onContextMenu={handleContextMenu}
                   />
+
+                  {/* 圆形涂抹指示器 */}
+                  {selectedTool === 'brush' && cursorInCanvas && cursorPos && (
+                    <div
+                      className="absolute pointer-events-none border-2 border-orange-500 rounded-full"
+                      style={{
+                        width: getCursorSize(),
+                        height: getCursorSize(),
+                        left: cursorPos.x - getCursorSize() / 2,
+                        top: cursorPos.y - getCursorSize() / 2,
+                        backgroundColor: 'rgba(255, 140, 0, 0.3)',
+                      }}
+                    />
+                  )}
+
+                  {/* 涂抹大小预览圆圈（调整滑块时显示） */}
+                  {showBrushPreview && selectedTool === 'brush' && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                    >
+                      <div
+                        className="border-2 border-orange-500 rounded-full"
+                        style={{
+                          width: getCursorSize(),
+                          height: getCursorSize(),
+                          backgroundColor: 'rgba(255, 140, 0, 0.3)',
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* 工具提示 */}
                   <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
                     {selectedTool === 'brush' ? '涂抹绘制选区' : selectedTool === 'rect' ? '框选矩形区域' : '圈选闭合区域'}
-                  </div>
-
-                  {/* 缩放显示 */}
-                  <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                    {Math.round(canvasScale * 100)}%
                   </div>
 
                   {/* Loading */}
@@ -919,13 +1109,13 @@ export function ImageEditPage() {
                     <span className="text-sm text-gray-600">大小:</span>
                     <input
                       type="range"
-                      min="5"
-                      max="100"
+                      min={brushMin}
+                      max={brushMax}
                       value={brushSize}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
+                      onChange={(e) => handleBrushSizeChange(Number(e.target.value))}
                       className="w-24"
                     />
-                    <span className="text-sm text-gray-600 w-8">{brushSize}px</span>
+                    <span className="text-sm text-gray-600 w-12">{brushSize}px</span>
                   </div>
                 )}
 
@@ -940,7 +1130,7 @@ export function ImageEditPage() {
                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                     }`}
                   >
-                    <UndoOutlined />
+                    <RollbackOutlined />
                     <span className="text-sm">撤销</span>
                   </button>
                   <button
@@ -952,7 +1142,7 @@ export function ImageEditPage() {
                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                     }`}
                   >
-                    <RedoOutlined />
+                    <RetweetOutlined />
                     <span className="text-sm">重做</span>
                   </button>
                   <button
@@ -1016,16 +1206,10 @@ export function ImageEditPage() {
 
             {/* 提示词输入 */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-3">提示词</h3>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="描述您想要如何修改选区内容..."
-                className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              {/* 预置提示词 */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {presetPrompts.map((preset) => (
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">提示词</h3>
+                <div className="flex flex-wrap gap-3">
+                  {presetPrompts.map((preset) => (
                     <span
                       key={preset.key}
                       onClick={() => setPrompt(preset.prompt)}
@@ -1038,7 +1222,14 @@ export function ImageEditPage() {
                       {preset.label}
                     </span>
                   ))}
+                </div>
               </div>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="描述您想要如何修改选区内容..."
+                className="w-full h-20 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
             </div>
 
             {/* 生成按钮 */}
@@ -1155,7 +1346,7 @@ export function ImageEditPage() {
                   <div className="relative w-full h-32">
                     {record.resultImageUrl ? (
                       <img
-                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
                         alt="生成结果"
                         className="w-full h-full object-cover"
                       />
@@ -1167,7 +1358,7 @@ export function ImageEditPage() {
                     {record.originalImageUrl && (
                       <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
                         <img
-                          src={ensureHttpsUrl(record.originalImageUrl) || ''}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(record.originalImageUrl)) || ''}
                           alt="原图"
                           className="w-full h-full object-cover"
                         />

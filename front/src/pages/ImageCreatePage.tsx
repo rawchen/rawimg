@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { imageCreateApi, ossApi, ImageTaskRecord } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
+import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -1119,7 +1120,7 @@ export function ImageCreatePage() {
                   <div className="relative w-full h-32">
                     {record.resultImageUrl ? (
                       <img
-                        src={ensureHttpsUrl(record.resultImageUrl) || ''}
+                        src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
                         alt="生成结果"
                         className="w-full h-full object-cover"
                       />
@@ -1132,7 +1133,7 @@ export function ImageCreatePage() {
                     {record.referenceImageUrls && (
                       <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
                         <img
-                          src={ensureHttpsUrl(JSON.parse(record.referenceImageUrls)[0]) || ''}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(JSON.parse(record.referenceImageUrls)[0])) || ''}
                           alt="参考图"
                           className="w-full h-full object-cover"
                         />
