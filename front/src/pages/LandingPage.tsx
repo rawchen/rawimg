@@ -14,6 +14,21 @@ import textBefore from '@/assets/image-remove/obr-text-before.jpg';
 import textAfter from '@/assets/image-remove/obr-text-after.jpg';
 import watermarkBefore from '@/assets/image-remove/obr-watermark-before.jpg';
 import watermarkAfter from '@/assets/image-remove/obr-watermark-after.jpg';
+// 导入图像创作对比图
+import createBefore from '@/assets/media/1.jpg';
+import createAfter from '@/assets/media/2.jpg';
+// 导入图像扩展对比图
+import expandBefore from '@/assets/media/3.jpg';
+import expandAfter from '@/assets/media/4.jpg';
+// 导入背景移除对比图
+import removeBefore from '@/assets/media/5.jpg';
+import removeAfter from '@/assets/media/6.jpg';
+// 导入智能美颜对比图
+import beautyBefore from '@/assets/media/7.jpg';
+import beautyAfter from '@/assets/media/8.jpg';
+// 导入图像扩展对比图
+import expand2Before from '@/assets/media/9.jpg';
+import expand2After from '@/assets/media/10.jpg';
 import {
   Wand2,
   Palette,
@@ -48,16 +63,18 @@ const featureCards = [
     // gradient: 'from-blue-500 to-cyan-600',
     href: '/create',
     rotation: '-2deg',
-    image: outfitBf,
+    image: createBefore,
+    hoverImage: createAfter,
   },
   {
-    title: '图像增强',
+    title: '图像扩展',
     description: '一键提升照片质量',
     icon: <Wand2 className="w-6 h-6" />,
     // gradient: 'from-amber-500 to-orange-600',
-    href: '/enhance',
+    href: '/expand',
     rotation: '-5deg',
-    image: enhanceBf,
+    image: expandBefore,
+    hoverImage: expandAfter,
   },
   {
     title: 'AI 背景移除',
@@ -66,7 +83,8 @@ const featureCards = [
     // gradient: 'from-pink-500 to-rose-600',
     href: '/remove',
     rotation: '3deg',
-    image: eraserBf,
+    image: removeBefore,
+    hoverImage: removeAfter,
   },
   {
     title: '智能美颜',
@@ -75,7 +93,8 @@ const featureCards = [
     // gradient: 'from-violet-500 to-purple-600',
     href: '/beauty',
     rotation: '-3deg',
-    image: retouchBf,
+    image: beautyBefore,
+    hoverImage: beautyAfter,
   },
   {
     title: '图像扩展',
@@ -84,7 +103,8 @@ const featureCards = [
     // gradient: 'from-emerald-500 to-teal-600',
     href: '/expand',
     rotation: '5deg',
-    image: tunerBf,
+    image: expand2Before,
+    hoverImage: expand2After,
   },
 ];
 
@@ -522,11 +542,21 @@ export function LandingPage() {
                   >
                     {/* Background Image Container */}
                     <div className="relative h-full w-full overflow-hidden rounded-2xl border-2 border-white bg-white shadow-[0_4px_32px_rgba(205,211,238,0.50)]">
+                      {/* 默认图片（之前） */}
                       <img
                         src={feature.image}
                         alt={feature.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
+                      {/* Hover图片（之后） - 透明度渐变 */}
+                      {feature.hoverImage && (
+                        <img
+                          src={feature.hoverImage}
+                          alt={feature.title}
+                          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                          style={{ opacity: isHovered ? 1 : 0 }}
+                        />
+                      )}
                       {/* Content - 底部半透明背景 */}
                       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center h-8 w-full bg-[rgba(0,0,0,0.30)] backdrop-blur-md">
                         <h3 className="text-sm leading-none text-white lg:text-base">{feature.title}</h3>
