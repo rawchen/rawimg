@@ -262,7 +262,7 @@ public class GptUtil {
             imageFile = downloadUrlToFile(imageUrl, "gpt_inpaint_");
 
             // 添加预制提示词，确保AI模型理解是局部修改
-            String fullPrompt = "请完成对选区MASK遮罩部分的操作：" + prompt + "。不能改变选区以外任意地方的像素，保持原图的风格和内容连贯性。";
+            String fullPrompt = "请完成对MASK遮罩Alpha像素的操作：" + prompt + "。不能改变选区以外任意地方的像素，保持原图的风格和内容连贯性。";
 
             String fullUrl = apiUrl + "/v1/images/edits";
             String effectiveApiKey = getApiKeyBySizeAndModel(null, model);

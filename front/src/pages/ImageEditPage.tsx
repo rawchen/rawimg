@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
+import { message, Spin, Modal, Image, Pagination, Empty, Popover } from 'antd';
 import {
   CloudUploadOutlined,
   DownloadOutlined,
@@ -11,8 +11,8 @@ import {
 } from '@ant-design/icons';
 import { Paintbrush, Square, CircleDot, LucideIcon } from 'lucide-react';
 import { userApi, ImageTaskRecord, imageEditApi } from '@/api';
-import demoBefore from '@/assets/image-remove/obr-people-before.jpg';
-import demoAfter from '@/assets/image-remove/obr-people-after.jpg';
+import demoBefore from '@/assets/image-edit/before.jpg';
+import demoAfter from '@/assets/image-edit/after.jpg';
 import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 页面标题闪烁 hook
@@ -88,10 +88,10 @@ const tools: ToolConfig[] = [
 // 预置提示词
 const presetPrompts = [
   { key: 'remove', label: '去除', prompt: '去除选区内的内容' },
+  { key: 'pedestrian', label: '去路人', prompt: '移除选区内多余路人' },
   { key: 'sky', label: '换天空', prompt: '把天空替换成晴朗的蓝天白云' },
-  { key: 'pedestrian', label: '去路人', prompt: '把远处背景中多余的路人移除' },
-  { key: 'hairstyle', label: '变发型', prompt: '把人物的短发变成柔顺的金色长卷发' },
-  { key: 'outfit', label: '换穿搭', prompt: '给图中的人物穿上古典大气的国风服装' },
+  { key: 'hairstyle', label: '变发型', prompt: '替换为双马尾麻花辫' },
+  { key: 'outfit', label: '换穿搭', prompt: '替换为古典大气的国风服装' },
 ];
 
 // 选区路径历史记录
@@ -930,7 +930,7 @@ export function ImageEditPage() {
             <div
               ref={sliderRef}
               className="relative w-full rounded-2xl overflow-hidden bg-gray-200 shadow-lg select-none"
-              style={{ aspectRatio: '16/9' }}
+              style={{ aspectRatio: '3/2' }}
             >
               {editedImage ? (
                 // 完成后显示对比滑块
@@ -1082,85 +1082,6 @@ export function ImageEditPage() {
               )}
             </div>
 
-            {/* 选区工具栏 */}
-            {originalImage && !editedImage && (
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                {/* 工具选择 */}
-                <div className="flex gap-2">
-                  {tools.map((tool) => (
-                    <button
-                      key={tool.key}
-                      onClick={() => setSelectedTool(tool.key)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 transition-all ${
-                        selectedTool === tool.key
-                          ? 'bg-orange-100 border-orange-500 text-orange-600'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300'
-                      }`}
-                    >
-                      <tool.icon className="w-4 h-4" />
-                      <span className="text-sm">{tool.name}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* 画笔大小 */}
-                {selectedTool === 'brush' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">大小:</span>
-                    <input
-                      type="range"
-                      min={brushMin}
-                      max={brushMax}
-                      value={brushSize}
-                      onChange={(e) => handleBrushSizeChange(Number(e.target.value))}
-                      className="w-24"
-                    />
-                    <span className="text-sm text-gray-600 w-12">{brushSize}px</span>
-                  </div>
-                )}
-
-                {/* 撤销/重做/清除 */}
-                <div className="flex gap-2 ml-auto">
-                  <button
-                    onClick={handleUndo}
-                    disabled={pathIndex < 0}
-                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all ${
-                      pathIndex < 0
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                    }`}
-                  >
-                    <RollbackOutlined />
-                    <span className="text-sm">撤销</span>
-                  </button>
-                  <button
-                    onClick={handleRedo}
-                    disabled={pathIndex >= maskPaths.length - 1}
-                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all ${
-                      pathIndex >= maskPaths.length - 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                    }`}
-                  >
-                    <RetweetOutlined />
-                    <span className="text-sm">重做</span>
-                  </button>
-                  <button
-                    onClick={handleClearMask}
-                    disabled={maskPaths.length === 0}
-                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all ${
-                      maskPaths.length === 0
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
-                    }`}
-                  >
-                    <ClearOutlined />
-                    <span className="text-sm">清除</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* 下载按钮 */}
             {editedImage && (
               <div className="flex justify-center mt-5">
@@ -1177,9 +1098,103 @@ export function ImageEditPage() {
 
           {/* 右侧控制区域 */}
           <div className="lg:w-[44%] order-1 lg:order-2 flex flex-col gap-4">
+            {/* 选区工具栏 */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 工具按钮 */}
+              {tools.map((tool) => (
+                tool.key === 'brush' ? (
+                  <Popover
+                    key={tool.key}
+                    trigger="click"
+                    placement="top"
+                    content={
+                      <div className="flex items-center gap-2 py-1">
+                        <span className="text-sm text-gray-600">大小</span>
+                        <input
+                          type="range"
+                          min={brushMin}
+                          max={brushMax}
+                          value={brushSize}
+                          onChange={(e) => handleBrushSizeChange(Number(e.target.value))}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-gray-600 w-8">{brushSize}</span>
+                      </div>
+                    }
+                  >
+                    <button
+                      onClick={() => setSelectedTool(tool.key)}
+                      className={`flex items-center gap-1.5 px-2 py-2 rounded-lg border-2 transition-all ${
+                        selectedTool === tool.key
+                          ? 'bg-orange-100 border-orange-500 text-orange-600'
+                          : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300'
+                      }`}
+                    >
+                      <tool.icon className="w-4 h-4"/>
+                      <span className="text-sm">{tool.name}</span>
+                    </button>
+                  </Popover>
+                ) : (
+                  <button
+                    key={tool.key}
+                    onClick={() => setSelectedTool(tool.key)}
+                    className={`flex items-center gap-1.5 px-2 py-2 rounded-lg border-2 transition-all ${
+                      selectedTool === tool.key
+                        ? 'bg-orange-100 border-orange-500 text-orange-600'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300'
+                    }`}
+                  >
+                    <tool.icon className="w-4 h-4"/>
+                    <span className="text-sm">{tool.name}</span>
+                  </button>
+                )
+              ))}
+
+              {/* 分隔线 */}
+              <div className="w-px h-6 mx-2 bg-gray-200"/>
+
+              {/* 撤销/重做/清除 */}
+              <button
+                onClick={handleUndo}
+                disabled={pathIndex < 0}
+                className={`flex items-center gap-1 px-2 py-2 rounded-lg border transition-all ${
+                  pathIndex < 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
+                }`}
+              >
+                <RollbackOutlined/>
+                <span className="text-sm">撤销</span>
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={pathIndex >= maskPaths.length - 1}
+                className={`flex items-center gap-1 px-2 py-2 rounded-lg border transition-all ${
+                  pathIndex >= maskPaths.length - 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
+                }`}
+              >
+                <RetweetOutlined/>
+                <span className="text-sm">重做</span>
+              </button>
+              <button
+                onClick={handleClearMask}
+                disabled={maskPaths.length === 0}
+                className={`flex items-center gap-1 px-2 py-2 rounded-lg border transition-all ${
+                  maskPaths.length === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'
+                }`}
+              >
+                <ClearOutlined/>
+                <span className="text-sm">清除</span>
+              </button>
+            </div>
+
             {/* 上传框 */}
             <div
-              className="relative flex flex-col justify-center items-center h-[180px] rounded-2xl border-2 border-dashed border-gray-300 bg-white hover:border-orange-400 hover:bg-orange-50/30 transition-colors cursor-pointer"
+              className="relative flex flex-col justify-center items-center h-[150px] rounded-2xl border-2 border-dashed border-gray-300 bg-white hover:border-orange-400 hover:bg-orange-50/30 transition-colors cursor-pointer"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
