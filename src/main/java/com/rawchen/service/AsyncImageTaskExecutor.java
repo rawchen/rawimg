@@ -255,6 +255,94 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
+     * 异步执行智能美颜任务
+     * @param taskId 任务ID
+     * @param originalImageUrl 原始图片URL
+     * @param prompt 美颜提示词
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeBeautyTask(String taskId, String originalImageUrl, String prompt, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async beauty task {} started with model {}", taskId, model);
+
+            // 从URL下载图片到内存
+            byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            MultipartFile file = new MemoryMultipartFile(imageData, "beauty_original.jpg");
+
+            // 添加美颜前缀提示词
+            String fullPrompt = "对图片进行智能美颜处理：" + prompt + "。保持自然真实的效果，不要过度处理。";
+
+            // 调用GPT美颜API（复用mattingImage方法，因为参数结构相同）
+            String result = gptUtil.mattingImage(file, fullPrompt, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async beauty task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async beauty task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
+     * 异步执行智能换装任务
+     * @param taskId 任务ID
+     * @param personImageUrl 人物图片URL
+     * @param clothesImageUrls 衣服图片URL列表
+     * @param prompt 换装提示词
+     * @param size 图片尺寸
+     * @param model 使用的模型
+     */
+    @Async("imageTaskExecutor")
+    public void executeClothesTask(String taskId, String personImageUrl, List<String> clothesImageUrls, String prompt, String size, String model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async clothes task {} started with {} clothes images, model {}", taskId, clothesImageUrls.size(), model);
+
+            // 下载人物图片
+            byte[] personImageData = downloadImageFromUrl(personImageUrl);
+            MultipartFile personFile = new MemoryMultipartFile(personImageData, "person.jpg");
+
+            // 下载衣服图片
+            List<MultipartFile> clothesFiles = new ArrayList<>();
+            for (int i = 0; i < clothesImageUrls.size(); i++) {
+                String clothesUrl = clothesImageUrls.get(i);
+                try {
+                    byte[] clothesData = downloadImageFromUrl(clothesUrl);
+                    clothesFiles.add(new MemoryMultipartFile(clothesData, "clothes_" + i + ".jpg"));
+                } catch (Exception e) {
+                    log.error("Failed to download clothes image from {}: {}", clothesUrl, e.getMessage());
+                    throw new RuntimeException("下载服装图片失败: " + e.getMessage());
+                }
+            }
+
+            // 构建完整的图片列表（人物图片 + 衣服图片）
+            List<MultipartFile> allFiles = new ArrayList<>();
+            allFiles.add(personFile);
+            allFiles.addAll(clothesFiles);
+
+            // 构建换装提示词
+            String fullPrompt = "请将提供的服装图片应用到人物身上，保持人物原有的姿势、表情和背景。" +
+                    "确保服装自然贴合人物身形，注意服装的透视和光影效果要与环境协调。" +
+                    "如果有多个服装单品，请合理搭配穿着。";
+
+            // 调用GPT编辑API
+            String result = gptUtil.editImage(allFiles, fullPrompt, size, model);
+            String ossUrl = uploadResultToOss(result);
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            log.info("Async clothes task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async clothes task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+        }
+    }
+
+    /**
      * 异步执行图片创作任务（带参考图编辑）
      * @param fileDataList 文件内容列表（已读入内存）
      */

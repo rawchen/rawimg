@@ -34,6 +34,8 @@ import { ImageExpandPage } from '@/pages/ImageExpandPage.tsx';
 import { ImageMattingPage } from '@/pages/ImageMattingPage.tsx';
 import { ImageRestorePage } from '@/pages/ImageRestorePage.tsx';
 import { ImageEditPage } from '@/pages/ImageEditPage.tsx';
+import { ImageBeautyPage } from '@/pages/ImageBeautyPage.tsx';
+import { ImageClothesPage } from '@/pages/ImageClothesPage.tsx';
 
 function AppContent() {
   const location = useLocation();
@@ -47,6 +49,8 @@ function AppContent() {
   const isMattingPage = location.pathname === '/matting';
   const isRestorePage = location.pathname === '/restore';
   const isEditPage = location.pathname === '/edit';
+  const isBeautyPage = location.pathname === '/beauty';
+  const isClothesPage = location.pathname === '/clothes';
 
   const [isScrolled, setIsScrolled] = useState(false);
   const scrollElementRef = useRef<HTMLElement | null>(null);
@@ -123,6 +127,12 @@ function AppContent() {
             {/* Image Edit Route */}
             <Route path="/edit" element={<ImageEditPage />} />
 
+            {/* Image Beauty Route */}
+            <Route path="/beauty" element={<ImageBeautyPage />} />
+
+            {/* Image Clothes Route */}
+            <Route path="/clothes" element={<ImageClothesPage />} />
+
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
             <Route path="/editor/:id" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />
@@ -148,7 +158,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && !isEditPage && <Footer />}
+      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && !isEditPage && !isBeautyPage && !isClothesPage && <Footer />}
     </div>
   );
 }

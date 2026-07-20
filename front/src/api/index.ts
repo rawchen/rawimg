@@ -606,6 +606,104 @@ export const imageRestoreApi = {
     api.get<ImageTaskRecord>(`/image-restore/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
 };
 
+// Image Beauty API
+export const imageBeautyApi = {
+  // 异步美颜
+  beautyImageAsync: (originalImageUrl: string, prompt: string, model: string = 'gpt-image-2') => {
+    const params = new URLSearchParams();
+    params.append('originalImageUrl', originalImageUrl);
+    params.append('prompt', prompt);
+    params.append('model', model);
+    return api.post<{ taskId: string; model: string }>('/image-beauty/beauty_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; model: string }>;
+  },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>('/image-beauty/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取历史记录
+  getHistory: (page = 1, size = 12, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-beauty/history', { params: { page, size, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-beauty/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+};
+
+// Image Clothes API
+export const imageClothesApi = {
+  // 异步换装
+  clothesImageAsync: (personImageUrl: string, clothesImageUrls: string[], prompt: string, size: string, model: string = 'gpt-image-2') => {
+    const params = new URLSearchParams();
+    params.append('personImageUrl', personImageUrl);
+    params.append('clothesImageUrls', JSON.stringify(clothesImageUrls));
+    params.append('prompt', prompt);
+    params.append('size', size);
+    params.append('model', model);
+    return api.post<{ taskId: string; model: string }>('/image-clothes/clothes_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; model: string }>;
+  },
+
+  // 查询任务结果
+  getTaskResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>('/image-clothes/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      originalImageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取历史记录
+  getHistory: (page = 1, size = 12, status?: string) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-clothes/history', { params: { page, size, status } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  // 获取任务详情
+  getTaskDetail: (taskId: string) =>
+    api.get<ImageTaskRecord>(`/image-clothes/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+};
+
 // Image Edit API
 export const imageEditApi = {
   // 异步局部改图

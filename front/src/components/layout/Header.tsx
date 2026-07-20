@@ -20,18 +20,19 @@ import {
   Blend,
   Panda,
   SquareScissors,
-  PenTool,
+  PenTool, Shirt,
 } from 'lucide-react';
 
 const tools = [
   { key: 'create', name: '生成创作', icon: Sparkles, hot: true },
+  { key: 'beauty', name: '智能美颜', icon: Panda, hot: true },
+  { key: 'clothes', name: '智能换装', icon: Shirt, new: true },
   { key: 'edit', name: '局部改图', icon: PenTool, new: true },
-  { key: 'remove', name: '物体移除', icon: PackageMinus, hot: true },
+  { key: 'remove', name: '物体移除', icon: PackageMinus },
   { key: 'enhance', name: '图像增强', icon: Palette },
   { key: 'matting', name: '背景移除', icon: ImageMinus },
   { key: 'expand', name: '图像扩展', icon: ImageUpscale },
   { key: 'restore', name: '照片修复', icon: ImagePlus },
-  { key: 'beauty', name: '智能美颜', icon: Panda },
   { key: 'hairstyle', name: '发型创意', icon: SquareScissors },
 ];
 
@@ -160,7 +161,8 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
   };
 
   const handleGoToGalleries = () => navigate('/galleries');
-  const handleStartEdit = () => navigate('/editor');
+  const handleGoToCreate = () => navigate('/create');
+  const handleGoToEditor = () => navigate('/editor');
 
   return (
     <>
@@ -197,15 +199,30 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
                   className="flex items-center space-x-1 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
                 >
                   <span>在线工具</span>
-                  <DownOutlined className={`text-[10px] transition-transform duration-300 ${toolsDropdownOpen ? 'rotate-180' : ''}`} />
+                  <DownOutlined
+                    className={`text-[10px] transition-transform duration-300 ${toolsDropdownOpen ? 'rotate-180' : ''}`}/>
                 </button>
               </div>
+
+              <a
+                onClick={handleGoToCreate}
+                className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+              >
+                创作
+              </a>
 
               <a
                 onClick={handleGoToGalleries}
                 className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
               >
                 图集
+              </a>
+
+              <a
+                onClick={handleGoToEditor}
+                className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+              >
+                编辑
               </a>
             </div>
 
@@ -282,7 +299,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        handleStartEdit();
+                        handleGoToEditor();
                       }}
                       className="w-full mb-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                     >
