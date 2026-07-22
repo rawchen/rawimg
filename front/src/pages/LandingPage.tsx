@@ -197,8 +197,8 @@ const reviews = [
 
 const faqs = [
   {
-    question: 'RawImg 是什么？',
-    answer: 'RawImg 是一个 AI 驱动的在线图像处理平台，支持 RAW 格式解码、智能背景移除、AI 美颜、图像放大等专业功能，无需安装软件，打开浏览器即可使用。',
+    question: 'RAWIMG 是什么？',
+    answer: 'RAWIMG 是一个 AI 驱动的在线图像处理平台，支持 RAW 格式解码、智能背景移除、AI 美颜、图像放大等专业功能，无需安装软件，打开浏览器即可使用。',
   },
   {
     question: '支持哪些 RAW 格式？',
@@ -780,12 +780,12 @@ export function LandingPage() {
           </div>
 
           {/* Tools Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {filteredTools.map((tool, index) => (
               <Link
                 key={tool.key}
                 to="/create"
-                className="group bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300 cursor-pointer overflow-hidden"
+                className="group bg-white hover:bg-orange-100 rounded-xl p-4 hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300 cursor-pointer overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -822,7 +822,7 @@ export function LandingPage() {
             {reviews.map((review, index) => (
               <div
                 key={review.name}
-                className="bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl hover:-translate-y-2 hover:scale-105 transition-all duration-400 w-52 flex-shrink-0"
+                className="bg-[#ffecd7] rounded-2xl p-5 hover:-translate-y-2 hover:scale-105 transition-all duration-400 w-52 flex-shrink-0"
                 style={{
                   transform: `rotate(${review.rotation})`,
                   transitionDelay: `${index * 100}ms`
@@ -1026,7 +1026,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12 px-4">
+      <footer className="bg-gray-900 text-gray-400 py-9 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -1034,7 +1034,7 @@ export function LandingPage() {
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
                   <Camera className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-xl font-bold text-white">RawImg</span>
+                <span className="text-xl font-bold text-white">RAWIMG</span>
               </div>
               <p className="text-sm text-gray-500">AI 驱动的图像处理平台</p>
             </div>
@@ -1070,36 +1070,36 @@ export function LandingPage() {
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>&copy; 2026 RawImg. All rights reserved.</p>
+            <p>&copy; 2026 RAWIMG. All rights reserved.</p>
           </div>
         </div>
       </footer>
 
       {/* Floating CTA Banner - Desktop Only */}
-      <div className="hidden lg:block fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-100 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center hover:scale-110 transition-transform duration-300">
-              <span className="text-white font-bold text-lg">R</span>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900 text-sm">专业级图像处理，无需安装软件</p>
-              <p className="text-gray-500 text-xs">免费试用，无需信用卡</p>
-            </div>
-          </div>
-          <button
-            onClick={handleStartEdit}
-            className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-full font-medium hover:shadow-lg hover:shadow-orange-500/30 hover:-translate-y-0.5 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
-          >
-            立即开始
-          </button>
-        </div>
-      </div>
+      {/*<div className="hidden lg:block fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-100 shadow-lg">*/}
+      {/*  <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">*/}
+      {/*    <div className="flex items-center gap-4">*/}
+      {/*      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center hover:scale-110 transition-transform duration-300">*/}
+      {/*        <span className="text-white font-bold text-lg">R</span>*/}
+      {/*      </div>*/}
+      {/*      <div>*/}
+      {/*        <p className="font-semibold text-gray-900 text-sm">专业级图像处理，无需安装软件</p>*/}
+      {/*        <p className="text-gray-500 text-xs">免费试用，无需信用卡</p>*/}
+      {/*      </div>*/}
+      {/*    </div>*/}
+      {/*    <button*/}
+      {/*      onClick={handleStartEdit}*/}
+      {/*      className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-full font-medium hover:shadow-lg hover:shadow-orange-500/30 hover:-translate-y-0.5 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"*/}
+      {/*    >*/}
+      {/*      立即开始*/}
+      {/*    </button>*/}
+      {/*  </div>*/}
+      {/*</div>*/}
 
       {/* Scroll to Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed right-6 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center ${
+        className={`fixed right-16 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center ${
           showScrollTop
             ? 'opacity-100 translate-y-0 lg:bottom-16 bottom-6'
             : 'opacity-0 translate-y-4 pointer-events-none'
