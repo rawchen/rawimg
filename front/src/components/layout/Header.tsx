@@ -188,41 +188,50 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8">
+            <div className="hidden lg:flex items-center h-full -mx-2">
               <div
-                className="relative"
+                className="relative h-full flex items-center px-2"
                 onMouseEnter={openDropdown}
                 onMouseLeave={closeDropdownWithDelay}
               >
                 <button
                   ref={toolsButtonRef}
-                  className="flex items-center space-x-1 text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+                  className="relative flex items-center space-x-1 text-gray-600 hover:text-orange-600 transition-all duration-300 cursor-pointer h-full px-4 group"
                 >
-                  <span>在线工具</span>
+                  <span className="relative z-10 font-medium">在线工具</span>
                   <DownOutlined
-                    className={`text-[10px] transition-transform duration-300 ${toolsDropdownOpen ? 'rotate-180' : ''}`}/>
+                    className={`text-[10px] transition-transform duration-300 relative z-10 ${toolsDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                  <div className="absolute inset-x-1 bottom-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></div>
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </button>
               </div>
 
               <a
                 onClick={handleGoToCreate}
-                className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+                className="relative h-full flex items-center px-4 text-gray-600 hover:text-orange-600 transition-all duration-300 cursor-pointer group"
               >
-                创作
+                <span className="relative z-10 font-medium w-10 text-center">创作</span>
+                <div className="absolute inset-x-1 bottom-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></div>
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </a>
 
               <a
                 onClick={handleGoToGalleries}
-                className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+                className="relative h-full flex items-center px-4 text-gray-600 hover:text-orange-600 transition-all duration-300 cursor-pointer group"
               >
-                图集
+                <span className="relative z-10 font-medium w-10 text-center">图集</span>
+                <div className="absolute inset-x-1 bottom-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></div>
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </a>
 
               <a
                 onClick={handleGoToEditor}
-                className="text-gray-600 hover:text-orange-600 transition-colors cursor-pointer"
+                className="relative h-full flex items-center px-4 text-gray-600 hover:text-orange-600 transition-all duration-300 cursor-pointer group"
               >
-                编辑
+                <span className="relative z-10 font-medium w-10 text-center">编辑</span>
+                <div className="absolute inset-x-1 bottom-0 h-[2px] bg-gradient-to-r from-amber-500 to-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></div>
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </a>
             </div>
 
@@ -231,7 +240,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
               {/* Online count */}
               <div className="flex items-center space-x-1 text-sm text-gray-500">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span>{onlineCount} 在线</span>
+                <span className="w-2">{onlineCount}</span><span>在线</span>
               </div>
 
               {/* Auth buttons */}
