@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
 import {
   DownloadOutlined,
@@ -8,6 +8,7 @@ import {
   HistoryOutlined,
   ClockCircleOutlined,
   LoadingOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
 import { imageCreateApi, ossApi, ImageTaskRecord } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
@@ -432,43 +433,10 @@ export function ImageCreatePage() {
     }
   };
 
-  // 生成下载文件名：yyyyMMddHHmmss_随机2位.jpg
-  const generateDownloadFileName = (): string => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const random = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-    return `${year}${month}${day}${hours}${minutes}${seconds}_${random}.jpg`;
-  };
-
   // 下载图片
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!createdImage) return;
-
-    const fileName = generateDownloadFileName();
-    try {
-      const response = await fetch(createdImage);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      const a = document.createElement('a');
-      a.href = createdImage;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+    window.open(createdImage, '_blank');
   };
 
   // 重置
@@ -653,24 +621,24 @@ export function ImageCreatePage() {
               )}
             </div>
 
-            {/* 操作按钮 */}
-            {createdImage && (
-              <div className="flex justify-center gap-3 mt-5">
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <span>重新创作</span>
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all"
-                >
-                  <DownloadOutlined />
-                  <span>下载图片</span>
-                </button>
-              </div>
-            )}
+            {/*/!* 操作按钮 *!/*/}
+            {/*{createdImage && (*/}
+            {/*  <div className="flex justify-center gap-3 mt-5">*/}
+            {/*    <button*/}
+            {/*      onClick={handleReset}*/}
+            {/*      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"*/}
+            {/*    >*/}
+            {/*      <span>重新创作</span>*/}
+            {/*    </button>*/}
+            {/*    <button*/}
+            {/*      onClick={handleDownload}*/}
+            {/*      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all"*/}
+            {/*    >*/}
+            {/*      <DownloadOutlined />*/}
+            {/*      <span>下载图片</span>*/}
+            {/*    </button>*/}
+            {/*  </div>*/}
+            {/*)}*/}
 
             {/* 尺寸选择 */}
             <div className="mt-4">
@@ -814,18 +782,38 @@ export function ImageCreatePage() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">描述画面</h3>
                 <div className="flex items-center gap-3">
+                  {/* 操作按钮 */}
+                  {createdImage && (
+                    <button
+                      onClick={handleReset}
+                      className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
+                    >
+                      <ClearOutlined />
+                      清除
+                    </button>
+                  )}
+                  {createdImage && (
+                    <button
+                      onClick={handleDownload}
+                      className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                    >
+                      <DownloadOutlined/>
+                      下载图片
+                    </button>
+                  )}
+
                   <button
                     onClick={handleOpenHistory}
                     className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
                   >
-                    <HistoryOutlined />
+                    <HistoryOutlined/>
                     生成历史
                   </button>
                   <button
                     onClick={handleOpenTemplates}
                     className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
                   >
-                    <BulbOutlined />
+                    <BulbOutlined/>
                     灵感示例
                   </button>
                   {/* 模型切换开关 */}
@@ -848,7 +836,7 @@ export function ImageCreatePage() {
                         selectedModel === 'gpt-image-2'
                           ? 'right-1'
                           : 'left-1'
-                      }`} />
+                      }`}/>
                     </div>
                   </div>
                 </div>
