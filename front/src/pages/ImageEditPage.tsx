@@ -87,8 +87,8 @@ const tools: ToolConfig[] = [
 
 // 预置提示词
 const presetPrompts = [
-  { key: 'remove', label: '去除', prompt: '去除选区内的内容' },
-  { key: 'pedestrian', label: '去路人', prompt: '移除选区内多余路人' },
+  { key: 'remove', label: '去除', prompt: '移除该物体并补全' },
+  { key: 'pedestrian', label: '去路人', prompt: '移除多余路人并补全' },
   { key: 'sky', label: '换天空', prompt: '把天空替换成晴朗的蓝天白云' },
   { key: 'hairstyle', label: '变发型', prompt: '替换为双马尾麻花辫' },
   { key: 'outfit', label: '换穿搭', prompt: '替换为古典大气的国风服装' },
