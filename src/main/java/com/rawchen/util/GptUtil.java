@@ -257,9 +257,11 @@ public class GptUtil {
      */
     public String inpaintImage(String imageUrl, String maskUrl, String prompt, String model) {
         File imageFile = null;
+        File maskFile = null;
         try {
             // 从URL下载图片到临时文件
             imageFile = downloadUrlToFile(imageUrl, "gpt_inpaint_");
+            maskFile = downloadUrlToFile(maskUrl, "gpt_inpaint_");
 
             // 添加预制提示词，确保AI模型理解是局部修改
             String fullPrompt = "请完成对MASK遮罩Alpha像素的操作：" + prompt + "。不能改变选区以外任意地方的像素，保持原图的风格和内容连贯性。";
@@ -269,7 +271,7 @@ public class GptUtil {
             HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
                     .form("image", imageFile)
-                    .form("mask", maskUrl)
+                    .form("mask", maskFile)
                     .form("model", model)
                     .form("prompt", fullPrompt)
                     .form("input_fidelity", "high")
@@ -301,6 +303,9 @@ public class GptUtil {
         } finally {
             if (imageFile != null && imageFile.exists()) {
                 FileUtil.del(imageFile);
+            }
+            if (maskFile != null && maskFile.exists()) {
+                FileUtil.del(maskFile);
             }
         }
     }

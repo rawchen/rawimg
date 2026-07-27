@@ -685,6 +685,35 @@ export function ImageEditPage() {
     });
   };
 
+  // 将图片转换为 PNG 格式
+  const convertToPng = async (imageUrl: string): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('无法创建canvas'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('转换PNG失败'));
+            return;
+          }
+          const file = new File([blob], 'original.png', { type: 'image/png' });
+          resolve(file);
+        }, 'image/png');
+      };
+      img.onerror = () => reject(new Error('加载图片失败'));
+      img.src = imageUrl;
+    });
+  };
+
   // 提交编辑任务
   const handleSubmit = async () => {
     if (!originalImageUrl) {
@@ -707,17 +736,25 @@ export function ImageEditPage() {
     setCurrentElapsed(0);
 
     try {
-      // 生成遮罩图片
+      // 1. 将原始图片转换为 PNG 格式（gpt-image-2 要求原图必须是 PNG）
+      message.info('正在转换图片格式...');
+      const originalPngFile = await convertToPng(originalImage || originalImageUrl);
+
+      // 2. 上传转换后的 PNG 原图到 OSS
+      message.info('正在上传原图...');
+      const pngOriginalUrl = await userApi.uploadImageToOss(originalPngFile, 'edit-original-png/');
+
+      // 3. 生成遮罩图片
       message.info('正在生成遮罩...');
       const maskFile = await generateMaskImage();
 
-      // 上传遮罩到OSS
+      // 4. 上传遮罩到OSS
       message.info('正在上传遮罩...');
       const maskUrl = await userApi.uploadImageToOss(maskFile, 'edit-mask/');
 
-      // 调用API
+      // 5. 调用API（使用转换后的 PNG URL）
       message.info('正在提交任务...');
-      const { taskId } = await imageEditApi.editImageAsync(originalImageUrl, maskUrl, prompt, selectedModel);
+      const { taskId } = await imageEditApi.editImageAsync(pngOriginalUrl, maskUrl, prompt, selectedModel);
       message.info('任务已提交，可稍后在生成历史查看');
 
       // 轮询任务结果
