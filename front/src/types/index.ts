@@ -53,6 +53,15 @@ export interface UserStats {
   dailyDownloadLimit?: number;
 }
 
+export interface BalanceStats {
+  userId: number;
+  balance: number;
+  totalRecharged: number;
+  totalConsumed: number;
+  todayConsumed: number;
+  todayOperations: number;
+}
+
 export interface Gallery {
   id: number;
   title: string;

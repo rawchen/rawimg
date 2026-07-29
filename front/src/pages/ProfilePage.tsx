@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { message, Upload, Image } from 'antd';
+import { message, Upload, Image, Pagination, Empty, Spin } from 'antd';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { userApi, feedbackApi } from '@/api';
-import { UserStats } from '@/types';
+import { userApi, feedbackApi, balanceApi, ConsumeLog } from '@/api';
+import { UserStats, BalanceStats } from '@/types';
 import {
   UserOutlined,
   CrownOutlined,
@@ -14,15 +14,27 @@ import {
   StarOutlined,
   ClockCircleOutlined,
   PictureOutlined,
-  PlusOutlined
+  PlusOutlined,
+  WalletOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 
 export function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
   const [userStats, setStats] = useState<UserStats | null>(null);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'email' | 'password' | 'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'email' | 'password' | 'feedback' | 'consume'>('overview');
+
+  // 消费记录状态
+  const [consumeLogs, setConsumeLogs] = useState<ConsumeLog[]>([]);
+  const [consumeTotal, setConsumeTotal] = useState(0);
+  const [consumePage, setConsumePage] = useState(1);
+  const [consumeLoading, setConsumeLoading] = useState(false);
+  const [hourlyStats, setHourlyStats] = useState<any[]>([]);
+  const [modelStats, setModelStats] = useState<any[]>([]);
 
   // 表单状态
   const [nickname, setNickname] = useState('');
@@ -53,6 +65,12 @@ export function ProfilePage() {
   }, [user]);
 
   useEffect(() => {
+    if (activeTab === 'consume') {
+      fetchConsumeLogs();
+    }
+  }, [activeTab, consumePage]);
+
+  useEffect(() => {
     let timer: NodeJS.Timeout;
     if (countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -65,12 +83,34 @@ export function ProfilePage() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const result = await userApi.getStats();
-      setStats(result);
+      const [statsResult, balanceResult] = await Promise.all([
+        userApi.getStats(),
+        balanceApi.getStats()
+      ]);
+      setStats(statsResult);
+      setBalanceStats(balanceResult);
     } catch (error) {
       console.error('Failed to fetch user stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchConsumeLogs = async () => {
+    try {
+      setConsumeLoading(true);
+      const [logsRes, chartRes] = await Promise.all([
+        balanceApi.getConsumeLogs(consumePage, 20),
+        balanceApi.getConsumeChart(8)
+      ]);
+      setConsumeLogs(logsRes.records || []);
+      setConsumeTotal(logsRes.total || 0);
+      setHourlyStats(chartRes.hourlyStats || []);
+      setModelStats(chartRes.modelStats || []);
+    } catch (error: any) {
+      message.error(error.msg || '加载失败');
+    } finally {
+      setConsumeLoading(false);
     }
   };
 
@@ -200,6 +240,30 @@ export function ProfilePage() {
     }
   };
 
+  const getOperationName = (type: string) => {
+    const map: Record<string, string> = {
+      create: '创作',
+      beauty: '美颜',
+      expand: '扩图',
+      matting: '抠图',
+      enhance: '增强',
+      restore: '修复',
+    };
+    return map[type] || type;
+  };
+
+  const getStatusIcon = (status: string) => {
+    if (status === 'success') {
+      return <CheckCircleOutlined className="text-green-500" />;
+    } else if (status === 'failed') {
+      return <CloseCircleOutlined className="text-red-500" />;
+    }
+    return <ClockCircleOutlined className="text-yellow-500" />;
+  };
+
+  // 计算柱状图的最大值
+  const maxCost = Math.max(...hourlyStats.map(h => h.cost || 0), 0.01);
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -211,7 +275,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
       {/* Page Title */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-black">个人中心</h1>
@@ -271,6 +335,16 @@ export function ProfilePage() {
           >
             意见反馈
           </button>
+          <button
+            onClick={() => setActiveTab('consume')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'consume'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            消费记录
+          </button>
         </div>
       </div>
 
@@ -321,15 +395,33 @@ export function ProfilePage() {
               </div>
             </div>
 
-            {/* Points */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-black mb-4">积分余额</h2>
+            {/* Wallet Balance */}
+            <div className="bg-gradient-to-br from-orange-50 to-amber-100 rounded-xl border border-orange-200 p-6">
+              <h2 className="text-lg font-semibold text-black mb-4 flex items-center justify-between">
+                <span>钱包余额</span>
+                <button
+                  onClick={() => setActiveTab('consume')}
+                  className="text-sm font-normal text-orange-600 hover:text-orange-700"
+                >
+                  查看消费记录 →
+                </button>
+              </h2>
               <div className="flex items-center space-x-4">
-                <StarOutlined className="text-4xl text-yellow-500" />
-                <div>
-                  <p className="text-3xl font-bold text-black">{user?.points}</p>
-                  <p className="text-sm text-gray-500">积分</p>
+                <WalletOutlined className="text-4xl text-orange-500" />
+                <div className="flex-1">
+                  <p className="text-3xl font-bold text-black">¥{balanceStats?.balance.toFixed(2) || '0.00'}</p>
+                  <div className="flex gap-4 mt-1">
+                    <p className="text-xs text-gray-500">今日消费: ¥{balanceStats?.todayConsumed.toFixed(2) || '0.00'}</p>
+                    <p className="text-xs text-gray-500">累计消费: ¥{balanceStats?.totalConsumed.toFixed(2) || '0.00'}</p>
+                  </div>
                 </div>
+                <Link
+                  to="/recharge"
+                  target="_blank"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all text-sm font-medium"
+                >
+                  充值
+                </Link>
               </div>
             </div>
           </div>
@@ -660,6 +752,151 @@ export function ProfilePage() {
               {submitting ? '提交中...' : '立即提交'}
             </button>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'consume' && (
+        <div className="space-y-6">
+          {consumeLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Spin size="large" />
+            </div>
+          ) : (
+            <>
+              {/* 柱状图区域 */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-black mb-4">近8小时消费分布</h2>
+                <div className="flex items-end gap-2 h-48">
+                  {hourlyStats.map((stat, index) => (
+                    <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                      <div className="w-full flex items-end justify-center" style={{ height: '180px' }}>
+                        <div
+                          className="bg-gradient-to-t from-amber-500 to-orange-500 rounded-t-lg transition-all hover:from-amber-600 hover:to-orange-600"
+                          style={{
+                            width: '100%',
+                            height: `${(stat.cost / maxCost) * 100}%`,
+                            minHeight: stat.cost > 0 ? '4px' : '0'
+                          }}
+                          title={`¥${stat.cost.toFixed(2)}`}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {stat.hour.split(' ')[1] || stat.hour}
+                      </span>
+                      <span className="text-xs font-medium text-gray-700">
+                        ¥{stat.cost.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 模型消费分布 */}
+              {modelStats.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-black mb-4">模型消费分布</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                    {modelStats.map((stat, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-medium text-gray-900 truncate">{stat.modelName}</p>
+                        <p className="text-lg font-bold text-gray-900 mt-1">¥{stat.cost.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500 mt-1">{stat.count} 次</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 消费日志列表 */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-black">消费明细</h2>
+                </div>
+
+                {consumeLogs.length === 0 ? (
+                  <div className="py-20">
+                    <Empty description="暂无消费记录" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              时间
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              类型
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              模型
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              状态
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              尺寸
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              用时
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              花费
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {consumeLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(log.createTime).toLocaleString('zh-CN')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {getOperationName(log.operationType)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {log.modelName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span className="flex items-center gap-1">
+                                  {getStatusIcon(log.status)}
+                                  <span className={log.status === 'success' ? 'text-green-600' : log.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}>
+                                    {log.status === 'success' ? '成功' : log.status === 'failed' ? '失败' : '处理中'}
+                                  </span>
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {log.imageSize || '-'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '-'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                                ¥{log.cost.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 分页 */}
+                    <div className="px-6 py-4 border-t border-gray-200 flex justify-center">
+                      <Pagination
+                        current={consumePage}
+                        total={consumeTotal}
+                        pageSize={20}
+                        onChange={setConsumePage}
+                        showSizeChanger={false}
+                        showTotal={(total) => `共 ${total} 条`}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

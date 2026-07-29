@@ -2,17 +2,23 @@ package com.rawchen.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.rawchen.entity.ConsumeLog;
 import com.rawchen.entity.ImageTask;
+import com.rawchen.entity.ModelPrice;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
+import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskService;
+import com.rawchen.service.ModelPriceService;
+import com.rawchen.service.UserBalanceService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +33,9 @@ public class ImageCreateAsyncController {
 
     private final ImageTaskService imageTaskService;
     private final AsyncImageTaskExecutor asyncImageTaskExecutor;
+    private final UserBalanceService userBalanceService;
+    private final ModelPriceService modelPriceService;
+    private final ConsumeLogService consumeLogService;
 
     /**
      * 异步创建图片 - 纯文字生成或带参考图编辑
@@ -44,7 +53,7 @@ public class ImageCreateAsyncController {
             @RequestParam(value = "referenceUrls", required = false) String referenceUrls,
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "size", defaultValue = "1024x1024") String size,
-            @RequestParam(value = "model", required = false) String model,
+            @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
             @AuthenticationPrincipal SysUser user) {
 
         if (prompt == null || prompt.trim().isEmpty()) {
@@ -58,6 +67,22 @@ public class ImageCreateAsyncController {
             if (refUrlList != null && refUrlList.size() > 5) {
                 return R.badRequest("最多上传5张参考图片");
             }
+        }
+
+        // 获取模型价格并检查余额
+        BigDecimal cost = modelPriceService.getPrice(model);
+        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+            return R.badRequest("未配置该模型的价格: " + model);
+        }
+
+        if (!userBalanceService.checkBalance(user.getId(), cost)) {
+            return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");
+        }
+
+        // 扣费
+        boolean deducted = userBalanceService.deduct(user.getId(), cost);
+        if (!deducted) {
+            return R.forbidden("扣费失败，请稍后重试");
         }
 
         // 生成任务ID
@@ -75,6 +100,11 @@ public class ImageCreateAsyncController {
         task.setModel(model);
         imageTaskService.save(task);
 
+        // 创建消费日志
+        ModelPrice price = modelPriceService.getByModelCode(model);
+        consumeLogService.createLog(user.getId(), taskId, "create", model,
+                price != null ? price.getModelName() : model, size, cost);
+
         // 异步执行任务
         if (refUrlList == null || refUrlList.isEmpty()) {
             asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model);
@@ -84,6 +114,7 @@ public class ImageCreateAsyncController {
 
         CreateAsyncResponse response = new CreateAsyncResponse();
         response.setTaskId(taskId);
+        response.setCost(cost);
         return R.ok(response);
     }
 
@@ -204,6 +235,7 @@ public class ImageCreateAsyncController {
     @Data
     public static class CreateAsyncResponse {
         private String taskId;
+        private BigDecimal cost;
     }
 
     /**

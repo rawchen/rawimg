@@ -9,8 +9,9 @@ import {
   ClockCircleOutlined,
   LoadingOutlined,
   ClearOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
-import { imageCreateApi, ossApi, ImageTaskRecord } from '@/api';
+import { imageCreateApi, ossApi, ImageTaskRecord, modelPriceApi, balanceApi, BalanceStats } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
 import { addOssThumbnailStyle } from '@/lib/utils';
 
@@ -168,6 +169,27 @@ export function ImageCreatePage() {
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const animationRef = useRef<number | null>(null);
   const positionRef = useRef(0);
+
+  // 价格和余额相关状态
+  const [modelPrice, setModelPrice] = useState<number>(0);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+
+  // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [priceRes, balanceRes] = await Promise.all([
+          modelPriceApi.getPrice(selectedModel),
+          balanceApi.getStats()
+        ]);
+        setModelPrice(priceRes.price);
+        setBalanceStats(balanceRes);
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel]);
 
   // 加载随机模板（灵感示例滚动）
   useEffect(() => {
@@ -942,13 +964,21 @@ export function ImageCreatePage() {
             <button
               onClick={handleSubmit}
               disabled={loading || !prompt.trim()}
-              className={`w-full py-3 rounded-xl font-medium text-white transition-all ${
+              className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
                 loading || !prompt.trim()
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/30'
               }`}
             >
-              {loading ? '处理中...' : '开始创作'}
+              {loading ? '处理中...' : (
+                <>
+                  <span>开始创作</span>
+                  <span className="flex items-center gap-1">
+                    ¥{modelPrice.toFixed(2)}
+                    <WalletOutlined />
+                  </span>
+                </>
+              )}
             </button>
 
             {/* 提示信息 */}

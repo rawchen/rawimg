@@ -1010,6 +1010,52 @@ export const inspirationAdminApi = {
     api.delete<void>('/admin/inspiration/batch', { data: ids }) as unknown as Promise<void>,
 };
 
+// Admin Model Price API
+export const adminModelPriceApi = {
+  list: (page = 1, size = 20) =>
+    api.get<{
+      records: ModelPrice[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/admin/model-prices', { params: { page, size } }) as unknown as Promise<{
+      records: ModelPrice[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+
+  get: (id: number) =>
+    api.get<ModelPrice>(`/admin/model-prices/${id}`) as unknown as Promise<ModelPrice>,
+
+  create: (data: Partial<ModelPrice>) =>
+    api.post<ModelPrice>('/admin/model-prices', data) as unknown as Promise<ModelPrice>,
+
+  update: (id: number, data: Partial<ModelPrice>) =>
+    api.put<ModelPrice>(`/admin/model-prices/${id}`, data) as unknown as Promise<ModelPrice>,
+
+  delete: (id: number) =>
+    api.delete<void>(`/admin/model-prices/${id}`) as unknown as Promise<void>,
+
+  toggle: (id: number) =>
+    api.put<ModelPrice>(`/admin/model-prices/${id}/toggle`) as unknown as Promise<ModelPrice>,
+};
+
+export interface ModelPrice {
+  id: number;
+  modelCode: string;
+  modelName: string;
+  provider: string;
+  price: number;
+  description: string;
+  enabled: boolean;
+  sortOrder: number;
+  createTime: string;
+  updateTime: string;
+}
+
 // Admin Image Task API
 export const adminImageTaskApi = {
   list: (page = 1, size = 20, userId?: number, taskType?: string, status?: string) =>
@@ -1039,6 +1085,94 @@ export const adminImageTaskApi = {
   getStats: () =>
     api.get<{ total: number; pending: number; done: number; error: number }>('/admin/image-tasks/stats') as unknown as Promise<{ total: number; pending: number; done: number; error: number }>,
 };
+
+// Balance API
+export const balanceApi = {
+  // 获取余额统计
+  getStats: () =>
+    api.get<BalanceStats>('/balance/stats') as unknown as Promise<BalanceStats>,
+
+  // 获取消费日志
+  getConsumeLogs: (page = 1, size = 20) =>
+    api.get<{ records: ConsumeLog[]; total: number }>('/balance/consume-logs', { params: { page, size } }) as unknown as Promise<{ records: ConsumeLog[]; total: number }>,
+
+  // 获取消费统计图表
+  getConsumeChart: (hours = 8) =>
+    api.get<ConsumeChartResponse>('/balance/consume-chart', { params: { hours } }) as unknown as Promise<ConsumeChartResponse>,
+};
+
+// Model Price API (Public)
+export const modelPriceApi = {
+  // 获取所有启用的模型价格
+  getEnabledPrices: () =>
+    api.get<{ modelCode: string; modelName: string; provider: string; price: number }[]>('/public/model-prices') as unknown as Promise<{ modelCode: string; modelName: string; provider: string; price: number }[]>,
+
+  // 获取指定模型的价格
+  getPrice: (modelCode: string) =>
+    api.get<{ modelCode: string; price: number }>('/public/model-prices/price', { params: { modelCode } }) as unknown as Promise<{ modelCode: string; price: number }>,
+};
+
+// 余额统计类型
+export interface BalanceStats {
+  userId: number;
+  balance: number;
+  totalRecharged: number;
+  totalConsumed: number;
+  todayConsumed: number;
+  todayOperations: number;
+}
+
+// 消费日志类型
+export interface ConsumeLog {
+  id: number;
+  userId: number;
+  taskId: string;
+  operationType: string;
+  modelCode: string;
+  modelName: string;
+  status: string;
+  inputTokens: number;
+  outputTokens: number;
+  imageSize: string;
+  imageCount: number;
+  baseCost: number;
+  tokenCost: number;
+  imageCost: number;
+  cost: number;  // 总花费
+  totalCost: number;
+  durationMs: number;
+  errorMsg: string;
+  requestParams: string;
+  resultUrl: string;
+  createTime: string;
+}
+
+// 消费图表响应类型
+export interface ConsumeChartResponse {
+  hourlyStats: HourlyStats[];
+  modelStats: ModelStats[];
+}
+
+export interface HourlyStats {
+  hour: string;
+  cost: number;
+  count: number;
+  modelDistribution: ModelDistribution[];
+}
+
+export interface ModelStats {
+  modelName: string;
+  modelCode: string;
+  cost: number;
+  count: number;
+  percentage: number;
+}
+
+export interface ModelDistribution {
+  modelName: string;
+  cost: number;
+  count: number;
+}
 
 interface InspirationTemplate {
   id: number;

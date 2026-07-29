@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { UserOutlined, CrownOutlined, LogoutOutlined, SettingOutlined, HeartOutlined } from '@ant-design/icons';
+import { UserOutlined, CrownOutlined, LogoutOutlined, SettingOutlined, HeartOutlined, WalletOutlined } from '@ant-design/icons';
 import { useAuth } from '@/context/AuthContext';
+import { balanceApi } from '@/api';
 import type { SysUser } from '@/types';
+import type { BalanceStats } from '@/api';
 
 interface UserDropdownProps {
   user: SysUser;
@@ -13,6 +15,7 @@ interface UserDropdownProps {
 export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ right: 0, top: 64 });
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { logout } = useAuth();
@@ -46,9 +49,31 @@ export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
     if (isOpen) {
       const handleScroll = () => updatePosition();
       window.addEventListener('scroll', handleScroll);
+      // 加载余额信息
+      loadBalanceStats();
       return () => window.removeEventListener('scroll', handleScroll);
     }
   }, [isOpen]);
+
+  const loadBalanceStats = async () => {
+    try {
+      console.log('[UserDropdown] Loading balance stats...');
+      const stats = await balanceApi.getStats();
+      console.log('[UserDropdown] Balance stats loaded:', stats);
+      setBalanceStats(stats);
+    } catch (error: any) {
+      console.error('[UserDropdown] Failed to load balance stats:', error);
+      // 如果API失败，显示默认值而不是"加载中"
+      setBalanceStats({
+        userId: user.id,
+        balance: 0,
+        totalRecharged: 0,
+        totalConsumed: 0,
+        todayConsumed: 0,
+        todayOperations: 0
+      });
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -120,29 +145,21 @@ export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
                 )}
               </div>
               <p className="text-xs text-gray-500">{user.email}</p>
-              <div className="flex items-center justify-between pt-1">
-                {user.vip ? (
-                  user.dailyDownloadLimit !== undefined && user.dailyDownloadLimit > 0 && (
+
+              {/* 余额信息 */}
+              <div className="flex items-center justify-between pt-2">
+                {balanceStats ? (
+                  <>
                     <span className="text-xs text-gray-500">
-                      今日下载: <span className="font-medium text-black">{user.dailyDownloadCount || 0}/{user.dailyDownloadLimit}次</span>
+                      今日用量: <span className="font-medium text-black">¥{(balanceStats.todayConsumed || 0).toFixed(2)}</span>
                     </span>
-                  )
+                    <span className="text-xs text-gray-500 flex items-center">
+                      <WalletOutlined className="text-xs mr-1" />
+                      余额: <span className="font-medium text-black ml-1">¥{(balanceStats.balance || 0).toFixed(2)}</span>
+                    </span>
+                  </>
                 ) : (
-                  <span className="text-xs text-gray-500">
-                    今日下载: <span className="font-medium">0/0次</span>
-                  </span>
-                )}
-                {user.vip && user.vipExpireTime && (
-                  <span className="text-xs text-gray-500">
-                    到期: <span className="inline-flex items-center text-xs text-black">
-                      {new Date(user.vipExpireTime).toLocaleDateString()}
-                    </span>
-                  </span>
-                )}
-                {!user.vip && (
-                  <span className="text-xs text-gray-500">
-                    积分: <span className="font-medium text-black">{user.points}</span>
-                  </span>
+                  <span className="text-xs text-gray-400">加载中...</span>
                 )}
               </div>
             </div>

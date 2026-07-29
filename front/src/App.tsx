@@ -23,9 +23,11 @@ import { OrdersPage } from '@/pages/admin/OrdersPage';
 import { CardKeysPage } from '@/pages/admin/CardKeysPage';
 import { VipPackagesPage } from '@/pages/admin/VipPackagesPage';
 import { RechargePage } from '@/pages/RechargePage';
+import { ConsumeLogsPage } from '@/pages/ConsumeLogsPage';
 import { FeedbackPage } from '@/pages/admin/FeedbackPage';
 import { InspirationAdminPage } from '@/pages/admin/InspirationAdminPage';
 import { ImageTasksPage } from '@/pages/admin/ImageTasksPage';
+import { ModelPricesPage } from '@/pages/admin/ModelPricesPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { ImageEnhancePage } from '@/pages/ImageEnhancePage.tsx';
 import { ImageCreatePage } from '@/pages/ImageCreatePage.tsx';
@@ -104,6 +106,7 @@ function AppContent() {
             <Route path="/not-found" element={<NotFoundPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/consume-logs" element={<ProtectedRoute><ConsumeLogsPage /></ProtectedRoute>} />
             <Route path="/recharge" element={<RechargePage />} />
 
             {/* Image Enhance Route */}
@@ -147,6 +150,7 @@ function AppContent() {
             <Route path="/admin/orders" element={<ProtectedRoute requireAdmin><OrdersPage /></ProtectedRoute>} />
             <Route path="/admin/card-keys" element={<ProtectedRoute requireAdmin><CardKeysPage /></ProtectedRoute>} />
             <Route path="/admin/vip-packages" element={<ProtectedRoute requireAdmin><VipPackagesPage /></ProtectedRoute>} />
+            <Route path="/admin/model-prices" element={<ProtectedRoute requireAdmin><ModelPricesPage /></ProtectedRoute>} />
             <Route path="/admin/logs" element={<ProtectedRoute requireAdmin><LogsPage /></ProtectedRoute>} />
             <Route path="/admin/user-actions" element={<ProtectedRoute requireAdmin><UserActionsPage /></ProtectedRoute>} />
             <Route path="/admin/feedback" element={<ProtectedRoute requireAdmin><FeedbackPage /></ProtectedRoute>} />

@@ -14,6 +14,7 @@ import {
   CommentOutlined,
   BulbOutlined,
   AppstoreOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 
 const sidebarItems = [
@@ -27,6 +28,7 @@ const sidebarItems = [
   { icon: PayCircleOutlined, label: '订单管理', path: '/admin/orders' },
   { icon: GiftOutlined, label: '卡密管理', path: '/admin/card-keys' },
   { icon: CrownOutlined, label: '套餐管理', path: '/admin/vip-packages' },
+  { icon: DollarOutlined, label: '模型价格', path: '/admin/model-prices' },
   { icon: SearchOutlined, label: '访问日志', path: '/admin/logs' },
   { icon: HeartOutlined, label: '行为日志', path: '/admin/user-actions' },
   { icon: SettingOutlined, label: '系统配置', path: '/admin/config' },

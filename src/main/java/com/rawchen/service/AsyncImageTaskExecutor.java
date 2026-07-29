@@ -26,6 +26,7 @@ public class AsyncImageTaskExecutor {
     private final GptUtil gptUtil;
     private final ImageTaskService imageTaskService;
     private final OssUploadService ossUploadService;
+    private final ConsumeLogService consumeLogService;
 
     @Value("${aliyun.oss.custom-domain}")
     private String customDomain;
@@ -42,10 +43,12 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async create task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -78,10 +81,12 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async edit task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -279,11 +284,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async beauty task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async beauty task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
