@@ -140,6 +140,8 @@ export function ImageCreatePage() {
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null); // 任务提交时间戳
   const [currentElapsed, setCurrentElapsed] = useState<number>(0); // 当前耗时（秒）
   const [templates, setTemplates] = useState<InspirationTemplate[]>([]);
+  const [templateTotal, setTemplateTotal] = useState(0);
+  const [templatePage, setTemplatePage] = useState(1);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
@@ -230,21 +232,30 @@ export function ImageCreatePage() {
   }, [historyRecords]);
 
   // 加载模板
-  const loadTemplates = useCallback(async () => {
+  const loadTemplates = useCallback(async (page = 1) => {
     setLoadingTemplates(true);
     try {
       const [templatesData, categoriesData] = await Promise.all([
-        imageCreateApi.getTemplates(selectedCategory === '全部' ? undefined : selectedCategory),
+        imageCreateApi.getTemplates(selectedCategory === '全部' ? undefined : selectedCategory, page, 12),
         imageCreateApi.getCategories(),
       ]);
-      setTemplates(templatesData);
-      setCategories(['全部', ...categoriesData]);
+      setTemplates(templatesData?.records || []);
+      setTemplateTotal(templatesData?.total || 0);
+      setTemplatePage(templatesData?.current || 1);
+      setCategories(['全部', ...(categoriesData || [])]);
     } catch (error: any) {
       console.error('Failed to load templates:', error);
     } finally {
       setLoadingTemplates(false);
     }
   }, [selectedCategory]);
+
+  // 分类切换时重新加载第一页模板
+  useEffect(() => {
+    if (templateModalVisible) {
+      loadTemplates(1);
+    }
+  }, [selectedCategory, templateModalVisible, loadTemplates]);
 
   // 打开模板弹窗
   const handleOpenTemplates = () => {
@@ -434,9 +445,31 @@ export function ImageCreatePage() {
   };
 
   // 下载图片
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!createdImage) return;
-    window.open(createdImage, '_blank');
+
+    const now = new Date();
+    const fileName = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}_${String(Math.floor(Math.random() * 100)).padStart(2, '0')}.jpg`;
+
+    try {
+      const response = await fetch(createdImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      const a = document.createElement('a');
+      a.href = createdImage;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   // 重置
@@ -538,7 +571,7 @@ export function ImageCreatePage() {
   const loadHistory = useCallback(async (page = 1) => {
     setHistoryLoading(true);
     try {
-      const result = await imageCreateApi.getHistory(page, 12);
+      const result = await imageCreateApi.getHistory(page, 12, 'create');
       setHistoryRecords(result.records);
       setHistoryTotal(result.total);
       setHistoryPage(result.current);
@@ -941,7 +974,7 @@ export function ImageCreatePage() {
         footer={null}
         width={800}
       >
-        <div>
+        <div className="relative">
           {/* 分类选择 */}
           <div className="flex flex-wrap gap-2 mb-4">
             {categories.map(cat => (
@@ -959,53 +992,70 @@ export function ImageCreatePage() {
             ))}
           </div>
 
-          {/* 模板列表 */}
-          {loadingTemplates ? (
-            <div className="flex justify-center py-8">
+          {/* 加载指示器 - 覆盖在内容上方 */}
+          {loadingTemplates && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
               <Spin />
             </div>
+          )}
+
+          {/* 模板列表 */}
+          {(!templates || templates.length === 0) && !loadingTemplates ? (
+            <div className="text-center py-8 text-gray-400">
+              暂无模板数据
+            </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {templates.map(template => (
-                <div
-                  key={template.id}
-                  onClick={() => {
-                    setSelectedInspiration(template);
-                    setInspirationModalVisible(true);
-                  }}
-                  className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
-                >
-                  {/* 图片 */}
-                  <div className="relative w-full h-24">
-                    {template.imageUrl ? (
-                      <img
-                        src={template.imageUrl}
-                        alt={template.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center">
-                        <span className="text-2xl">✨</span>
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {templates && templates.map(template => (
+                  <div
+                    key={template.id}
+                    onClick={() => {
+                      setSelectedInspiration(template);
+                      setInspirationModalVisible(true);
+                    }}
+                    className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
+                  >
+                    {/* 图片 */}
+                    <div className="relative w-full h-32">
+                      {template.imageUrl ? (
+                        <img
+                          src={template.imageUrl}
+                          alt={template.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center">
+                          <span className="text-2xl">✨</span>
+                        </div>
+                      )}
+                      {/* 分类标签 */}
+                      <div className="absolute top-2 right-2">
+                        <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded shadow-sm">
+                          {template.category}
+                        </span>
                       </div>
-                    )}
-                    {/* 分类标签 */}
-                    <div className="absolute top-2 right-2">
-                      <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded shadow-sm">
-                        {template.category}
-                      </span>
+                    </div>
+                    {/* 内容 */}
+                    <div className="p-3">
+                      <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">{template.title}</h4>
+                      <p className="text-xs text-gray-500 line-clamp-1">{template.prompt}</p>
                     </div>
                   </div>
-                  {/* 内容 */}
-                  <div className="p-3">
-                    <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">{template.title}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-2">{template.prompt}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
-              {templates.length === 0 && (
-                <div className="col-span-full text-center py-8 text-gray-400">
-                  暂无模板数据
+              {/* 分页 */}
+              {templateTotal > 12 && (
+                <div className="flex justify-center mt-4">
+                  <Pagination
+                    current={templatePage}
+                    total={templateTotal}
+                    pageSize={12}
+                    onChange={(page) => loadTemplates(page)}
+                    showSizeChanger={false}
+                    simple
+                  />
                 </div>
               )}
             </div>
@@ -1089,91 +1139,97 @@ export function ImageCreatePage() {
         footer={null}
         width={800}
       >
-        {historyLoading ? (
-          <div className="flex justify-center py-8">
-            <Spin />
-          </div>
-        ) : historyRecords.length === 0 ? (
-          <Empty description="暂无生成历史" />
-        ) : (
-          <div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {historyRecords.map(record => (
-                <div
-                  key={record.taskId}
-                  onClick={() => handleHistoryClick(record)}
-                  className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
-                >
-                  {/* 结果图片 */}
-                  <div className="relative w-full h-32">
-                    {record.resultImageUrl ? (
-                      <img
-                        src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
-                        alt="生成结果"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-400">无图片</span>
-                      </div>
-                    )}
-                    {/* 参考图缩略图 */}
-                    {record.referenceImageUrls && (
-                      <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
+        <div className="relative">
+          {/* 加载指示器 - 覆盖在内容上方 */}
+          {historyLoading && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+              <Spin />
+            </div>
+          )}
+
+          {historyRecords.length === 0 && !historyLoading ? (
+            <Empty description="暂无生成历史" />
+          ) : (
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {historyRecords.map(record => (
+                  <div
+                    key={record.taskId}
+                    onClick={() => handleHistoryClick(record)}
+                    className="bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-orange-50 hover:ring-2 hover:ring-orange-400 transition-all"
+                  >
+                    {/* 结果图片 */}
+                    <div className="relative w-full h-32">
+                      {record.resultImageUrl ? (
                         <img
-                          src={addOssThumbnailStyle(ensureHttpsUrl(JSON.parse(record.referenceImageUrls)[0])) || ''}
-                          alt="参考图"
+                          src={addOssThumbnailStyle(ensureHttpsUrl(record.resultImageUrl)) || ''}
+                          alt="生成结果"
                           className="w-full h-full object-cover"
                         />
-                      </div>
-                    )}
-                  </div>
-                  {/* 提示词 */}
-                  <div className="p-2">
-                    <p className="text-xs text-gray-600 line-clamp-2">{record.prompt}</p>
-                    {/* 日期和状态 */}
-                    <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <ClockCircleOutlined className="text-xs" />
-                        <span>{formatDate(record.createTime)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* 耗时 */}
-                        {record.status === 'pending' ? (
-                          <span className="text-gray-500">{getPendingElapsed(record.createTime)}</span>
-                        ) : (
-                          formatDuration(record.duration) && (
-                            <span className="text-gray-500">{formatDuration(record.duration)}</span>
-                          )
-                        )}
-                        {/* 状态标签 */}
-                        <span className={`px-2 py-0.5 rounded ${
-                          record.status === 'done' ? 'bg-green-500 text-white' :
-                          record.status === 'pending' ? 'bg-blue-500 text-white' :
-                          'bg-red-500 text-white'
-                        }`}>
-                          {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
-                        </span>
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400">无图片</span>
+                        </div>
+                      )}
+                      {/* 参考图缩略图 */}
+                      {record.referenceImageUrls && (
+                        <div className="absolute bottom-2 right-2 w-12 h-12 rounded border border-white shadow-sm overflow-hidden">
+                          <img
+                            src={addOssThumbnailStyle(ensureHttpsUrl(JSON.parse(record.referenceImageUrls)[0])) || ''}
+                            alt="参考图"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {/* 提示词 */}
+                    <div className="p-2">
+                      <p className="text-xs text-gray-600 line-clamp-1">{record.prompt}</p>
+                      {/* 日期和状态 */}
+                      <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
+                        <div className="flex items-center gap-1">
+                          <ClockCircleOutlined className="text-xs" />
+                          <span>{formatDate(record.createTime)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {/* 耗时 */}
+                          {record.status === 'pending' ? (
+                            <span className="text-gray-500">{getPendingElapsed(record.createTime)}</span>
+                          ) : (
+                            formatDuration(record.duration) && (
+                              <span className="text-gray-500">{formatDuration(record.duration)}</span>
+                            )
+                          )}
+                          {/* 状态标签 */}
+                          <span className={`px-2 py-0.5 rounded ${
+                            record.status === 'done' ? 'bg-green-500 text-white' :
+                            record.status === 'pending' ? 'bg-blue-500 text-white' :
+                            'bg-red-500 text-white'
+                          }`}>
+                            {record.status === 'done' ? '完成' : record.status === 'pending' ? '处理中' : '失败'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            {/* 分页 */}
-            {historyTotal > 12 && (
-              <div className="flex justify-center mt-4">
-                <Pagination
-                  current={historyPage}
-                  total={historyTotal}
-                  pageSize={12}
-                  onChange={(page) => loadHistory(page)}
-                  showSizeChanger={false}
-                />
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {/* 分页 */}
+              {historyTotal > 12 && (
+                <div className="flex justify-center mt-4">
+                  <Pagination
+                    current={historyPage}
+                    total={historyTotal}
+                    pageSize={12}
+                    onChange={(page) => loadHistory(page)}
+                    showSizeChanger={false}
+                    simple
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* 历史详情弹窗 */}

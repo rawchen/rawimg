@@ -1,6 +1,8 @@
 package com.rawchen.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.rawchen.entity.InspirationTemplate;
 import com.rawchen.mapper.InspirationTemplateMapper;
 import com.rawchen.service.InspirationTemplateService;
@@ -28,6 +30,17 @@ public class InspirationTemplateServiceImpl implements InspirationTemplateServic
         }
         wrapper.orderByAsc(InspirationTemplate::getSortOrder);
         return inspirationTemplateMapper.selectList(wrapper);
+    }
+
+    @Override
+    public IPage<InspirationTemplate> getTemplatesPage(String category, int page, int size) {
+        LambdaQueryWrapper<InspirationTemplate> wrapper = new LambdaQueryWrapper<>();
+        if (category != null && !category.isEmpty()) {
+            wrapper.eq(InspirationTemplate::getCategory, category);
+        }
+        wrapper.orderByAsc(InspirationTemplate::getSortOrder);
+        Page<InspirationTemplate> pageParam = new Page<>(page, size);
+        return inspirationTemplateMapper.selectPage(pageParam, wrapper);
     }
 
     @Override

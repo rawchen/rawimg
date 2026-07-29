@@ -901,22 +901,34 @@ export const imageCreateApi = {
   getTaskDetail: (taskId: string) =>
     api.get<ImageTaskRecord>(`/image-create/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
 
-  getTemplates: (category?: string) =>
+  getTemplates: (category?: string, page = 1, size = 12) =>
     api.get<{
-      id: number;
-      title: string;
-      prompt: string;
-      category: string;
-      imageUrl: string | null;
-      sortOrder: number;
-    }[]>('/image-create/templates', { params: { category } }) as unknown as Promise<{
-      id: number;
-      title: string;
-      prompt: string;
-      category: string;
-      imageUrl: string | null;
-      sortOrder: number;
-    }[]>,
+      records: {
+        id: number;
+        title: string;
+        prompt: string;
+        category: string;
+        imageUrl: string | null;
+        sortOrder: number;
+      }[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/image-create/templates', { params: { category, page, size } }) as unknown as Promise<{
+      records: {
+        id: number;
+        title: string;
+        prompt: string;
+        category: string;
+        imageUrl: string | null;
+        sortOrder: number;
+      }[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
 
   getRandomTemplates: (count = 10) =>
     api.get<{

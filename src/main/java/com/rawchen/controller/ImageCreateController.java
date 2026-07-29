@@ -1,5 +1,6 @@
 package com.rawchen.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.R;
 import com.rawchen.entity.InspirationTemplate;
 import com.rawchen.service.InspirationTemplateService;
@@ -70,16 +71,20 @@ public class ImageCreateController {
     }
 
     /**
-     * 获取灵感模板列表
+     * 获取灵感模板列表（支持分页）
      *
      * @param category 分类（可选）
+     * @param page     页码（默认1）
+     * @param size     每页大小（默认12）
      * @return 模板列表
      */
     @GetMapping("/templates")
-    public R<List<InspirationTemplate>> getTemplates(
-            @RequestParam(value = "category", required = false) String category) {
-        List<InspirationTemplate> templates = inspirationTemplateService.getTemplates(category);
-        return R.ok(templates);
+    public R<IPage<InspirationTemplate>> getTemplates(
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "12") Integer size) {
+        IPage<InspirationTemplate> templatePage = inspirationTemplateService.getTemplatesPage(category, page, size);
+        return R.ok(templatePage);
     }
 
     /**
