@@ -8,6 +8,11 @@ html, body, #root {
   overflow: hidden;
 }
 
+#scroll-container {
+  background: linear-gradient(135deg, #f3f3f3 0%, #ffffff 100%);
+
+}
+
 /* 自定义滚动条样式 */
 ::-webkit-scrollbar {
   width: 8px;

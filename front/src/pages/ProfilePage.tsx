@@ -20,7 +20,7 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 
 export function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
@@ -72,23 +72,22 @@ export function ProfilePage() {
 
     return Array.from(modelSet).map(modelName => ({
       modelName,
-      dataKey: `models.${modelName}`
+      dataKey: modelName
     }));
   };
 
-  // 转换数据格式供 Recharts 使用
+  // 转换数据格式供 Recharts 使用 - 扁平化模型数据
   const chartData = hourlyStats.map(stat => {
-    const modelsObj: any = {};
+    const result: any = {
+      hour: stat.hour,
+      cost: parseFloat(stat.cost) || 0
+    };
     if (stat.modelDistribution) {
       stat.modelDistribution.forEach((m: any) => {
-        modelsObj[m.modelName] = parseFloat(m.cost) || 0;
+        result[m.modelName] = parseFloat(m.cost) || 0;
       });
     }
-    return {
-      hour: stat.hour,
-      cost: parseFloat(stat.cost) || 0,
-      models: modelsObj
-    };
+    return result;
   });
 
   useEffect(() => {
@@ -299,7 +298,7 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
         </div>
@@ -308,7 +307,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
       {/* Page Title */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-black">个人中心</h1>
@@ -810,20 +809,33 @@ export function ProfilePage() {
                     <YAxis
                       tick={{ fontSize: 12 }}
                       tickFormatter={(value) => `¥${value}`}
+                      domain={[0, (dataMax: number) => dataMax * 1.15]}
                     />
                     <Tooltip
                       formatter={(value: number) => [`¥${value.toFixed(2)}`, '']}
                       labelFormatter={(label) => `时间: ${label}`}
                     />
                     <Legend />
-                    {getModelBarData().map((model, index) => (
+                    {getModelBarData().map((model, index, arr) => (
                       <Bar
                         key={model.modelName}
-                        dataKey={`models.${model.modelName}`}
+                        dataKey={model.modelName}
                         name={model.modelName}
                         stackId="a"
                         fill={COLORS[index % COLORS.length]}
-                      />
+                      >
+                        {index === arr.length - 1 && (
+                          <LabelList
+                            dataKey="cost"
+                            position="top"
+                            offset={12}
+                            fill="#333"
+                            fontSize={12}
+                            fontWeight="bold"
+                            formatter={(value: number) => value > 0 ? `¥${value.toFixed(2)}` : ''}
+                          />
+                        )}
+                      </Bar>
                     ))}
                   </BarChart>
                 </ResponsiveContainer>
