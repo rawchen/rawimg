@@ -124,7 +124,7 @@ export function ModelPricesPage() {
       key: 'price',
       width: 120,
       render: (price: number) => (
-        <span className="font-medium text-orange-600">¥{price.toFixed(4)}</span>
+        <span className="font-medium text-orange-600">¥{price.toFixed(2)}</span>
       ),
     },
     {
@@ -260,7 +260,7 @@ export function ModelPricesPage() {
             <InputNumber
               min={0}
               step={0.01}
-              precision={4}
+              precision={2}
               style={{ width: '100%' }}
               placeholder="如：0.04"
               prefix={<DollarOutlined />}

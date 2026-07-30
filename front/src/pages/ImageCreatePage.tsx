@@ -9,10 +9,10 @@ import {
   ClockCircleOutlined,
   LoadingOutlined,
   ClearOutlined,
-  WalletOutlined,
 } from '@ant-design/icons';
 import { imageCreateApi, ossApi, ImageTaskRecord, modelPriceApi, balanceApi, BalanceStats } from '@/api';
 import previewImage from '@/assets/image-create/preview_image.jpg';
+import rmbCircle from '@/assets/media/rmb-circle.svg';
 import { addOssThumbnailStyle } from '@/lib/utils';
 
 // 页面标题闪烁 hook
@@ -116,6 +116,35 @@ const getActualSize = (baseSize: string, resolution: string) => {
   }
 };
 
+// 根据模型和分辨率获取实际使用的模型代码
+const getEffectiveModelCode = (model: string, resolution: string): string => {
+  // gpt-image-2 根据分辨率返回不同价格模型（实际模型名不变，仅用于价格查询）
+  if (model === 'gpt-image-2') {
+    switch (resolution) {
+      case '2K':
+        return 'gpt-image-2-2k';
+      case '4K':
+        return 'gpt-image-2-4k';
+      default:
+        return 'gpt-image-2';
+    }
+  }
+
+  // nano 模型根据分辨率调整
+  if (model === 'gemini-2.5-flash-image') {
+    switch (resolution) {
+      case '2K':
+        return 'gemini-3.1-flash-image-preview-2k';
+      case '4K':
+        return 'gemini-3.1-flash-image-preview-4k';
+      default:
+        return 'gemini-2.5-flash-image';
+    }
+  }
+
+  return model;
+};
+
 interface InspirationTemplate {
   id: number;
   title: string;
@@ -175,6 +204,24 @@ export function ImageCreatePage() {
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
 
   // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 根据当前模型和分辨率计算实际使用的模型
+        const effectiveModel = getEffectiveModelCode(selectedModel, selectedResolution);
+
+        const [priceRes, balanceRes] = await Promise.all([
+          modelPriceApi.getPrice(effectiveModel),
+          balanceApi.getStats()
+        ]);
+        setModelPrice(priceRes.price);
+        setBalanceStats(balanceRes);
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel, selectedResolution]);
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -875,7 +922,7 @@ export function ImageCreatePage() {
                   <div className="ml-auto flex items-center gap-2">
                     {/*<span className="text-xs text-gray-500">模型:</span>*/}
                     <div
-                      onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-3.1-flash-image-preview' : 'gpt-image-2')}
+                      onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
                       className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
                         loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       } ${selectedModel === 'gpt-image-2' ? 'bg-orange-500' : 'bg-purple-500'}`}
@@ -974,8 +1021,8 @@ export function ImageCreatePage() {
                 <>
                   <span>开始创作</span>
                   <span className="flex items-center gap-1">
-                    ¥{modelPrice.toFixed(2)}
-                    <WalletOutlined />
+                    {modelPrice.toFixed(2)}
+                    <img src={rmbCircle} alt="费用" className="w-4 h-4" />
                   </span>
                 </>
               )}

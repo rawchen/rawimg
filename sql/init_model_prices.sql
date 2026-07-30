@@ -20,11 +20,13 @@ CREATE TABLE IF NOT EXISTS `model_price` (
 
 -- 2. 插入初始数据（使用 INSERT IGNORE 避免重复）
 INSERT IGNORE INTO `model_price` (`model_code`, `model_name`, `provider`, `price`, `description`, `enabled`, `sort_order`) VALUES
-('gemini-3.1-flash-image-preview', 'Gemini 3.1 Flash Image Preview', 'Google', 0.60, 'Gemini 3.1 图像生成预览版', 1, 1),
-('gemini-3.1-flash-image-preview-2k', 'Gemini 3.1 Flash Image Preview 2K', 'Google', 0.60, 'Gemini 3.1 图像生成 2K分辨率', 1, 2),
-('gemini-3.1-flash-image-preview-4k', 'Gemini 3.1 Flash Image Preview 4K', 'Google', 0.80, 'Gemini 3.1 图像生成 4K分辨率', 1, 3),
-('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image', 'Google', 0.06, 'Gemini 2.5 图像生成', 1, 4),
-('gpt-image-2', 'GPT Image 2', 'OpenAI', 0.04, 'GPT-4 图像生成模型', 1, 5);
+('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image', 'Google', 0.06, 'Gemini 2.5 图像生成（1K分辨率，默认使用）', 1, 1),
+('gemini-3.1-flash-image-preview', 'Gemini 3.1 Flash Image Preview', 'Google', 0.60, 'Gemini 3.1 图像生成预览版（1K分辨率）', 1, 2),
+('gemini-3.1-flash-image-preview-2k', 'Gemini 3.1 Flash Image Preview 2K', 'Google', 0.60, 'Gemini 3.1 图像生成 2K分辨率', 1, 3),
+('gemini-3.1-flash-image-preview-4k', 'Gemini 3.1 Flash Image Preview 4K', 'Google', 0.80, 'Gemini 3.1 图像生成 4K分辨率', 1, 4),
+('gpt-image-2', 'GPT Image 2', 'OpenAI', 0.04, 'GPT-4 图像生成模型（1K分辨率）', 1, 5),
+('gpt-image-2-2k', 'GPT Image 2 (2K)', 'OpenAI', 0.20, 'GPT-4 图像生成模型（2K分辨率）', 1, 6),
+('gpt-image-2-4k', 'GPT Image 2 (4K)', 'OpenAI', 0.52, 'GPT-4 图像生成模型（4K分辨率）', 1, 7);
 
 -- 3. 验证数据
 SELECT * FROM model_price ORDER BY sort_order;

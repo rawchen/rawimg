@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { userApi, feedbackApi, balanceApi, ConsumeLog } from '@/api';
 import { UserStats, BalanceStats } from '@/types';
+import walletIcon from '@/assets/media/wallet.svg';
 import {
   UserOutlined,
   CrownOutlined,
@@ -15,11 +16,11 @@ import {
   ClockCircleOutlined,
   PictureOutlined,
   PlusOutlined,
-  WalletOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
@@ -54,6 +55,41 @@ export function ProfilePage() {
   const [feedbackContact, setFeedbackContact] = useState('');
   const [feedbackImages, setFeedbackImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // 图表颜色配置
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+  // 从小时统计数据中提取所有模型名称
+  const getModelBarData = () => {
+    const modelSet = new Set<string>();
+    hourlyStats.forEach(stat => {
+      if (stat.modelDistribution) {
+        stat.modelDistribution.forEach((m: any) => {
+          modelSet.add(m.modelName);
+        });
+      }
+    });
+
+    return Array.from(modelSet).map(modelName => ({
+      modelName,
+      dataKey: `models.${modelName}`
+    }));
+  };
+
+  // 转换数据格式供 Recharts 使用
+  const chartData = hourlyStats.map(stat => {
+    const modelsObj: any = {};
+    if (stat.modelDistribution) {
+      stat.modelDistribution.forEach((m: any) => {
+        modelsObj[m.modelName] = parseFloat(m.cost) || 0;
+      });
+    }
+    return {
+      hour: stat.hour,
+      cost: parseFloat(stat.cost) || 0,
+      models: modelsObj
+    };
+  });
 
   useEffect(() => {
     fetchStats();
@@ -261,9 +297,6 @@ export function ProfilePage() {
     return <ClockCircleOutlined className="text-yellow-500" />;
   };
 
-  // 计算柱状图的最大值
-  const maxCost = Math.max(...hourlyStats.map(h => h.cost || 0), 0.01);
-
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -407,7 +440,7 @@ export function ProfilePage() {
                 </button>
               </h2>
               <div className="flex items-center space-x-4">
-                <WalletOutlined className="text-4xl text-orange-500" />
+                <img src={walletIcon} alt="余额" className="w-10 h-10" />
                 <div className="flex-1">
                   <p className="text-3xl font-bold text-black">¥{balanceStats?.balance.toFixed(2) || '0.00'}</p>
                   <div className="flex gap-4 mt-1">
@@ -766,29 +799,34 @@ export function ProfilePage() {
               {/* 柱状图区域 */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-black mb-4">近8小时消费分布</h2>
-                <div className="flex items-end gap-2 h-48">
-                  {hourlyStats.map((stat, index) => (
-                    <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="w-full flex items-end justify-center" style={{ height: '180px' }}>
-                        <div
-                          className="bg-gradient-to-t from-amber-500 to-orange-500 rounded-t-lg transition-all hover:from-amber-600 hover:to-orange-600"
-                          style={{
-                            width: '100%',
-                            height: `${(stat.cost / maxCost) * 100}%`,
-                            minHeight: stat.cost > 0 ? '4px' : '0'
-                          }}
-                          title={`¥${stat.cost.toFixed(2)}`}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {stat.hour.split(' ')[1] || stat.hour}
-                      </span>
-                      <span className="text-xs font-medium text-gray-700">
-                        ¥{stat.cost.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="hour"
+                      tickFormatter={(value) => value.split(' ')[1] || value}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => `¥${value}`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [`¥${value.toFixed(2)}`, '']}
+                      labelFormatter={(label) => `时间: ${label}`}
+                    />
+                    <Legend />
+                    {getModelBarData().map((model, index) => (
+                      <Bar
+                        key={model.modelName}
+                        dataKey={`models.${model.modelName}`}
+                        name={model.modelName}
+                        stackId="a"
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
 
               {/* 模型消费分布 */}

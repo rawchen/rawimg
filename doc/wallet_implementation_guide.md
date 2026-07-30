@@ -14,10 +14,10 @@ SQL文件位置: `/doc/wallet_system.sql`
 - `model_price` 表不再区分操作类型，改为按模型固定定价
 - `consume_log` 表简化字段，移除复杂的费用计算字段
 - 初始价格配置：
-  - `gemini-3.1-flash-image-preview`: ¥0.60
-  - `gemini-3.1-flash-image-preview-2k`: ¥0.60
-  - `gemini-3.1-flash-image-preview-4k`: ¥0.80
-  - `gemini-2.5-flash-image`: ¥0.06
+  - `gemini-2.5-flash-image`: ¥0.06（1K分辨率，前端默认使用）
+  - `gemini-3.1-flash-image-preview`: ¥0.60（1K分辨率，备选模型）
+  - `gemini-3.1-flash-image-preview-2k`: ¥0.60（2K分辨率）
+  - `gemini-3.1-flash-image-preview-4k`: ¥0.80（4K分辨率）
   - `gpt-image-2`: ¥0.04
 
 ### 2. 后端实体类 ✅
@@ -75,17 +75,20 @@ SQL文件位置: `/doc/wallet_system.sql`
 ### 当前模型定价
 | 模型代码 | 模型名称 | 提供商 | 价格 |
 |---------|---------|--------|------|
+| gemini-2.5-flash-image | Gemini 2.5 Flash Image | Google | ¥0.06 |
 | gemini-3.1-flash-image-preview | Gemini 3.1 Flash Image Preview | Google | ¥0.60 |
 | gemini-3.1-flash-image-preview-2k | Gemini 3.1 Flash Image Preview 2K | Google | ¥0.60 |
 | gemini-3.1-flash-image-preview-4k | Gemini 3.1 Flash Image Preview 4K | Google | ¥0.80 |
-| gemini-2.5-flash-image | Gemini 2.5 Flash Image | Google | ¥0.06 |
-| gpt-image-2 | GPT Image 2 | OpenAI | ¥0.04 |
+| gpt-image-2 | GPT Image 2 (1K) | OpenAI | ¥0.04 |
+| gpt-image-2-2k | GPT Image 2 (2K) | OpenAI | ¥0.20 |
+| gpt-image-2-4k | GPT Image 2 (4K) | OpenAI | ¥0.52 |
 
 ### 费用计算规则
 - **固定定价**：每次调用某个模型，收取该模型的固定价格
 - **示例**：
-  - 使用 `gemini-3.1-flash-image-preview` 生图 → 扣费 ¥0.60
-  - 使用 `gpt-image-2` 美颜 → 扣费 ¥0.04
+  - 使用 `gemini-2.5-flash-image` 生图（1K分辨率，默认）→ 扣费 ¥0.06
+  - 使用 `gpt-image-2` 生图（2K分辨率）→ 扣费 ¥0.20
+  - 使用 `gpt-image-2` 生图（4K分辨率）→ 扣费 ¥0.52
 
 ## 待完成的工作
 
@@ -202,10 +205,10 @@ java -jar target/rawimg-xxx.jar
 ```json
 [
   {
-    "modelCode": "gemini-3.1-flash-image-preview",
-    "modelName": "Gemini 3.1 Flash Image Preview",
+    "modelCode": "gemini-2.5-flash-image",
+    "modelName": "Gemini 2.5 Flash Image",
     "provider": "Google",
-    "price": 0.60
+    "price": 0.06
   }
 ]
 ```

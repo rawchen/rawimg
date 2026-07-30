@@ -107,7 +107,73 @@ public class GptUtil {
         } else if (is2K(size)) {
             return "gemini-3.1-flash-image-preview-2k";
         }
-        return "gemini-3.1-flash-image-preview";
+        return "gemini-2.5-flash-image";
+    }
+
+    /**
+     * 根据模型和分辨率获取用于价格查询的模型代码（公共静态方法）
+     * 用于前端和后端统一计算实际使用的模型
+     */
+    public static String getEffectiveModelCode(String model, String size) {
+        if (model == null) return "gpt-image-2";
+
+        // gpt-image-2 根据分辨率返回不同价格模型
+        if (model.equals("gpt-image-2")) {
+            if (size != null) {
+                if (is4KStatic(size)) {
+                    return "gpt-image-2-4k";
+                } else if (is2KStatic(size)) {
+                    return "gpt-image-2-2k";
+                }
+            }
+            return "gpt-image-2";
+        }
+
+        // nano 模型根据分辨率调整
+        if (model.equals("gemini-2.5-flash-image")) {
+            if (size != null) {
+                if (is4KStatic(size)) {
+                    return "gemini-3.1-flash-image-preview-4k";
+                } else if (is2KStatic(size)) {
+                    return "gemini-3.1-flash-image-preview-2k";
+                }
+            }
+            return "gemini-2.5-flash-image";
+        }
+
+        return model;
+    }
+
+    /**
+     * 静态方法：判断是否为4K分辨率
+     */
+    private static boolean is4KStatic(String size) {
+        if (size == null || size.isEmpty()) return false;
+        try {
+            String[] parts = size.split("x");
+            if (parts.length == 2) {
+                int width = Integer.parseInt(parts[0]);
+                int height = Integer.parseInt(parts[1]);
+                return (width == 3840 && height == 2160) || (width == 2160 && height == 3840);
+            }
+        } catch (NumberFormatException ignored) {}
+        return false;
+    }
+
+    /**
+     * 静态方法：判断是否为2K分辨率
+     */
+    private static boolean is2KStatic(String size) {
+        if (size == null || size.isEmpty()) return false;
+        try {
+            String[] parts = size.split("x");
+            if (parts.length == 2) {
+                int width = Integer.parseInt(parts[0]);
+                int height = Integer.parseInt(parts[1]);
+                return (width == 2560 && height == 1440) || (width == 1440 && height == 2560);
+            }
+        } catch (NumberFormatException ignored) {}
+        return false;
     }
 
     /**

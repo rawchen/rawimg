@@ -12,6 +12,7 @@ import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
+import com.rawchen.util.GptUtil;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,8 +70,11 @@ public class ImageCreateAsyncController {
             }
         }
 
+        // 根据分辨率计算实际使用的模型代码（用于价格查询）
+        String effectiveModelCode = GptUtil.getEffectiveModelCode(model, size);
+
         // 获取模型价格并检查余额
-        BigDecimal cost = modelPriceService.getPrice(model);
+        BigDecimal cost = modelPriceService.getPrice(effectiveModelCode);
         if (cost.compareTo(BigDecimal.ZERO) == 0) {
             return R.badRequest("未配置该模型的价格: " + model);
         }
@@ -101,8 +105,8 @@ public class ImageCreateAsyncController {
         imageTaskService.save(task);
 
         // 创建消费日志
-        ModelPrice price = modelPriceService.getByModelCode(model);
-        consumeLogService.createLog(user.getId(), taskId, "create", model,
+        ModelPrice price = modelPriceService.getByModelCode(effectiveModelCode);
+        consumeLogService.createLog(user.getId(), taskId, "create", effectiveModelCode,
                 price != null ? price.getModelName() : model, size, cost);
 
         // 异步执行任务
