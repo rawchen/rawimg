@@ -36,12 +36,26 @@ public class MyMvcConfig implements WebMvcConfigurer {
         } else {
             uploadDir = path.toAbsolutePath().normalize();
         }
+
+        // 上传文件静态资源访问（1年缓存）
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir + "/");
+                .addResourceLocations("file:" + uploadDir + "/")
+                .setCachePeriod(31536000);
+
+        // 静态资源缓存配置（图片、图标、favicon 等长期缓存）
+        registry.addResourceHandler("/favicon.ico", "/logo.png", "/logo.svg")
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod(31536000); // 1年缓存
+
+        // icons 目录长期缓存
+        registry.addResourceHandler("/icons/**")
+                .addResourceLocations("classpath:/static/icons/")
+                .setCachePeriod(31536000); // 1年缓存
 
         // SPA 路由支持：对于非静态资源的请求，返回 index.html
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/static/")
+                .setCachePeriod(86400) // 1天缓存
                 .resourceChain(true)
                 .addResolver(new PathResourceResolver() {
                     @Override
