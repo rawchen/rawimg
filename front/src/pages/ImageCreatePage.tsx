@@ -14,6 +14,8 @@ import { imageCreateApi, ossApi, ImageTaskRecord, modelPriceApi, balanceApi, Bal
 import previewImage from '@/assets/image-create/preview_image.jpg';
 import rmbCircle from '@/assets/media/rmb-circle.svg';
 import { addOssThumbnailStyle } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -158,6 +160,7 @@ interface InspirationTemplate {
 
 export function ImageCreatePage() {
   const { startFlash } = useTitleFlash();
+  const { isAuthenticated } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]); // 本地预览图
   const [uploadedOssUrls, setUploadedOssUrls] = useState<string[]>([]); // OSS URL
@@ -203,6 +206,9 @@ export function ImageCreatePage() {
   const [modelPrice, setModelPrice] = useState<number>(0);
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
 
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // 加载模型价格和余额
   useEffect(() => {
     const loadData = async () => {
@@ -210,33 +216,23 @@ export function ImageCreatePage() {
         // 根据当前模型和分辨率计算实际使用的模型
         const effectiveModel = getEffectiveModelCode(selectedModel, selectedResolution);
 
-        const [priceRes, balanceRes] = await Promise.all([
-          modelPriceApi.getPrice(effectiveModel),
-          balanceApi.getStats()
-        ]);
+        // 获取价格（无需登录）
+        const priceRes = await modelPriceApi.getPrice(effectiveModel);
         setModelPrice(priceRes.price);
-        setBalanceStats(balanceRes);
+
+        // 获取余额（需要登录，未登录时静默失败）
+        if (isAuthenticated) {
+          const balanceRes = await balanceApi.getStats();
+          setBalanceStats(balanceRes);
+        } else {
+          setBalanceStats(null);
+        }
       } catch (error) {
         console.error('Failed to load price or balance:', error);
       }
     };
     loadData();
-  }, [selectedModel, selectedResolution]);
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [priceRes, balanceRes] = await Promise.all([
-          modelPriceApi.getPrice(selectedModel),
-          balanceApi.getStats()
-        ]);
-        setModelPrice(priceRes.price);
-        setBalanceStats(balanceRes);
-      } catch (error) {
-        console.error('Failed to load price or balance:', error);
-      }
-    };
-    loadData();
-  }, [selectedModel]);
+  }, [selectedModel, selectedResolution, isAuthenticated]);
 
   // 加载随机模板（灵感示例滚动）
   useEffect(() => {
@@ -328,6 +324,10 @@ export function ImageCreatePage() {
 
   // 打开模板弹窗
   const handleOpenTemplates = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setTemplateModalVisible(true);
     loadTemplates();
   };
@@ -335,6 +335,12 @@ export function ImageCreatePage() {
   // 处理文件上传 - 通过STS直接上传到OSS
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
+
+    // 未登录时弹出登录框
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
 
     const fileArray = Array.from(files);
     if (uploadedImages.length + fileArray.length > 5) {
@@ -408,6 +414,12 @@ export function ImageCreatePage() {
 
   // 提交创作
   const handleSubmit = async () => {
+    // 未登录时弹出登录框
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     if (!prompt.trim()) {
       message.warning('请输入描述内容');
       return;
@@ -562,12 +574,20 @@ export function ImageCreatePage() {
 
   // 点击灵感示例项
   const handleInspirationClick = (template: InspirationTemplate) => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setSelectedInspiration(template);
     setInspirationModalVisible(true);
   };
 
   // 使用此灵感
   const handleUseInspiration = (template: InspirationTemplate) => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setPrompt(template.prompt);
     setCurrentInspiration(template);
     // 只有当 attachExampleImage 为 1 且有图片时才添加示例图片URL
@@ -653,6 +673,10 @@ export function ImageCreatePage() {
 
   // 打开历史弹窗
   const handleOpenHistory = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setHistoryModalVisible(true);
     loadHistory(1);
   };
@@ -665,6 +689,10 @@ export function ImageCreatePage() {
 
   // 使用历史记录的提示词
   const handleUseHistoryPrompt = (record: ImageTaskRecord) => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
     setPrompt(record.prompt);
     setCreatedImage(ensureHttpsUrl(record.resultImageUrl) || null);
     setHistoryDetailModalVisible(false);
@@ -1022,7 +1050,11 @@ export function ImageCreatePage() {
                   <span>开始创作</span>
                   <span className="flex items-center gap-1">
                     {modelPrice.toFixed(2)}
-                    <img src={rmbCircle} alt="费用" className="w-4 h-4" />
+                    <img
+                      src={rmbCircle}
+                      alt="费用"
+                      className={`w-4 h-4 ${loading || !prompt.trim() ? 'grayscale opacity-50' : ''}`}
+                    />
                   </span>
                 </>
               )}
@@ -1088,6 +1120,10 @@ export function ImageCreatePage() {
                   <div
                     key={template.id}
                     onClick={() => {
+                      if (!isAuthenticated) {
+                        setShowAuthModal(true);
+                        return;
+                      }
                       setSelectedInspiration(template);
                       setInspirationModalVisible(true);
                     }}
@@ -1375,6 +1411,13 @@ export function ImageCreatePage() {
           </div>
         )}
       </Modal>
+
+      {/* 登录弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="login"
+      />
     </div>
   );
 }
