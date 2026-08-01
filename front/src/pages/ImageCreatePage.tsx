@@ -533,23 +533,38 @@ export function ImageCreatePage() {
     const fileName = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}_${String(Math.floor(Math.random() * 100)).padStart(2, '0')}.jpg`;
 
     try {
-      const response = await fetch(createdImage);
+      // 使用 fetch 并强制 CORS 模式，避免使用无 CORS 头的缓存
+      console.log('Downloading image:', createdImage);
+      const response = await fetch(createdImage, {
+        mode: 'cors',
+        cache: 'reload' // 强制重新请求，不使用缓存
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const blob = await response.blob();
+      console.log('Blob size:', blob.size, 'type:', blob.type);
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      const a = document.createElement('a');
-      a.href = createdImage;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+
+      // 延迟清理，确保下载完成
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      console.error('Download error:', error);
+      // 最终降级方案：在新标签页打开
+      window.open(createdImage, '_blank');
+      message.info('图片已在新标签页打开，请右键保存');
     }
   };
 
