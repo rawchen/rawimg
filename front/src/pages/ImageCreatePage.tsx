@@ -389,7 +389,7 @@ export function ImageCreatePage() {
         // 上传到OSS
         try {
           const ext = file.name.split('.').pop() || 'jpg';
-          const fileName = `reference/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+          const fileName = `${stsToken.uploadFolder}/reference/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
           const result = await ossClient.put(fileName, file);
           const ossUrl = `${stsToken.customDomain}/${result.name}`;
 
