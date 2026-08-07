@@ -714,8 +714,25 @@ export function ImageCreatePage() {
     setHistoryModalVisible(false);
   };
 
+  // 添加呼吸动画样式
+  const breatheStyle = `
+    @keyframes breatheAnimation {
+      0%, 100% { color: #6b7280; }
+      50% { color: #f97316; }
+    }
+    .breathe-animation {
+      animation: breatheAnimation 3s ease-in-out infinite;
+    }
+    .breathe-animation:hover {
+      animation: none;
+      color: #f97316;
+    }
+  `;
+
   return (
-    <div className="flex-1 bg-[#F5F7FA]">
+    <>
+      <style>{breatheStyle}</style>
+      <div className="flex-1 bg-[#F5F7FA]">
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         {/* 标题区域 */}
         <div className="text-center mb-8 md:mb-10">
@@ -928,19 +945,19 @@ export function ImageCreatePage() {
                 <h3 className="font-semibold text-gray-900">描述画面</h3>
                 <div className="flex items-center gap-3">
                   {/* 操作按钮 */}
-                  {createdImage && (
-                    <button
-                      onClick={handleReset}
-                      className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
-                    >
-                      <ClearOutlined />
-                      清除
-                    </button>
-                  )}
+                  {/*{createdImage && (*/}
+                  {/*  <button*/}
+                  {/*    onClick={handleReset}*/}
+                  {/*    className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"*/}
+                  {/*  >*/}
+                  {/*    <ClearOutlined />*/}
+                  {/*    清除*/}
+                  {/*  </button>*/}
+                  {/*)}*/}
                   {createdImage && (
                     <button
                       onClick={handleDownload}
-                      className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                      className="text-sm breathe-animation transition-transform duration-200 flex items-center gap-1"
                     >
                       <DownloadOutlined/>
                       下载图片
@@ -966,21 +983,21 @@ export function ImageCreatePage() {
                     {/*<span className="text-xs text-gray-500">模型:</span>*/}
                     <div
                       onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
-                      className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                      className={`relative flex items-center w-[68px] h-7 rounded-full transition-colors ${
                         loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       } ${selectedModel === 'gpt-image-2' ? 'bg-orange-500' : 'bg-purple-500'}`}
                     >
-                    <span className={`absolute text-xs font-medium transition-all ${
+                    <span className={`absolute text-xs font-medium transition-all select-none ${
                       selectedModel === 'gpt-image-2'
                         ? 'left-2 text-white'
-                        : 'left-10 text-white'
+                        : 'left-8 text-white'
                     }`}>
                       {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
                     </span>
-                      <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                      <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ease-in-out ${
                         selectedModel === 'gpt-image-2'
-                          ? 'right-1'
-                          : 'left-1'
+                          ? 'translate-x-[2.75rem]'
+                          : 'translate-x-1'
                       }`}/>
                     </div>
                   </div>
@@ -1433,6 +1450,7 @@ export function ImageCreatePage() {
         onClose={() => setShowAuthModal(false)}
         initialMode="login"
       />
-    </div>
+      </div>
+    </>
   );
 }
