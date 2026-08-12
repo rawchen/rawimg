@@ -70,10 +70,19 @@ public interface ConsumeLogService extends IService<ConsumeLog> {
      * 获取按小时统计的消费数据（用于图表）
      *
      * @param userId 用户ID
-     * @param hours  小时数（如8表示近8小时）
+     * @param hours  小时数（如7表示近7小时）
      * @return 统计数据
      */
     List<ConsumeLogStatsResponse.HourlyStats> getHourlyStats(Long userId, Integer hours);
+
+    /**
+     * 获取按天统计的消费数据（用于图表）
+     *
+     * @param userId 用户ID
+     * @param days   天数（如7表示近7天）
+     * @return 统计数据
+     */
+    List<ConsumeLogStatsResponse.HourlyStats> getDailyStats(Long userId, Integer days);
 
     /**
      * 获取按模型统计的消费数据

@@ -168,6 +168,75 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
     }
 
     @Override
+    public List<ConsumeLogStatsResponse.HourlyStats> getDailyStats(Long userId, Integer days) {
+        List<ConsumeLogStatsResponse.HourlyStats> result = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        LocalDateTime endTime = LocalDateTime.now();
+        LocalDateTime startTime = endTime.minusDays(days);
+
+        // 查询该时间段内的所有日志
+        LambdaQueryWrapper<ConsumeLog> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ConsumeLog::getUserId, userId)
+               .eq(ConsumeLog::getStatus, "success")
+               .between(ConsumeLog::getCreateTime, startTime, endTime);
+        List<ConsumeLog> logs = list(wrapper);
+
+        // 按天分组
+        Map<String, List<ConsumeLog>> dailyMap = new HashMap<>();
+        for (ConsumeLog log : logs) {
+            String day = log.getCreateTime().format(formatter);
+            dailyMap.computeIfAbsent(day, k -> new ArrayList<>()).add(log);
+        }
+
+        // 填充每天的数据
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDateTime day = endTime.minusDays(i).toLocalDate().atStartOfDay();
+            String dayStr = day.format(formatter);
+            List<ConsumeLog> dayLogs = dailyMap.getOrDefault(dayStr, new ArrayList<>());
+
+            ConsumeLogStatsResponse.HourlyStats stats = new ConsumeLogStatsResponse.HourlyStats();
+            stats.setHour(dayStr);
+
+            BigDecimal cost = BigDecimal.ZERO;
+            int count = 0;
+
+            // 按模型统计
+            Map<String, BigDecimal> modelCosts = new HashMap<>();
+            Map<String, Integer> modelCounts = new HashMap<>();
+
+            for (ConsumeLog log : dayLogs) {
+                if (log.getCost() != null) {
+                    cost = cost.add(log.getCost());
+                }
+                count++;
+
+                String modelKey = log.getModelName() != null ? log.getModelName() : log.getModelCode();
+                modelCosts.merge(modelKey, log.getCost() != null ? log.getCost() : BigDecimal.ZERO, BigDecimal::add);
+                modelCounts.merge(modelKey, 1, Integer::sum);
+            }
+
+            stats.setCost(cost.setScale(4, RoundingMode.HALF_UP));
+            stats.setCount(count);
+
+            // 构建模型分布
+            List<ConsumeLogStatsResponse.ModelDistribution> distributions = new ArrayList<>();
+            for (Map.Entry<String, BigDecimal> entry : modelCosts.entrySet()) {
+                ConsumeLogStatsResponse.ModelDistribution dist = new ConsumeLogStatsResponse.ModelDistribution();
+                dist.setModelName(entry.getKey());
+                dist.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+                dist.setCount(modelCounts.get(entry.getKey()));
+                distributions.add(dist);
+            }
+            stats.setModelDistribution(distributions);
+
+            result.add(stats);
+        }
+
+        return result;
+    }
+
+    @Override
     public List<ConsumeLogStatsResponse.ModelStats> getModelStats(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
         LambdaQueryWrapper<ConsumeLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ConsumeLog::getUserId, userId)

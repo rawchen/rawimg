@@ -1097,8 +1097,8 @@ export const balanceApi = {
     api.get<{ records: ConsumeLog[]; total: number }>('/balance/consume-logs', { params: { page, size } }) as unknown as Promise<{ records: ConsumeLog[]; total: number }>,
 
   // 获取消费统计图表
-  getConsumeChart: (hours = 8) =>
-    api.get<ConsumeChartResponse>('/balance/consume-chart', { params: { hours } }) as unknown as Promise<ConsumeChartResponse>,
+  getConsumeChart: (hours = 7, type: 'hour' | 'day' = 'hour') =>
+    api.get<ConsumeChartResponse>('/balance/consume-chart', { params: { hours, type } }) as unknown as Promise<ConsumeChartResponse>,
 };
 
 // Model Price API (Public)

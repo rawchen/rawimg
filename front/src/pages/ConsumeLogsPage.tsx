@@ -16,17 +16,33 @@ export function ConsumeLogsPage() {
   const [page, setPage] = useState(1);
   const [hourlyStats, setHourlyStats] = useState<any[]>([]);
   const [modelStats, setModelStats] = useState<any[]>([]);
+  const [chartType, setChartType] = useState<'hour' | 'day'>('hour');
 
   useEffect(() => {
     loadData();
   }, [page]);
+
+  // 切换图表类型时重新加载图表数据
+  useEffect(() => {
+    loadChartData();
+  }, [chartType]);
+
+  const loadChartData = async () => {
+    try {
+      const chartRes = await balanceApi.getConsumeChart(7, chartType);
+      setHourlyStats(chartRes.hourlyStats || []);
+      setModelStats(chartRes.modelStats || []);
+    } catch (error: any) {
+      message.error(error.msg || '加载失败');
+    }
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [logsRes, chartRes] = await Promise.all([
         balanceApi.getConsumeLogs(page, 20),
-        balanceApi.getConsumeChart(8)
+        balanceApi.getConsumeChart(7, chartType)
       ]);
       setLogs(logsRes.records || []);
       setTotal(logsRes.total || 0);
@@ -75,7 +91,33 @@ export function ConsumeLogsPage() {
         <>
           {/* 柱状图区域 */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-black mb-4">近8小时消费分布</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-black">
+                {chartType === 'hour' ? '近7小时消费分布' : '近7天消费分布'}
+              </h2>
+              <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setChartType('hour')}
+                  className={`px-3 py-1 text-sm transition-colors ${
+                    chartType === 'hour'
+                      ? 'bg-black text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  近7小时
+                </button>
+                <button
+                  onClick={() => setChartType('day')}
+                  className={`px-3 py-1 text-sm transition-colors border-l border-gray-200 ${
+                    chartType === 'day'
+                      ? 'bg-black text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  近7天
+                </button>
+              </div>
+            </div>
             <div className="flex items-end gap-2 h-48">
               {hourlyStats.map((stat, index) => (
                 <div key={index} className="flex-1 flex flex-col items-center gap-2">
@@ -91,7 +133,9 @@ export function ConsumeLogsPage() {
                     />
                   </div>
                   <span className="text-xs text-gray-500">
-                    {stat.hour.split(' ')[1] || stat.hour}
+                    {chartType === 'hour'
+                      ? (stat.hour.split(' ')[1] || stat.hour)
+                      : (stat.hour.split('-').slice(1).join('-') || stat.hour)}
                   </span>
                   <span className="text-xs font-medium text-gray-700">
                     ¥{stat.cost.toFixed(2)}

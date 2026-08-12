@@ -36,6 +36,7 @@ export function ProfilePage() {
   const [consumeLoading, setConsumeLoading] = useState(false);
   const [hourlyStats, setHourlyStats] = useState<any[]>([]);
   const [modelStats, setModelStats] = useState<any[]>([]);
+  const [chartType, setChartType] = useState<'hour' | 'day'>('hour');
 
   // 表单状态
   const [nickname, setNickname] = useState('');
@@ -103,7 +104,7 @@ export function ProfilePage() {
     if (activeTab === 'consume') {
       fetchConsumeLogs();
     }
-  }, [activeTab, consumePage]);
+  }, [activeTab, consumePage, chartType]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -136,7 +137,7 @@ export function ProfilePage() {
       setConsumeLoading(true);
       const [logsRes, chartRes] = await Promise.all([
         balanceApi.getConsumeLogs(consumePage, 20),
-        balanceApi.getConsumeChart(8)
+        balanceApi.getConsumeChart(7, chartType)
       ]);
       setConsumeLogs(logsRes.records || []);
       setConsumeTotal(logsRes.total || 0);
@@ -797,13 +798,41 @@ export function ProfilePage() {
             <>
               {/* 柱状图区域 */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-black mb-4">近8小时消费分布</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-black">
+                    {chartType === 'hour' ? '近7小时消费分布' : '近7天消费分布'}
+                  </h2>
+                  <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                    <button
+                      onClick={() => setChartType('hour')}
+                      className={`px-3 py-1 text-sm transition-colors ${
+                        chartType === 'hour'
+                          ? 'bg-black text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      近7小时
+                    </button>
+                    <button
+                      onClick={() => setChartType('day')}
+                      className={`px-3 py-1 text-sm transition-colors border-l border-gray-200 ${
+                        chartType === 'day'
+                          ? 'bg-black text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      近7天
+                    </button>
+                  </div>
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="hour"
-                      tickFormatter={(value) => value.split(' ')[1] || value}
+                      tickFormatter={(value) => chartType === 'hour'
+                        ? (value.split(' ')[1] || value)
+                        : (value.split('-').slice(1).join('-') || value)}
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis

@@ -46,17 +46,27 @@ public class UserBalanceController {
 
     /**
      * 获取消费统计图表数据
+     *
+     * @param hours 统计时长（小时数或天数，根据 type 决定）
+     * @param type  统计类型：hour（按小时，默认）或 day（按天）
      */
     @GetMapping("/consume-chart")
     public R<ConsumeChartResponse> getConsumeChart(
-            @RequestParam(defaultValue = "8") Integer hours,
+            @RequestParam(defaultValue = "7") Integer hours,
+            @RequestParam(defaultValue = "hour") String type,
             @AuthenticationPrincipal SysUser user) {
 
         ConsumeChartResponse response = new ConsumeChartResponse();
-        response.setHourlyStats(consumeLogService.getHourlyStats(user.getId(), hours));
-        response.setModelStats(consumeLogService.getModelStats(user.getId(),
-                java.time.LocalDateTime.now().minusHours(hours),
-                java.time.LocalDateTime.now()));
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime startTime;
+        if ("day".equalsIgnoreCase(type)) {
+            response.setHourlyStats(consumeLogService.getDailyStats(user.getId(), hours));
+            startTime = now.minusDays(hours);
+        } else {
+            response.setHourlyStats(consumeLogService.getHourlyStats(user.getId(), hours));
+            startTime = now.minusHours(hours);
+        }
+        response.setModelStats(consumeLogService.getModelStats(user.getId(), startTime, now));
         return R.ok(response);
     }
 
