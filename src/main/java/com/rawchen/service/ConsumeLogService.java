@@ -85,6 +85,15 @@ public interface ConsumeLogService extends IService<ConsumeLog> {
     List<ConsumeLogStatsResponse.HourlyStats> getDailyStats(Long userId, Integer days);
 
     /**
+     * 获取按月统计的消费数据（用于图表）
+     *
+     * @param userId 用户ID
+     * @param months 月数（如12表示近12个月）
+     * @return 统计数据
+     */
+    List<ConsumeLogStatsResponse.HourlyStats> getMonthlyStats(Long userId, Integer months);
+
+    /**
      * 获取按模型统计的消费数据
      *
      * @param userId 用户ID

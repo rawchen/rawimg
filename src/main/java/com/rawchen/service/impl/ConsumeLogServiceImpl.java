@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -206,6 +208,76 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             Map<String, Integer> modelCounts = new HashMap<>();
 
             for (ConsumeLog log : dayLogs) {
+                if (log.getCost() != null) {
+                    cost = cost.add(log.getCost());
+                }
+                count++;
+
+                String modelKey = log.getModelName() != null ? log.getModelName() : log.getModelCode();
+                modelCosts.merge(modelKey, log.getCost() != null ? log.getCost() : BigDecimal.ZERO, BigDecimal::add);
+                modelCounts.merge(modelKey, 1, Integer::sum);
+            }
+
+            stats.setCost(cost.setScale(4, RoundingMode.HALF_UP));
+            stats.setCount(count);
+
+            // 构建模型分布
+            List<ConsumeLogStatsResponse.ModelDistribution> distributions = new ArrayList<>();
+            for (Map.Entry<String, BigDecimal> entry : modelCosts.entrySet()) {
+                ConsumeLogStatsResponse.ModelDistribution dist = new ConsumeLogStatsResponse.ModelDistribution();
+                dist.setModelName(entry.getKey());
+                dist.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+                dist.setCount(modelCounts.get(entry.getKey()));
+                distributions.add(dist);
+            }
+            stats.setModelDistribution(distributions);
+
+            result.add(stats);
+        }
+
+        return result;
+    }
+
+    @Override
+    public List<ConsumeLogStatsResponse.HourlyStats> getMonthlyStats(Long userId, Integer months) {
+        List<ConsumeLogStatsResponse.HourlyStats> result = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
+
+        LocalDateTime endTime = LocalDateTime.now();
+        LocalDateTime startTime = endTime.minusMonths(months);
+
+        // 查询该时间段内的所有日志
+        LambdaQueryWrapper<ConsumeLog> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ConsumeLog::getUserId, userId)
+               .eq(ConsumeLog::getStatus, "success")
+               .between(ConsumeLog::getCreateTime, startTime, endTime);
+        List<ConsumeLog> logs = list(wrapper);
+
+        // 按月分组
+        Map<String, List<ConsumeLog>> monthlyMap = new HashMap<>();
+        for (ConsumeLog log : logs) {
+            String month = log.getCreateTime().format(formatter);
+            monthlyMap.computeIfAbsent(month, k -> new ArrayList<>()).add(log);
+        }
+
+        // 填充每个月的数据
+        YearMonth currentMonth = YearMonth.from(endTime);
+        for (int i = months - 1; i >= 0; i--) {
+            YearMonth ym = currentMonth.minusMonths(i);
+            String monthStr = ym.format(formatter);
+            List<ConsumeLog> monthLogs = monthlyMap.getOrDefault(monthStr, new ArrayList<>());
+
+            ConsumeLogStatsResponse.HourlyStats stats = new ConsumeLogStatsResponse.HourlyStats();
+            stats.setHour(monthStr);
+
+            BigDecimal cost = BigDecimal.ZERO;
+            int count = 0;
+
+            // 按模型统计
+            Map<String, BigDecimal> modelCosts = new HashMap<>();
+            Map<String, Integer> modelCounts = new HashMap<>();
+
+            for (ConsumeLog log : monthLogs) {
                 if (log.getCost() != null) {
                     cost = cost.add(log.getCost());
                 }

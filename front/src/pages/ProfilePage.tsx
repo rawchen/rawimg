@@ -36,7 +36,28 @@ export function ProfilePage() {
   const [consumeLoading, setConsumeLoading] = useState(false);
   const [hourlyStats, setHourlyStats] = useState<any[]>([]);
   const [modelStats, setModelStats] = useState<any[]>([]);
-  const [chartType, setChartType] = useState<'hour' | 'day'>('hour');
+  const [chartType, setChartType] = useState<'7h' | '7d' | '30d' | '12m'>('7h');
+
+  // 统计维度配置
+  const chartTypeConfigs: Record<string, { label: string; title: string; hours: number; type: 'hour' | 'day' | 'month' }> = {
+    '7h':  { label: '近7小时',  title: '近7小时消费分布',  hours: 7,  type: 'hour' },
+    '7d':  { label: '近7天',    title: '近7天消费分布',    hours: 7,  type: 'day' },
+    '30d': { label: '近1个月',  title: '近1个月消费分布',  hours: 30, type: 'day' },
+    '12m': { label: '近1年',    title: '近1年消费分布',    hours: 12, type: 'month' },
+  };
+
+  // 根据当前类型格式化 x 轴显示文字
+  const formatXAxis = (value: string) => {
+    const config = chartTypeConfigs[chartType];
+    if (config.type === 'hour') {
+      return value.split(' ')[1] || value;
+    }
+    if (config.type === 'day') {
+      return value.split('-').slice(1).join('-') || value;
+    }
+    // month: yyyy-MM -> MM
+    return value.split('-')[1] || value;
+  };
 
   // 表单状态
   const [nickname, setNickname] = useState('');
@@ -135,9 +156,10 @@ export function ProfilePage() {
   const fetchConsumeLogs = async () => {
     try {
       setConsumeLoading(true);
+      const config = chartTypeConfigs[chartType];
       const [logsRes, chartRes] = await Promise.all([
         balanceApi.getConsumeLogs(consumePage, 20),
-        balanceApi.getConsumeChart(7, chartType)
+        balanceApi.getConsumeChart(config.hours, config.type)
       ]);
       setConsumeLogs(logsRes.records || []);
       setConsumeTotal(logsRes.total || 0);
@@ -798,31 +820,24 @@ export function ProfilePage() {
             <>
               {/* 柱状图区域 */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                   <h2 className="text-lg font-semibold text-black">
-                    {chartType === 'hour' ? '近7小时消费分布' : '近7天消费分布'}
+                    {chartTypeConfigs[chartType].title}
                   </h2>
                   <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                    <button
-                      onClick={() => setChartType('hour')}
-                      className={`px-3 py-1 text-sm transition-colors ${
-                        chartType === 'hour'
-                          ? 'bg-black text-white'
-                          : 'bg-white text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      近7小时
-                    </button>
-                    <button
-                      onClick={() => setChartType('day')}
-                      className={`px-3 py-1 text-sm transition-colors border-l border-gray-200 ${
-                        chartType === 'day'
-                          ? 'bg-black text-white'
-                          : 'bg-white text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      近7天
-                    </button>
+                    {Object.entries(chartTypeConfigs).map(([key, config], index) => (
+                      <button
+                        key={key}
+                        onClick={() => setChartType(key as '7h' | '7d' | '30d' | '12m')}
+                        className={`px-3 py-1 text-sm transition-colors ${index > 0 ? 'border-l border-gray-200' : ''} ${
+                          chartType === key
+                            ? 'bg-black text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {config.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
@@ -830,9 +845,7 @@ export function ProfilePage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="hour"
-                      tickFormatter={(value) => chartType === 'hour'
-                        ? (value.split(' ')[1] || value)
-                        : (value.split('-').slice(1).join('-') || value)}
+                      tickFormatter={(value) => formatXAxis(value)}
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis
