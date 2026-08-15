@@ -98,15 +98,17 @@ export function ProfilePage() {
     }));
   };
 
-  // 转换数据格式供 Recharts 使用 - 扁平化模型数据
+  // 转换数据格式供 Recharts 使用 - 扁平化模型数据，并过滤异常值
   const chartData = hourlyStats.map(stat => {
+    const cost = parseFloat(stat.cost) || 0;
     const result: any = {
       hour: stat.hour,
-      cost: parseFloat(stat.cost) || 0
+      cost: (cost >= 0 && cost < 1000000 && isFinite(cost)) ? cost : 0
     };
     if (stat.modelDistribution) {
       stat.modelDistribution.forEach((m: any) => {
-        result[m.modelName] = parseFloat(m.cost) || 0;
+        const modelCost = parseFloat(m.cost) || 0;
+        result[m.modelName] = (modelCost >= 0 && modelCost < 1000000 && isFinite(modelCost)) ? modelCost : 0;
       });
     }
     return result;
@@ -846,11 +848,44 @@ export function ProfilePage() {
                     <XAxis
                       dataKey="hour"
                       tickFormatter={(value) => formatXAxis(value)}
-                      tick={{ fontSize: 12 }}
+                      tick={(props: any) => {
+                        const { x, y, payload } = props;
+                        const value = formatXAxis(payload.value);
+                        if (chartType === '30d') {
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <text
+                                x={0}
+                                y={0}
+                                dy={16}
+                                textAnchor="end"
+                                fill="#666"
+                                fontSize={12}
+                                transform="rotate(-45)"
+                              >
+                                {value}
+                              </text>
+                            </g>
+                          );
+                        }
+                        return (
+                          <g transform={`translate(${x},${y})`}>
+                            <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12}>
+                              {value}
+                            </text>
+                          </g>
+                        );
+                      }}
+                      height={chartType === '30d' ? 60 : 30}
+                      interval={0}
                     />
                     <YAxis
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `¥${value}`}
+                      tickFormatter={(value) => {
+                        if (value >= 1000000) return `¥${(value / 1000000).toFixed(1)}M`;
+                        if (value >= 1000) return `¥${(value / 1000).toFixed(1)}K`;
+                        return `¥${value.toFixed(2)}`;
+                      }}
                       domain={[0, (dataMax: number) => dataMax * 1.15]}
                     />
                     <Tooltip

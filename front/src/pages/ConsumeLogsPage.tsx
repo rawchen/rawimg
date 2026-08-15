@@ -99,8 +99,11 @@ export function ConsumeLogsPage() {
     return <ClockCircleOutlined className="text-yellow-500" />;
   };
 
-  // 计算柱状图的最大值
-  const maxCost = Math.max(...hourlyStats.map(h => h.cost || 0), 0.01);
+  // 计算柱状图的最大值，过滤异常值
+  const validCosts = hourlyStats
+    .map(h => h.cost || 0)
+    .filter(cost => cost >= 0 && cost < 1000000 && isFinite(cost));
+  const maxCost = validCosts.length > 0 ? Math.max(...validCosts, 0.01) : 0.01;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -136,8 +139,8 @@ export function ConsumeLogsPage() {
             </div>
             <div className="flex items-end gap-2 h-48">
               {hourlyStats.map((stat, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex items-end justify-center" style={{ height: '180px' }}>
+                <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end justify-center" style={{ height: '150px' }}>
                     <div
                       className="bg-gradient-to-t from-amber-500 to-orange-500 rounded-t-lg transition-all hover:from-amber-600 hover:to-orange-600"
                       style={{
@@ -148,12 +151,17 @@ export function ConsumeLogsPage() {
                       title={`¥${stat.cost.toFixed(2)}`}
                     />
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <div 
+                    className="text-xs text-gray-500 whitespace-nowrap"
+                    style={{
+                      transform: chartType === '30d' ? 'rotate(-45deg)' : 'none',
+                      transformOrigin: 'top left',
+                      marginLeft: chartType === '30d' ? '-10px' : '0',
+                      marginTop: chartType === '30d' ? '5px' : '0'
+                    }}
+                  >
                     {formatXAxis(stat.hour)}
-                  </span>
-                  <span className="text-xs font-medium text-gray-700">
-                    ¥{stat.cost.toFixed(2)}
-                  </span>
+                  </div>
                 </div>
               ))}
             </div>
