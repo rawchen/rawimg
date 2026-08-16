@@ -159,8 +159,8 @@ export const userApi = {
   sendEmailCode: (email: string) =>
     api.post<void>('/users/send-email-code', { email }) as unknown as Promise<void>,
 
-  updateEmail: (email: string, code: string) =>
-    api.put<SysUser>('/users/update-email', { email, code }) as unknown as Promise<SysUser>,
+  updateEmail: (data: { newEmail: string; code: string; password?: string }) =>
+    api.put<SysUser>('/users/update-email', data) as unknown as Promise<SysUser>,
 
   updateNickname: (nickname: string) =>
     api.put<SysUser>('/users/update-nickname', { nickname }) as unknown as Promise<SysUser>,
@@ -1247,14 +1247,6 @@ export interface CreateOrderResponse {
   paidAmount: number;
   creditAmount: number;
   expireTime: string;
-}
-
-export interface PageResponse<T> {
-  records: T[];
-  total: number;
-  size: number;
-  current: number;
-  pages: number;
 }
 
 export default api;

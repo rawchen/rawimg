@@ -226,7 +226,7 @@ export function ProfilePage() {
       return;
     }
     try {
-      await userApi.updateEmail(email, emailCode);
+      await userApi.updateEmail({ newEmail: email, code: emailCode });
       message.success('邮箱修改成功');
       setEmailCode('');
       setCodeSent(false);

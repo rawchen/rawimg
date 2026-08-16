@@ -139,10 +139,16 @@ export interface AuthResponse {
 }
 
 export interface PageResponse<T> {
-  content: T[];
-  totalPages: number;
-  totalElements: number;
-  currentPage: number;
+  records: T[];
+  total: number;
+  size: number;
+  current: number;
+  pages: number;
+  // 兼容旧格式
+  content?: T[];
+  totalPages?: number;
+  totalElements?: number;
+  currentPage?: number;
 }
 
 export interface Captcha {

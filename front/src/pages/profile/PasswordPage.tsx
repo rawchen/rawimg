@@ -10,10 +10,7 @@ const PasswordPage: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
-      await userApi.changePassword({
-        oldPassword: values.oldPassword,
-        newPassword: values.newPassword,
-      });
+      await userApi.changePassword(values.oldPassword, values.newPassword, values.confirmPassword);
       message.success('密码修改成功，请重新登录');
       form.resetFields();
       // 可以在这里添加登出逻辑

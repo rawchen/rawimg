@@ -19,7 +19,7 @@ const EmailPage: React.FC = () => {
         message.warning('请输入新邮箱');
         return;
       }
-      await userApi.sendEmailCode(email, 'CHANGE_EMAIL');
+      await userApi.sendEmailCode(email);
       message.success('验证码已发送');
       setCodeSent(true);
       setCountdown(60);
@@ -40,7 +40,7 @@ const EmailPage: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
-      await userApi.changeEmail({
+      await userApi.updateEmail({
         newEmail: values.newEmail,
         code: values.code,
         password: values.password,
@@ -59,11 +59,15 @@ const EmailPage: React.FC = () => {
     <div>
       <h2 className="text-2xl font-bold mb-6">修改邮箱</h2>
 
-      <Steps current={currentStep} className="mb-8">
-        <Steps.Step title="验证身份" />
-        <Steps.Step title="设置新邮箱" />
-        <Steps.Step title="完成" />
-      </Steps>
+      <Steps 
+        current={currentStep} 
+        className="mb-8"
+        items={[
+          { title: '验证身份' },
+          { title: '设置新邮箱' },
+          { title: '完成' },
+        ]}
+      />
 
       {currentStep === 0 && (
         <div className="max-w-md">

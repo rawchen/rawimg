@@ -98,8 +98,8 @@ const OverviewPage: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="请求次数"
-              value={userStats?.totalRequests || 0}
+              title="下载次数"
+              value={userStats?.downloadCount || 0}
               suffix="次"
             />
           </Card>
@@ -108,23 +108,9 @@ const OverviewPage: React.FC = () => {
 
       {/* 最近活动 */}
       <Card title="最近活动">
-        {userStats?.recentActivities && userStats.recentActivities.length > 0 ? (
-          <div className="space-y-4">
-            {userStats.recentActivities.slice(0, 5).map((activity, index) => (
-              <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div>
-                  <div className="font-medium">{activity.action}</div>
-                  <div className="text-sm text-gray-500">{activity.description}</div>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {new Date(activity.createTime).toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Empty description="暂无最近活动" />
-        )}
+        <div className="text-center text-gray-400 py-8">
+          暂无活动记录
+        </div>
       </Card>
     </div>
   );

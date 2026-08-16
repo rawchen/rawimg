@@ -14,7 +14,7 @@ const FeedbackPage: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
-      await feedbackApi.create({
+      await feedbackApi.createFeedback({
         ...values,
         userId: user?.id,
       });

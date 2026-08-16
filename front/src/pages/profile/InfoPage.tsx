@@ -59,7 +59,6 @@ const InfoPage: React.FC = () => {
         initialValues={{
           username: user?.username,
           nickname: user?.nickname,
-          phone: user?.phone,
         }}
         onFinish={handleSubmit}
       >
