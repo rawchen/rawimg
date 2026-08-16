@@ -95,8 +95,20 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
 
   // WebSocket connection for online users
   useEffect(() => {
-    const API_WS_URL = import.meta.env.VITE_WS_URL || '/ws';
-    const ws = new WebSocket(API_WS_URL + "/online");
+    // 构建完整的 WebSocket URL
+    const getWebSocketUrl = () => {
+      const wsPath = import.meta.env.VITE_WS_URL || '/ws';
+      // 如果已经是完整 URL，直接使用
+      if (wsPath.startsWith('ws://') || wsPath.startsWith('wss://')) {
+        return wsPath;
+      }
+      // 根据当前页面协议构建完整 URL
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      return `${protocol}//${host}${wsPath}`;
+    };
+    const wsUrl = getWebSocketUrl();
+    const ws = new WebSocket(wsUrl + "/online");
     const clientId = getClientId();
 
     ws.onopen = () => {
