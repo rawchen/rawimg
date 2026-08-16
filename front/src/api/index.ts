@@ -1101,6 +1101,25 @@ export const balanceApi = {
     api.get<ConsumeChartResponse>('/balance/consume-chart', { params: { hours, type } }) as unknown as Promise<ConsumeChartResponse>,
 };
 
+// Recharge API
+export const rechargeApi = {
+  // 获取充值套餐列表
+  getPackages: () =>
+    api.get<RechargePackage[]>('/recharge/packages') as unknown as Promise<RechargePackage[]>,
+
+  // 创建充值订单
+  createOrder: (amount: number, paymentMethod: string) =>
+    api.post<CreateOrderResponse>('/recharge/create', null, { params: { amount, paymentMethod } }) as unknown as Promise<CreateOrderResponse>,
+
+  // 查询订单状态
+  queryOrder: (orderNo: string) =>
+    api.get<RechargeOrder>(`/recharge/order/${orderNo}`) as unknown as Promise<RechargeOrder>,
+
+  // 获取用户订单列表
+  getOrders: (params: { status?: string; orderNo?: string; page?: number; size?: number }) =>
+    api.get<PageResponse<RechargeOrder>>('/recharge/orders', { params }) as unknown as Promise<PageResponse<RechargeOrder>>,
+};
+
 // Model Price API (Public)
 export const modelPriceApi = {
   // 获取所有启用的模型价格
@@ -1131,18 +1150,10 @@ export interface ConsumeLog {
   modelCode: string;
   modelName: string;
   status: string;
-  inputTokens: number;
-  outputTokens: number;
   imageSize: string;
-  imageCount: number;
-  baseCost: number;
-  tokenCost: number;
-  imageCost: number;
-  cost: number;  // 总花费
-  totalCost: number;
+  cost: number;  // 本次花费（元）
   durationMs: number;
   errorMsg: string;
-  requestParams: string;
   resultUrl: string;
   createTime: string;
 }
@@ -1203,6 +1214,47 @@ export interface ImageTaskRecord {
   duration: number | null;
   createTime: string;
   updateTime: string;
+}
+
+// Recharge Types
+export interface RechargePackage {
+  id: number;
+  amount: number;
+  creditAmount: number;
+  bonusAmount: number;
+  recommended: boolean;
+  sortOrder: number;
+  enabled: boolean;
+}
+
+export interface RechargeOrder {
+  id: number;
+  orderNo: string;
+  amount: number;
+  creditAmount: number;
+  paidAmount: number;
+  paymentMethod: string;
+  paymentChannel: string;
+  status: string;
+  createTime: string;
+  payTime?: string;
+}
+
+export interface CreateOrderResponse {
+  orderNo: string;
+  qrCodeUrl: string;
+  amount: number;
+  paidAmount: number;
+  creditAmount: number;
+  expireTime: string;
+}
+
+export interface PageResponse<T> {
+  records: T[];
+  total: number;
+  size: number;
+  current: number;
+  pages: number;
 }
 
 export default api;

@@ -38,6 +38,14 @@ import { ImageRestorePage } from '@/pages/ImageRestorePage.tsx';
 import { ImageEditPage } from '@/pages/ImageEditPage.tsx';
 import { ImageBeautyPage } from '@/pages/ImageBeautyPage.tsx';
 import { ImageClothesPage } from '@/pages/ImageClothesPage.tsx';
+import ProfileLayout from '@/components/layout/ProfileLayout';
+import OverviewPage from '@/pages/profile/OverviewPage';
+import InfoPage from '@/pages/profile/InfoPage';
+import EmailPage from '@/pages/profile/EmailPage';
+import PasswordPage from '@/pages/profile/PasswordPage';
+import FeedbackPageUser from '@/pages/profile/FeedbackPage';
+import ConsumePage from '@/pages/profile/ConsumePage';
+import WalletPage from '@/pages/profile/WalletPage';
 
 function AppContent() {
   const location = useLocation();
@@ -105,7 +113,19 @@ function AppContent() {
             <Route path="/id/:id" element={<GalleryDetailPage />} />
             <Route path="/not-found" element={<NotFoundPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            
+            {/* Profile Routes with Layout */}
+            <Route path="/profile" element={<ProtectedRoute><ProfileLayout /></ProtectedRoute>}>
+              <Route index element={<OverviewPage />} />
+              <Route path="overview" element={<OverviewPage />} />
+              <Route path="info" element={<InfoPage />} />
+              <Route path="email" element={<EmailPage />} />
+              <Route path="password" element={<PasswordPage />} />
+              <Route path="feedback" element={<FeedbackPageUser />} />
+              <Route path="consume" element={<ConsumePage />} />
+              <Route path="wallet" element={<WalletPage />} />
+            </Route>
+            
             <Route path="/consume-logs" element={<ProtectedRoute><ConsumeLogsPage /></ProtectedRoute>} />
             <Route path="/recharge" element={<RechargePage />} />
 

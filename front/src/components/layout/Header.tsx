@@ -329,7 +329,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        navigate('/profile');
+                        navigate('/profile/overview');
                       }}
                       className="w-full px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg cursor-pointer"
                     >

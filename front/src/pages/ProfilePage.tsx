@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { userApi, feedbackApi, balanceApi, ConsumeLog } from '@/api';
 import { UserStats, BalanceStats } from '@/types';
 import walletIcon from '@/assets/media/wallet.svg';
+import WalletTab from '@/components/WalletTab';
 import {
   UserOutlined,
   CrownOutlined,
@@ -27,7 +28,7 @@ export function ProfilePage() {
   const [userStats, setStats] = useState<UserStats | null>(null);
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'email' | 'password' | 'feedback' | 'consume'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'email' | 'password' | 'feedback' | 'consume' | 'wallet'>('overview');
 
   // 消费记录状态
   const [consumeLogs, setConsumeLogs] = useState<ConsumeLog[]>([]);
@@ -401,6 +402,16 @@ export function ProfilePage() {
             }`}
           >
             消费记录
+          </button>
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`pb-4 text-sm font-medium transition-colors ${
+              activeTab === 'wallet'
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-500 hover:text-black'
+            }`}
+          >
+            钱包管理
           </button>
         </div>
       </div>
@@ -1024,6 +1035,12 @@ export function ProfilePage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {activeTab === 'wallet' && (
+        <div className="space-y-6">
+          <WalletTab />
         </div>
       )}
     </div>
