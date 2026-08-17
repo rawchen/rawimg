@@ -1,6 +1,7 @@
 package com.rawchen.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -64,6 +65,7 @@ public class RechargeOrder {
     /**
      * 二维码URL
      */
+    @JsonIgnore
     private String qrCodeUrl;
 
     /**

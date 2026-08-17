@@ -49,6 +49,16 @@ public class RechargeOrderDTO {
     private String status;
 
     /**
+     * 支付URL
+     */
+    private String payUrl;
+
+    /**
+     * 过期时间
+     */
+    private LocalDateTime expireTime;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

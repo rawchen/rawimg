@@ -1236,6 +1236,8 @@ export interface RechargeOrder {
   paymentMethod: string;
   paymentChannel: string;
   status: string;
+  payUrl: string;
+  expireTime: string;
   createTime: string;
   payTime?: string;
 }

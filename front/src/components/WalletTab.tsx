@@ -16,8 +16,9 @@ const WalletTab: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<{ orderNo: string; qrCodeUrl: string; payUrl: string; paidAmount: number; expireTime: string } | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<{ orderNo: string; payUrl: string; paidAmount: number; expireTime: string } | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [orders, setOrders] = useState<RechargeOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderStatus, setOrderStatus] = useState<string | undefined>(undefined);
@@ -101,15 +102,53 @@ const WalletTab: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await rechargeApi.createOrder(selectedPackage.amount, paymentMethod);
+      // 先查询是否有待支付的订单
+      const ordersResult = await rechargeApi.getOrders({ status: 'PENDING', page: 1, size: 10 });
+      const pendingOrders = ordersResult.records || [];
+      
+      // 筛选出相同金额、相同支付方式、未过期的订单
+      const currentTime = Date.now();
+      const matchingOrder = pendingOrders.find(order => {
+        const orderAmount = Number(order.paidAmount);
+        const selectedAmount = Number(selectedPackage.amount);
+        const isExpired = new Date(order.expireTime).getTime() <= currentTime;
+        
+        return orderAmount === selectedAmount && 
+               order.paymentMethod === paymentMethod && 
+               !isExpired;
+      });
+      
+      let result;
+      if (matchingOrder) {
+        // 使用现有订单
+        result = {
+          orderNo: matchingOrder.orderNo,
+          payUrl: matchingOrder.payUrl,
+          amount: matchingOrder.amount,
+          paidAmount: matchingOrder.paidAmount,
+          creditAmount: matchingOrder.creditAmount,
+          expireTime: matchingOrder.expireTime
+        };
+        message.info('检测到未完成的订单，继续支付');
+      } else {
+        // 创建新订单
+        result = await rechargeApi.createOrder(selectedPackage.amount, paymentMethod);
+      }
+      
       setCurrentOrder(result);
+      setPaymentSuccess(false);
       setQrModalVisible(true);
 
       // 开始倒计时
-      const expireTime = new Date(result.expireTime).getTime();
-      const now = Date.now();
-      const remaining = Math.floor((expireTime - now) / 1000);
-      setCountdown(remaining);
+      if (result.expireTime) {
+        const expireTime = new Date(result.expireTime).getTime();
+        const now = Date.now();
+        const remaining = Math.floor((expireTime - now) / 1000);
+        setCountdown(remaining > 0 ? remaining : 0);
+      } else {
+        // 默认30分钟倒计时
+        setCountdown(1800);
+      }
 
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
@@ -139,7 +178,10 @@ const WalletTab: React.FC = () => {
             if (pollingRef.current) {
               clearInterval(pollingRef.current);
             }
-            setQrModalVisible(false);
+            if (countdownRef.current) {
+              clearInterval(countdownRef.current);
+            }
+            setPaymentSuccess(true);
             message.success('支付成功');
             loadBalanceStats();
             loadOrders();
@@ -164,7 +206,10 @@ const WalletTab: React.FC = () => {
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
         }
-        setQrModalVisible(false);
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current);
+        }
+        setPaymentSuccess(true);
         message.success('支付成功');
         loadBalanceStats();
         loadOrders();
@@ -178,6 +223,7 @@ const WalletTab: React.FC = () => {
 
   const handleModalClose = () => {
     setQrModalVisible(false);
+    setPaymentSuccess(false);
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
@@ -434,12 +480,9 @@ const WalletTab: React.FC = () => {
                       <div>
                         <div style={{ color: 'rgba(0, 0, 0, 0.45)', fontSize: 14, marginBottom: 4 }}>实付金额</div>
                         <div style={{ fontSize: 24, color: '#ff4d4f', fontWeight: 'bold' }}>
-                          {(paymentMethod === 'WECHAT' ? selectedPackage.amount * 0.95 : selectedPackage.amount).toFixed(2)} 元
+                          {selectedPackage.amount.toFixed(2)} 元
                         </div>
                       </div>
-                      {paymentMethod === 'WECHAT' && (
-                        <div style={{ color: '#999', fontSize: 11, marginTop: 4 }}>微信支付享95折优惠</div>
-                      )}
                     </Col>
                   </Row>
                 </Col>
@@ -519,7 +562,11 @@ const WalletTab: React.FC = () => {
         open={qrModalVisible}
         onCancel={handleModalClose}
         centered
-        footer={[
+        footer={paymentSuccess ? [
+          <Button key="close" type="primary" onClick={handleModalClose}>
+            关闭
+          </Button>,
+        ] : [
           <Button key="check" type="primary" icon={<ReloadOutlined />} onClick={handleManualCheck}>
             我已支付
           </Button>,
@@ -530,31 +577,52 @@ const WalletTab: React.FC = () => {
         width={400}
       >
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            display: 'inline-block',
-            padding: '16px',
-            border: '2px dashed #d9d9d9',
-            borderRadius: '8px',
-            marginBottom: 16
-          }}>
-            <QRCode value={currentOrder?.payUrl || currentOrder?.qrCodeUrl || ''} size={200} />
-          </div>
-          <div style={{ color: '#666', marginBottom: 16 }}>请使用手机扫码支付</div>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ color: '#999', fontSize: 12 }}>订单号: {currentOrder?.orderNo}</div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 28, fontWeight: 'bold', color: '#ff4d4f' }}>
-              ¥ {currentOrder?.paidAmount?.toFixed(2)}
-            </div>
-          </div>
-          <div style={{ color: countdown < 60 ? '#ff4d4f' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ClockCircleOutlined style={{ marginRight: 8 }} />
-            剩余: {formatCountdown(countdown)}
-          </div>
-          <div style={{ marginTop: 16, color: '#999', fontSize: 12 }}>
-            支付完成后会自动刷新余额，若未刷新可点击上方按钮
-          </div>
+          {paymentSuccess ? (
+            <>
+              <div style={{ marginBottom: 24 }}>
+                <CheckCircleOutlined style={{ fontSize: 80, color: '#52c41a' }} />
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a', marginBottom: 16 }}>
+                支付成功
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#999', fontSize: 12 }}>订单号: {currentOrder?.orderNo}</div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 28, fontWeight: 'bold', color: '#52c41a' }}>
+                  ¥ {currentOrder?.paidAmount?.toFixed(2)}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ 
+                display: 'inline-block',
+                padding: '16px',
+                border: '2px dashed #d9d9d9',
+                borderRadius: '8px',
+                marginBottom: 16
+              }}>
+                <QRCode value={currentOrder?.payUrl || ''} size={200} />
+              </div>
+              <div style={{ color: '#666', marginBottom: 16 }}>请使用手机扫码支付</div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ color: '#999', fontSize: 12 }}>订单号: {currentOrder?.orderNo}</div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 28, fontWeight: 'bold', color: '#ff4d4f' }}>
+                  ¥ {currentOrder?.paidAmount?.toFixed(2)}
+                </div>
+              </div>
+              <div style={{ color: countdown < 60 ? '#ff4d4f' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ClockCircleOutlined style={{ marginRight: 8 }} />
+                剩余: {formatCountdown(countdown)}
+              </div>
+              <div style={{ marginTop: 16, color: '#999', fontSize: 12 }}>
+                支付完成后会自动刷新余额，若未刷新可点击上方按钮
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 

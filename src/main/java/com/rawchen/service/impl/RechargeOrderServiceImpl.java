@@ -180,14 +180,9 @@ public class RechargeOrderServiceImpl extends ServiceImpl<RechargeOrderMapper, R
     }
 
     /**
-     * 计算实付金额（根据支付方式折扣）
+     * 计算实付金额
      */
     private BigDecimal calculatePaidAmount(BigDecimal amount, String paymentMethod) {
-        // 微信支付折扣95折
-        if ("WECHAT".equals(paymentMethod)) {
-            return amount.multiply(new BigDecimal("0.95")).setScale(2, RoundingMode.HALF_UP);
-        }
-        // 支付宝无折扣
         return amount;
     }
 
