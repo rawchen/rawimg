@@ -132,17 +132,17 @@ export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-black">{user.username}</span>
-                {user.vip && user.vipLevel ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                    <CrownOutlined className="text-xs mr-1"/>
-                    {user.vipLevel}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">
-                    <CrownOutlined className="text-xs mr-1"/>
-                    非会员
-                  </span>
-                )}
+                {/*{user.vip && user.vipLevel ? (*/}
+                {/*  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-yellow-400 to-orange-500 text-white">*/}
+                {/*    <CrownOutlined className="text-xs mr-1"/>*/}
+                {/*    {user.vipLevel}*/}
+                {/*  </span>*/}
+                {/*) : (*/}
+                {/*  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">*/}
+                {/*    <CrownOutlined className="text-xs mr-1"/>*/}
+                {/*    非会员*/}
+                {/*  </span>*/}
+                {/*)}*/}
               </div>
               <p className="text-xs text-gray-500">{user.email}</p>
 
@@ -182,14 +182,14 @@ export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
                 <HeartOutlined className="text-base mr-3" />
                 我的收藏
               </Link>
-              <Link
-                to="/recharge"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <CrownOutlined className="text-base mr-3 text-yellow-500" />
-                充值会员
-              </Link>
+              {/*<Link*/}
+              {/*  to="/recharge"*/}
+              {/*  onClick={() => setIsOpen(false)}*/}
+              {/*  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"*/}
+              {/*>*/}
+              {/*  <CrownOutlined className="text-base mr-3 text-yellow-500" />*/}
+              {/*  充值会员*/}
+              {/*</Link>*/}
 
               {/* Admin link */}
               {isAdmin && (
