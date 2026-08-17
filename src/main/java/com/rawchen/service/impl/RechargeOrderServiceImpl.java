@@ -2,7 +2,11 @@ package com.rawchen.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.extra.qrcode.QrCodeUtil;
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson.JSON;
+
+import java.io.ByteArrayInputStream;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -73,6 +77,10 @@ public class RechargeOrderServiceImpl extends ServiceImpl<RechargeOrderMapper, R
         try {
             String qrCodeUrl = createPayment(orderNo, paidAmount, paymentMethod);
             order.setQrCodeUrl(qrCodeUrl);
+            
+            // 识别二维码内容
+            String payUrl = decodeQrCode(qrCodeUrl);
+            order.setPayUrl(payUrl);
         } catch (Exception e) {
             log.error("创建支付订单失败", e);
             order.setStatus("FAILED");
@@ -239,5 +247,21 @@ public class RechargeOrderServiceImpl extends ServiceImpl<RechargeOrderMapper, R
         }
 
         throw new IllegalArgumentException("不支持的支付方式");
+    }
+
+    /**
+     * 识别二维码图片内容
+     */
+    private String decodeQrCode(String qrCodeUrl) {
+        try {
+            // 下载二维码图片
+            byte[] imageBytes = HttpUtil.downloadBytes(qrCodeUrl);
+            
+            // 识别二维码内容
+            return QrCodeUtil.decode(new ByteArrayInputStream(imageBytes));
+        } catch (Exception e) {
+            log.error("识别二维码失败: {}", qrCodeUrl, e);
+            return null;
+        }
     }
 }

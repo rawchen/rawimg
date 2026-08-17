@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `recharge_order` (
     `payment_channel` VARCHAR(50) DEFAULT NULL COMMENT '支付渠道描述',
     `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '订单状态：PENDING-待支付，SUCCESS-成功，EXPIRED-已过期，FAILED-失败',
     `qr_code_url` VARCHAR(500) DEFAULT NULL COMMENT '二维码URL',
+    `pay_url` VARCHAR(500) DEFAULT NULL COMMENT '支付链接（二维码识别后的内容）',
     `transaction_id` VARCHAR(100) DEFAULT NULL COMMENT '第三方支付单号',
     `pay_time` DATETIME DEFAULT NULL COMMENT '支付时间',
     `expire_time` DATETIME NOT NULL COMMENT '订单过期时间',

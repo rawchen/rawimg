@@ -52,6 +52,7 @@ public class RechargeController {
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", order.getOrderNo());
         result.put("qrCodeUrl", order.getQrCodeUrl());
+        result.put("payUrl", order.getPayUrl());
         result.put("amount", order.getAmount());
         result.put("paidAmount", order.getPaidAmount());
         result.put("creditAmount", order.getCreditAmount());

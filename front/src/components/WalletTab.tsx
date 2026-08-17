@@ -16,7 +16,7 @@ const WalletTab: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<{ orderNo: string; qrCodeUrl: string; paidAmount: number; expireTime: string } | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<{ orderNo: string; qrCodeUrl: string; payUrl: string; paidAmount: number; expireTime: string } | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [orders, setOrders] = useState<RechargeOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -537,7 +537,7 @@ const WalletTab: React.FC = () => {
             borderRadius: '8px',
             marginBottom: 16
           }}>
-            <QRCode value={currentOrder?.qrCodeUrl || ''} size={200} />
+            <QRCode value={currentOrder?.payUrl || currentOrder?.qrCodeUrl || ''} size={200} />
           </div>
           <div style={{ color: '#666', marginBottom: 16 }}>请使用手机扫码支付</div>
           <div style={{ marginBottom: 16 }}>

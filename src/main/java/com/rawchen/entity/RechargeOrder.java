@@ -67,6 +67,11 @@ public class RechargeOrder {
     private String qrCodeUrl;
 
     /**
+     * 支付链接（二维码识别后的内容）
+     */
+    private String payUrl;
+
+    /**
      * 第三方支付单号
      */
     private String transactionId;

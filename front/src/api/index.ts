@@ -1243,6 +1243,7 @@ export interface RechargeOrder {
 export interface CreateOrderResponse {
   orderNo: string;
   qrCodeUrl: string;
+  payUrl: string;
   amount: number;
   paidAmount: number;
   creditAmount: number;
