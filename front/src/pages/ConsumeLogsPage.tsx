@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { message, Pagination, Empty, Spin } from 'antd';
 import { balanceApi, ConsumeLog } from '@/api';
+import SliderSelector from '@/components/SliderSelector';
 import {
   WalletOutlined,
   ClockCircleOutlined,
@@ -20,9 +21,9 @@ export function ConsumeLogsPage() {
 
   // 统计维度配置：label 标签 / hours 时长 / type 类型
   const chartTypeConfigs: Record<string, { label: string; title: string; hours: number; type: 'hour' | 'day' | 'month' }> = {
-    '7h':  { label: '近7小时',  title: '近7小时消费分布',  hours: 7,  type: 'hour' },
+    '7h':  { label: '近7时',  title: '近7小时消费分布',  hours: 7,  type: 'hour' },
     '7d':  { label: '近7天',    title: '近7天消费分布',    hours: 7,  type: 'day' },
-    '30d': { label: '近1个月',  title: '近1个月消费分布',  hours: 30, type: 'day' },
+    '30d': { label: '近1月',  title: '近1个月消费分布',  hours: 30, type: 'day' },
     '12m': { label: '近1年',    title: '近1年消费分布',    hours: 12, type: 'month' },
   };
 
@@ -121,21 +122,14 @@ export function ConsumeLogsPage() {
               <h2 className="text-lg font-semibold text-black">
                 {chartTypeConfigs[chartType].title}
               </h2>
-              <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                {Object.entries(chartTypeConfigs).map(([key, config], index) => (
-                  <button
-                    key={key}
-                    onClick={() => setChartType(key as '7h' | '7d' | '30d' | '12m')}
-                    className={`px-3 py-1 text-sm transition-colors ${index > 0 ? 'border-l border-gray-200' : ''} ${
-                      chartType === key
-                        ? 'bg-black text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {config.label}
-                  </button>
-                ))}
-              </div>
+              <SliderSelector
+                options={Object.entries(chartTypeConfigs).map(([key, config]) => ({
+                  key,
+                  label: config.label,
+                }))}
+                value={chartType}
+                onChange={(value) => setChartType(value as '7h' | '7d' | '30d' | '12m')}
+              />
             </div>
             <div className="flex items-end gap-2 h-48">
               {hourlyStats.map((stat, index) => (

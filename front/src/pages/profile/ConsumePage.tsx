@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Card, Empty, Tag, Button, Statistic, Row, Col } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import SliderSelector from '@/components/SliderSelector';
 import { balanceApi } from '@/api';
 import type { ConsumeLog, BalanceStats, HourlyStats as HourlyStatsType, ModelStats as ModelStatsType } from '@/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
@@ -18,9 +19,9 @@ const ConsumePage: React.FC = () => {
   
   // 统计维度配置
   const chartTypeConfigs: Record<string, { label: string; title: string; hours: number; type: 'hour' | 'day' | 'month' }> = {
-    '7h':  { label: '近7小时',  title: '近7小时消费分布',  hours: 7,  type: 'hour' },
+    '7h':  { label: '近7时',  title: '近7小时消费分布',  hours: 7,  type: 'hour' },
     '7d':  { label: '近7天',    title: '近7天消费分布',    hours: 7,  type: 'day' },
-    '30d': { label: '近1个月',  title: '近1个月消费分布',  hours: 30, type: 'day' },
+    '30d': { label: '近1月',  title: '近1个月消费分布',  hours: 30, type: 'day' },
     '12m': { label: '近1年',    title: '近1年消费分布',    hours: 12, type: 'month' },
   };
 
@@ -212,18 +213,14 @@ const ConsumePage: React.FC = () => {
       <Card className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">{chartTypeConfigs[chartType].title}</h3>
-          <div className="flex gap-2">
-            {Object.entries(chartTypeConfigs).map(([key, config]) => (
-              <Button
-                key={key}
-                type={chartType === key ? 'primary' : 'default'}
-                size="small"
-                onClick={() => setChartType(key as any)}
-              >
-                {config.label}
-              </Button>
-            ))}
-          </div>
+          <SliderSelector
+            options={Object.entries(chartTypeConfigs).map(([key, config]) => ({
+              key,
+              label: config.label,
+            }))}
+            value={chartType}
+            onChange={(value) => setChartType(value as any)}
+          />
         </div>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData}>
