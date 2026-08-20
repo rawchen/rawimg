@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Empty, Tag, Button, Statistic, Row, Col } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Table, Card, Empty, Tag, Row, Col, Tabs } from 'antd';
 import SliderSelector from '@/components/SliderSelector';
 import { balanceApi } from '@/api';
 import type { ConsumeLog, BalanceStats, HourlyStats as HourlyStatsType, ModelStats as ModelStatsType } from '@/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 
 const ConsumePage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('records');
   const [logs, setLogs] = useState<ConsumeLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   
   // 图表相关状态
   const [hourlyStats, setHourlyStats] = useState<HourlyStatsType[]>([]);
@@ -181,165 +181,189 @@ const ConsumePage: React.FC = () => {
     },
   ];
 
+  const tabItems = [
+    {
+      key: 'records',
+      label: '消费记录',
+      children: (
+        <>
+          {/* 统计信息 */}
+          <Card 
+            style={{ 
+              marginBottom: 16,
+              background: 'linear-gradient(135deg, rgb(51, 65, 85), rgb(30, 41, 59), rgb(15, 23, 42))',
+              position: 'relative',
+              overflow: 'hidden'
+            }} 
+            styles={{ body: { padding: '16px' } }}
+          >
+            <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'rgba(255, 255, 255, 0.05)' }} />
+            <div className="absolute -right-4 -bottom-10 w-28 h-28 rounded-full pointer-events-none" style={{ background: 'rgba(255, 255, 255, 0.05)' }} />
+            <Row gutter={24} style={{ position: 'relative', zIndex: 1 }}>
+              <Col span={6}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>当前余额</div>
+                <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+                  ¥{(balanceStats?.balance || 0).toFixed(2)}
+                </div>
+              </Col>
+              <Col span={6}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>今日消耗</div>
+                <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+                  ¥{(balanceStats?.todayConsumed || 0).toFixed(2)}
+                </div>
+              </Col>
+              <Col span={6}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>今日操作</div>
+                <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+                  {balanceStats?.todayOperations || 0}<span style={{ fontSize: 14, marginLeft: 4 }}>次</span>
+                </div>
+              </Col>
+              <Col span={6}>
+                <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>总消耗</div>
+                <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+                  ¥{(balanceStats?.totalConsumed || 0).toFixed(2)}
+                </div>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* 柱状图区域 */}
+          <Card className="mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">{chartTypeConfigs[chartType].title}</h3>
+              <SliderSelector
+                options={Object.entries(chartTypeConfigs).map(([key, config]) => ({
+                  key,
+                  label: config.label,
+                }))}
+                value={chartType}
+                onChange={(value) => setChartType(value as any)}
+              />
+            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="hour"
+                  tickFormatter={(value) => formatXAxis(value)}
+                  tick={(props: any) => {
+                    const { x, y, payload } = props;
+                    const value = formatXAxis(payload.value);
+                    if (chartType === '30d') {
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <text
+                            x={0}
+                            y={0}
+                            dy={16}
+                            textAnchor="end"
+                            fill="#666"
+                            fontSize={12}
+                            transform="rotate(-45)"
+                          >
+                            {value}
+                          </text>
+                        </g>
+                      );
+                    }
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12}>
+                          {value}
+                        </text>
+                      </g>
+                    );
+                  }}
+                  height={chartType === '30d' ? 60 : 30}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value: number) => {
+                    if (value >= 1000) return `¥${(value / 1000).toFixed(1)}K`;
+                    return `¥${value.toFixed(2)}`;
+                  }}
+                  domain={[0, (dataMax: number) => dataMax * 1.15]}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`¥${value.toFixed(2)}`, '']}
+                  labelFormatter={(label) => `时间: ${label}`}
+                />
+                <Legend />
+                {getModelBarData().map((model, index, arr) => (
+                  <Bar
+                    key={model.modelName}
+                    dataKey={model.modelName}
+                    name={model.modelName}
+                    stackId="a"
+                    fill={COLORS[index % COLORS.length]}
+                  >
+                    {index === arr.length - 1 && (
+                      <LabelList
+                        dataKey="cost"
+                        position="top"
+                        offset={12}
+                        fill="#333"
+                        fontSize={12}
+                        fontWeight="bold"
+                        formatter={(value: number) => value > 0 ? `¥${value.toFixed(2)}` : ''}
+                      />
+                    )}
+                  </Bar>
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+
+          {/* 模型消费分布 */}
+          {modelStats.length > 0 && (
+            <Card>
+              {/*<h3 className="text-lg font-semibold mb-3">模型消费分布</h3>*/}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {modelStats.map((stat, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-3">
+                    <p className="text-sm font-medium text-gray-900 truncate">{stat.modelName}</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">¥{stat.cost.toFixed(2)} <span className="font-normal pl-2">{stat.count} 次</span></p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'details',
+      label: '消费明细',
+      children: (
+        <Card>
+          <Table
+            className="compact-table"
+            columns={columns}
+            dataSource={logs}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条记录`,
+              onChange: (page, pageSize) => {
+                setPagination({ ...pagination, current: page, pageSize });
+              },
+            }}
+            locale={{ emptyText: <Empty description="暂无消费记录" /> }}
+          />
+        </Card>
+      ),
+    },
+  ];
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">消费记录</h2>
-
-      {/* 统计信息 */}
-      <Row gutter={16} className="mb-6">
-        <Col span={6}>
-          <Card>
-            <Statistic title="当前余额" value={balanceStats?.balance || 0} precision={2} prefix="¥" />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="今日消耗" value={balanceStats?.todayConsumed || 0} precision={2} prefix="¥" />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="今日操作" value={balanceStats?.todayOperations || 0} suffix="次" />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="总消耗" value={balanceStats?.totalConsumed || 0} precision={2} prefix="¥" />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* 柱状图区域 */}
-      <Card className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">{chartTypeConfigs[chartType].title}</h3>
-          <SliderSelector
-            options={Object.entries(chartTypeConfigs).map(([key, config]) => ({
-              key,
-              label: config.label,
-            }))}
-            value={chartType}
-            onChange={(value) => setChartType(value as any)}
-          />
-        </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="hour"
-              tickFormatter={(value) => formatXAxis(value)}
-              tick={(props: any) => {
-                const { x, y, payload } = props;
-                const value = formatXAxis(payload.value);
-                if (chartType === '30d') {
-                  return (
-                    <g transform={`translate(${x},${y})`}>
-                      <text
-                        x={0}
-                        y={0}
-                        dy={16}
-                        textAnchor="end"
-                        fill="#666"
-                        fontSize={12}
-                        transform="rotate(-45)"
-                      >
-                        {value}
-                      </text>
-                    </g>
-                  );
-                }
-                return (
-                  <g transform={`translate(${x},${y})`}>
-                    <text x={0} y={0} dy={16} textAnchor="middle" fill="#666" fontSize={12}>
-                      {value}
-                    </text>
-                  </g>
-                );
-              }}
-              height={chartType === '30d' ? 60 : 30}
-              interval={0}
-            />
-            <YAxis
-              tick={{ fontSize: 12 }}
-              tickFormatter={(value: number) => {
-                if (value >= 1000) return `¥${(value / 1000).toFixed(1)}K`;
-                return `¥${value.toFixed(2)}`;
-              }}
-              domain={[0, (dataMax: number) => dataMax * 1.15]}
-            />
-            <Tooltip
-              formatter={(value: number) => [`¥${value.toFixed(2)}`, '']}
-              labelFormatter={(label) => `时间: ${label}`}
-            />
-            <Legend />
-            {getModelBarData().map((model, index, arr) => (
-              <Bar
-                key={model.modelName}
-                dataKey={model.modelName}
-                name={model.modelName}
-                stackId="a"
-                fill={COLORS[index % COLORS.length]}
-              >
-                {index === arr.length - 1 && (
-                  <LabelList
-                    dataKey="cost"
-                    position="top"
-                    offset={12}
-                    fill="#333"
-                    fontSize={12}
-                    fontWeight="bold"
-                    formatter={(value: number) => value > 0 ? `¥${value.toFixed(2)}` : ''}
-                  />
-                )}
-              </Bar>
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
-
-      {/* 模型消费分布 */}
-      {modelStats.length > 0 && (
-        <Card className="mb-6">
-          <h3 className="text-lg font-semibold mb-4">模型消费分布</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {modelStats.map((stat, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-900 truncate">{stat.modelName}</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">¥{stat.cost.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">{stat.count} 次</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* 消费记录列表 */}
-      <Card
-        title="消费明细"
-        extra={
-          <Button icon={<ReloadOutlined />} onClick={loadLogs}>
-            刷新
-          </Button>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={logs}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 条记录`,
-            onChange: (page, pageSize) => {
-              setPagination({ ...pagination, current: page, pageSize });
-            },
-          }}
-          locale={{ emptyText: <Empty description="暂无消费记录" /> }}
-        />
-      </Card>
+      <h2 className="text-2xl font-bold mb-6">消费中心</h2>
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </div>
   );
 };

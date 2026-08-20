@@ -40,6 +40,15 @@ html, body, #root {
   animation: fadeIn 0.2s ease-out;
 }
 
+/* 紧凑型表格样式 */
+.compact-table .ant-table-tbody > tr > td {
+  padding: 8px 16px !important;
+}
+
+.compact-table .ant-table-thead > tr > th {
+  padding: 8px 16px !important;
+}
+
 @layer base {
   :root {
     --radius: 0.5rem;

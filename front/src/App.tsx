@@ -61,6 +61,7 @@ function AppContent() {
   const isEditPage = location.pathname === '/edit';
   const isBeautyPage = location.pathname === '/beauty';
   const isClothesPage = location.pathname === '/clothes';
+  const isGalleriesPage = location.pathname === '/galleries';
 
   const [isScrolled, setIsScrolled] = useState(false);
   const scrollElementRef = useRef<HTMLElement | null>(null);
@@ -182,7 +183,8 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && !isEditPage && !isBeautyPage && !isClothesPage && <Footer />}
+      {/*{!isAdminPage && !isEditorPage && !isLandingPage && !isCreatePage && !isEnhancePage && !isRemovePage && !isExpandPage && !isMattingPage && !isRestorePage && !isEditPage && !isBeautyPage && !isClothesPage && <Footer />}*/}
+      {isGalleriesPage && <Footer />}
     </div>
   );
 }

@@ -429,6 +429,7 @@ const WalletTab: React.FC = () => {
                     opacity: paymentMethod === '' ? 0.8 : 1,
                     cursor: 'pointer',
                     transition: 'all 0.3s',
+
                   }}
                   bodyStyle={{ padding: '12px' }}
                   onClick={() => setPaymentMethod('WECHAT')}
@@ -441,19 +442,33 @@ const WalletTab: React.FC = () => {
               <Col span={12}>
                 <Card
                   style={{
-                    border: paymentMethod === 'ALIPAY' ? '2px solid #1677ff' : '2px solid #d9d9d9',
-                    background: paymentMethod === 'ALIPAY' ? '#e6f4ff' : '#fff',
+                    border: '2px solid #d9d9d9',
+                    background: '#f5f5f5',
                     textAlign: 'center',
-                    opacity: paymentMethod === '' ? 0.8 : 1,
-                    cursor: 'pointer',
+                    opacity: 0.5,
+                    cursor: 'not-allowed',
                     transition: 'all 0.3s',
+                    position: 'relative',
                   }}
                   bodyStyle={{ padding: '12px' }}
-                  onClick={() => setPaymentMethod('ALIPAY')}
-                  className={`payment-card alipay-card ${paymentMethod === 'ALIPAY' ? 'selected' : ''}`}
+                  className="payment-card alipay-card disabled"
                 >
-                  <AlipayCircleOutlined style={{ fontSize: 24, color: '#1677ff' }} />
-                  <div style={{ marginTop: 4, fontSize: 13 }}>支付宝</div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      background: '#999',
+                      color: '#fff',
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                    }}
+                  >
+                    暂不可用
+                  </div>
+                  <AlipayCircleOutlined style={{ fontSize: 24, color: '#999' }} />
+                  <div style={{ marginTop: 4, fontSize: 13, color: '#999' }}>支付宝</div>
                 </Card>
               </Col>
             </Row>
@@ -495,7 +510,7 @@ const WalletTab: React.FC = () => {
                     onClick={handleCreateOrder}
                     icon={<SafetyOutlined />}
                   >
-                    立即支付
+                    快速支付
                   </Button>
                 </Col>
               </Row>
@@ -537,6 +552,7 @@ const WalletTab: React.FC = () => {
 
           {/* 订单列表 */}
           <Table
+            className="compact-table"
             columns={orderColumns}
             dataSource={orders}
             rowKey="id"

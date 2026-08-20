@@ -107,7 +107,7 @@ export function ConsumeLogsPage() {
   const maxCost = validCosts.length > 0 ? Math.max(...validCosts, 0.01) : 0.01;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       <h1 className="text-3xl font-bold text-black mb-8">消费记录</h1>
 
       {loading ? (

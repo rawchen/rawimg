@@ -148,3 +148,5 @@ coverage/
 *.log.backup
 uploads/
 data/
+/.codebuddy/
+/CLAUDE.md
