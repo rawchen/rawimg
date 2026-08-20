@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, Radio, Table, Input, Select, Tag, Modal, message, Empty, Row, Col, Badge, Divider } from 'antd';
+import { Card, Button, Radio, Table, Input, Select, Tag, Modal, message, Empty, Row, Col, Badge, Divider, Skeleton } from 'antd';
 import { WechatOutlined, AlipayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, QrcodeOutlined, SearchOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons';
 import { rechargeApi, balanceApi } from '../api';
 import type { RechargePackage, RechargeOrder, BalanceStats } from '../api';
@@ -11,6 +11,7 @@ const { Option } = Select;
 const WalletTab: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'recharge' | 'orders'>('recharge');
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [packages, setPackages] = useState<RechargePackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<RechargePackage | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('');
@@ -50,11 +51,14 @@ const WalletTab: React.FC = () => {
   }, []);
 
   const loadBalanceStats = async () => {
+    setStatsLoading(true);
     try {
       const stats = await balanceApi.getStats();
       setBalanceStats(stats);
     } catch (error) {
       console.error('Failed to load balance stats:', error);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -333,10 +337,10 @@ const WalletTab: React.FC = () => {
               <Col span={12}>
                 <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 0 }}>当前余额</div>
                 <div style={{ color: '#fff', fontSize: 28, fontWeight: 'bold' }}>
-                  ¥{(balanceStats?.balance || 0).toFixed(2)}
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 100, height: 28, background: 'rgba(255,255,255,0.2)' }} /> : `¥${(balanceStats?.balance || 0).toFixed(2)}`}
                 </div>
                 <div style={{ marginTop: 8, color: 'rgba(255, 255, 255, 0.65)', fontSize: 12 }}>
-                  历史消耗 ¥{balanceStats?.totalConsumed?.toFixed(2) || '0.00'} · 请求次数 {balanceStats?.todayConsumed || 0}
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 200, height: 12, background: 'rgba(255,255,255,0.2)' }} /> : `历史消耗 ¥${balanceStats?.totalConsumed?.toFixed(2) || '0.00'} · 请求次数 ${balanceStats?.todayConsumed || 0}`}
                 </div>
               </Col>
               <Col span={12} style={{ textAlign: 'right' }}>

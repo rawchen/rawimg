@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Empty, Tag, Row, Col, Tabs } from 'antd';
+import { Table, Card, Empty, Tag, Row, Col, Radio, Skeleton } from 'antd';
 import SliderSelector from '@/components/SliderSelector';
 import { balanceApi } from '@/api';
 import type { ConsumeLog, BalanceStats, HourlyStats as HourlyStatsType, ModelStats as ModelStatsType } from '@/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 
 const ConsumePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('records');
+  const [activeTab, setActiveTab] = useState<'records' | 'details'>('records');
   const [logs, setLogs] = useState<ConsumeLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   
@@ -97,11 +98,14 @@ const ConsumePage: React.FC = () => {
   };
 
   const loadStats = async () => {
+    setStatsLoading(true);
     try {
       const stats = await balanceApi.getStats();
       setBalanceStats(stats);
     } catch (error) {
       console.error('Failed to load stats:', error);
+    } finally {
+      setStatsLoading(false);
     }
   };
   
@@ -146,7 +150,7 @@ const ConsumePage: React.FC = () => {
       width: 120,
       render: (cost: number) => (
         <span style={{ color: '#ff4d4f' }}>
-          -¥{(cost || 0).toFixed(4)}
+          -¥{(cost || 0).toFixed(2)}
         </span>
       ),
     },
@@ -181,11 +185,19 @@ const ConsumePage: React.FC = () => {
     },
   ];
 
-  const tabItems = [
-    {
-      key: 'records',
-      label: '消费记录',
-      children: (
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">消费中心</h2>
+      
+      {/* Tab 切换 */}
+      <div style={{ marginBottom: 16 }}>
+        <Radio.Group value={activeTab} onChange={(e) => setActiveTab(e.target.value)}>
+          <Radio.Button value="records">消费记录</Radio.Button>
+          <Radio.Button value="details">消费明细</Radio.Button>
+        </Radio.Group>
+      </div>
+
+      {activeTab === 'records' && (
         <>
           {/* 统计信息 */}
           <Card 
@@ -203,25 +215,25 @@ const ConsumePage: React.FC = () => {
               <Col span={6}>
                 <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>当前余额</div>
                 <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
-                  ¥{(balanceStats?.balance || 0).toFixed(2)}
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 80, height: 24, background: 'rgba(255,255,255,0.2)' }} /> : `¥${(balanceStats?.balance || 0).toFixed(2)}`}
                 </div>
               </Col>
               <Col span={6}>
                 <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>今日消耗</div>
                 <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
-                  ¥{(balanceStats?.todayConsumed || 0).toFixed(2)}
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 80, height: 24, background: 'rgba(255,255,255,0.2)' }} /> : `¥${(balanceStats?.todayConsumed || 0).toFixed(2)}`}
                 </div>
               </Col>
               <Col span={6}>
                 <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>今日操作</div>
                 <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
-                  {balanceStats?.todayOperations || 0}<span style={{ fontSize: 14, marginLeft: 4 }}>次</span>
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 80, height: 24, background: 'rgba(255,255,255,0.2)' }} /> : <>{balanceStats?.todayOperations || 0}<span style={{ fontSize: 14, marginLeft: 4 }}>次</span></>}
                 </div>
               </Col>
               <Col span={6}>
                 <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>总消耗</div>
                 <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
-                  ¥{(balanceStats?.totalConsumed || 0).toFixed(2)}
+                  {statsLoading ? <Skeleton.Input active size="small" style={{ width: 80, height: 24, background: 'rgba(255,255,255,0.2)' }} /> : `¥${(balanceStats?.totalConsumed || 0).toFixed(2)}`}
                 </div>
               </Col>
             </Row>
@@ -330,12 +342,9 @@ const ConsumePage: React.FC = () => {
             </Card>
           )}
         </>
-      ),
-    },
-    {
-      key: 'details',
-      label: '消费明细',
-      children: (
+      )}
+
+      {activeTab === 'details' && (
         <Card>
           <Table
             className="compact-table"
@@ -356,14 +365,7 @@ const ConsumePage: React.FC = () => {
             locale={{ emptyText: <Empty description="暂无消费记录" /> }}
           />
         </Card>
-      ),
-    },
-  ];
-
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6">消费中心</h2>
-      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+      )}
     </div>
   );
 };
