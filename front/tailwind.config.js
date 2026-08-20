@@ -16,6 +16,9 @@ module.exports = {
 			},
 		},
 		extend: {
+			boxShadow: {
+				'custom': '2px 2px 6px 2px #00000005',
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',

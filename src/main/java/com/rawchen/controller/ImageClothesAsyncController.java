@@ -2,16 +2,21 @@ package com.rawchen.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.ImageTask;
+import com.rawchen.entity.ModelPrice;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
+import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskService;
+import com.rawchen.service.ModelPriceService;
+import com.rawchen.service.UserBalanceService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +32,9 @@ public class ImageClothesAsyncController {
 
     private final ImageTaskService imageTaskService;
     private final AsyncImageTaskExecutor asyncImageTaskExecutor;
+    private final UserBalanceService userBalanceService;
+    private final ModelPriceService modelPriceService;
+    private final ConsumeLogService consumeLogService;
 
     /**
      * 异步智能换装 - 前端已通过OSS上传图片
@@ -70,6 +78,22 @@ public class ImageClothesAsyncController {
             return R.badRequest("请至少上传一张服装图片");
         }
 
+        // 获取模型价格并检查余额
+        BigDecimal cost = modelPriceService.getPrice(model);
+        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+            return R.badRequest("未配置该模型的价格: " + model);
+        }
+
+        if (!userBalanceService.checkBalance(user.getId(), cost)) {
+            return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");
+        }
+
+        // 扣费
+        boolean deducted = userBalanceService.deduct(user.getId(), cost);
+        if (!deducted) {
+            return R.forbidden("扣费失败，请稍后重试");
+        }
+
         // 生成任务ID
         String taskId = UUID.randomUUID().toString();
 
@@ -86,14 +110,20 @@ public class ImageClothesAsyncController {
         task.setReferenceImageUrls(clothesImageUrls);
         imageTaskService.save(task);
 
+        // 创建消费日志
+        ModelPrice price = modelPriceService.getByModelCode(model);
+        consumeLogService.createLog(user.getId(), taskId, "clothes", model,
+                price != null ? price.getModelName() : model, null, cost);
+
         // 异步执行任务
         asyncImageTaskExecutor.executeClothesTask(taskId, personImageUrl, clothesUrls, prompt, size, model);
 
-        log.info("Clothes task {} created for user {} with model {}", taskId, user.getId(), model);
+        log.info("Clothes task {} created for user {} with model {}, cost {}", taskId, user.getId(), model, cost);
 
         ClothesAsyncResponse response = new ClothesAsyncResponse();
         response.setTaskId(taskId);
         response.setModel(model);
+        response.setCost(cost);
         return R.ok(response);
     }
 
@@ -193,6 +223,7 @@ public class ImageClothesAsyncController {
     public static class ClothesAsyncResponse {
         private String taskId;
         private String model;
+        private BigDecimal cost;
     }
 
     /**

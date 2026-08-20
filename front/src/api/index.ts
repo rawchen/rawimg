@@ -489,20 +489,23 @@ export const imageEnhanceApi = {
 
 // Image Remove API
 export const imageRemoveApi = {
-  removeObjects: (file: File, category: string) => {
+  removeObjects: (file: File, category: string, model: string = 'gpt-image-2') => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('category', category);
+    formData.append('model', model);
     return api.post<{
       originalFilename: string;
       removedUrl: string;
       category: string;
+      cost: number;
     }>('/image-remove/remove', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }) as unknown as Promise<{
       originalFilename: string;
       removedUrl: string;
       category: string;
+      cost: number;
     }>;
   },
 };

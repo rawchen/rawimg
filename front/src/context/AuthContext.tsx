@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dailyDownloadCount: userData.dailyDownloadCount,
       dailyDownloadLimit: userData.dailyDownloadLimit,
       points: userData.points,
-      createTime: '',
+      createTime: userData.createTime || '',
       status: 'NORMAL',
     });
   };
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         dailyDownloadCount: result.dailyDownloadCount,
         dailyDownloadLimit: result.dailyDownloadLimit,
         points: result.points,
-        createTime: '',
+        createTime: result.createTime || '',
         status: 'NORMAL' as const,
       };
       setUser(userData);

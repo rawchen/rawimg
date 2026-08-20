@@ -8,12 +8,16 @@ import com.rawchen.dto.UserStats;
 import com.rawchen.entity.SysUser;
 import com.rawchen.mapper.SysUserMapper;
 import com.rawchen.security.JwtTokenProvider;
+import com.rawchen.service.ConfigService;
 import com.rawchen.service.UserService;
+import com.rawchen.service.UserBalanceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -27,6 +31,8 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
 
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final ConfigService configService;
+    private final UserBalanceService userBalanceService;
 
     @Override
     @Transactional
@@ -42,6 +48,20 @@ public class UserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impleme
         user.setStatus(SysUser.UserStatus.NORMAL);
 
         save(user);
+
+        // 设置注册初始余额
+        String initialBalanceStr = configService.getConfigValue("register_initial_balance");
+        if (initialBalanceStr != null && !initialBalanceStr.isEmpty()) {
+            try {
+                BigDecimal initialBalance = new BigDecimal(initialBalanceStr);
+                if (initialBalance.compareTo(BigDecimal.ZERO) > 0) {
+                    userBalanceService.recharge(user.getId(), initialBalance);
+                }
+            } catch (NumberFormatException e) {
+                // 配置值格式错误，忽略
+            }
+        }
+
         return user;
     }
 

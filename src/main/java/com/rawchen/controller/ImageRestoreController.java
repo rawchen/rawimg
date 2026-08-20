@@ -2,16 +2,22 @@ package com.rawchen.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.ImageTask;
+import com.rawchen.entity.ModelPrice;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
+import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskService;
+import com.rawchen.service.ModelPriceService;
+import com.rawchen.service.UserBalanceService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +32,9 @@ public class ImageRestoreController {
 
     private final AsyncImageTaskExecutor asyncImageTaskExecutor;
     private final ImageTaskService imageTaskService;
+    private final UserBalanceService userBalanceService;
+    private final ModelPriceService modelPriceService;
+    private final ConsumeLogService consumeLogService;
 
     /**
      * 异步老照片修复接口
@@ -51,6 +60,22 @@ public class ImageRestoreController {
             return R.badRequest("请上传原始图片");
         }
 
+        // 获取模型价格并检查余额
+        BigDecimal cost = modelPriceService.getPrice(model);
+        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+            return R.badRequest("未配置该模型的价格: " + model);
+        }
+
+        if (!userBalanceService.checkBalance(user.getId(), cost)) {
+            return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");
+        }
+
+        // 扣费
+        boolean deducted = userBalanceService.deduct(user.getId(), cost);
+        if (!deducted) {
+            return R.forbidden("扣费失败，请稍后重试");
+        }
+
         // 在后端拼接提示词
         String prompt = generatePrompt(colorMode, grainMode, clarity);
 
@@ -68,14 +93,20 @@ public class ImageRestoreController {
         task.setOriginalImageUrl(originalImageUrl);
         imageTaskService.save(task);
 
+        // 创建消费日志
+        ModelPrice price = modelPriceService.getByModelCode(model);
+        consumeLogService.createLog(user.getId(), taskId, "restore", model,
+                price != null ? price.getModelName() : model, null, cost);
+
         // 异步执行修复任务
         asyncImageTaskExecutor.executeRestoreTask(taskId, originalImageUrl, prompt, model);
 
-        log.info("Restore task {} created for user {} with model {}", taskId, user.getId(), model);
+        log.info("Restore task {} created for user {} with model {}, cost {}", taskId, user.getId(), model, cost);
 
         RestoreAsyncResponse response = new RestoreAsyncResponse();
         response.setTaskId(taskId);
         response.setModel(model);
+        response.setCost(cost);
         return R.ok(response);
     }
 
@@ -205,6 +236,7 @@ public class ImageRestoreController {
     public static class RestoreAsyncResponse {
         private String taskId;
         private String model;
+        private BigDecimal cost;
     }
 
     /**

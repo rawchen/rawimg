@@ -100,5 +100,8 @@ public class ConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> i
         if (getConfigValue("fake_active_base_count") == null) {
             setConfig("fake_active_base_count", "0", "number", "基础假人数，0禁用，默认上下浮动5");
         }
+        if (getConfigValue("register_initial_balance") == null) {
+            setConfig("register_initial_balance", "0.1", "number", "注册初始余额");
+        }
     }
 }

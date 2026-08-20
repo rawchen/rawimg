@@ -138,10 +138,12 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async enhance task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -167,11 +169,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async matting task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async matting task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -197,11 +201,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async restore task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async restore task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -224,11 +230,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async expand task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async expand task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -251,11 +259,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async edit inpaint task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async edit inpaint task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -341,11 +351,13 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
             log.info("Async clothes task {} completed in {}ms", taskId, duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async clothes task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -367,10 +379,12 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async edit task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 
@@ -388,10 +402,12 @@ public class AsyncImageTaskExecutor {
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Async enhance task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
         }
     }
 

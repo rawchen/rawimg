@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Avatar, Tag, Empty, Spin } from 'antd';
-import { UserOutlined, MailOutlined, CalendarOutlined, CrownOutlined, WalletOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Avatar, Tag, Spin } from 'antd';
+import { UserOutlined, MailOutlined, CalendarOutlined, CrownOutlined } from '@ant-design/icons';
 import { useAuth } from '@/context/AuthContext';
 import { userApi, balanceApi } from '@/api';
 import type { UserStats, BalanceStats } from '@/types';
@@ -50,12 +50,12 @@ const OverviewPage: React.FC = () => {
                 <MailOutlined /> {user?.email}
               </span>
               <span className="flex items-center gap-1">
-                <CalendarOutlined /> 注册于 {new Date(user?.createTime || '').toLocaleDateString()}
+                <CalendarOutlined /> 注册于 {user?.createTime && !isNaN(new Date(user.createTime).getTime()) ? new Date(user.createTime).toLocaleDateString() : '未知'}
               </span>
             </div>
             <div className="mt-2">
               <Tag color={user?.vip ? 'gold' : 'default'} icon={<CrownOutlined />}>
-                {user?.vip ? `VIP会员 (到期: ${new Date(user.vipExpireTime || '').toLocaleDateString()})` : '普通用户'}
+                {user?.vip ? `VIP会员 (到期: ${user.vipExpireTime && !isNaN(new Date(user.vipExpireTime).getTime()) ? new Date(user.vipExpireTime).toLocaleDateString() : '未知'})` : '普通用户'}
               </Tag>
             </div>
           </div>
@@ -63,48 +63,43 @@ const OverviewPage: React.FC = () => {
       </Card>
 
       {/* 统计信息 */}
-      <Row gutter={16}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="账户余额"
-              value={balanceStats?.balance || 0}
-              precision={2}
-              prefix={<WalletOutlined />}
-              suffix="元"
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="今日消耗"
-              value={balanceStats?.todayConsumed || 0}
-              precision={2}
-              prefix="¥"
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="总消耗"
-              value={balanceStats?.totalConsumed || 0}
-              precision={2}
-              prefix="¥"
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="下载次数"
-              value={userStats?.downloadCount || 0}
-              suffix="次"
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Card 
+        style={{ 
+          background: 'linear-gradient(135deg, rgb(51, 65, 85), rgb(30, 41, 59), rgb(15, 23, 42))',
+          position: 'relative',
+          overflow: 'hidden'
+        }} 
+        styles={{ body: { padding: '16px' } }}
+      >
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'rgba(255, 255, 255, 0.05)' }} />
+        <div className="absolute -right-4 -bottom-10 w-28 h-28 rounded-full pointer-events-none" style={{ background: 'rgba(255, 255, 255, 0.05)' }} />
+        <Row gutter={24} style={{ position: 'relative', zIndex: 1 }}>
+          <Col span={6}>
+            <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>账户余额</div>
+            <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+              {balanceStats?.balance?.toFixed(2) || '0.00'}元
+            </div>
+          </Col>
+          <Col span={6}>
+            <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>今日消耗</div>
+            <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+              ¥{balanceStats?.todayConsumed?.toFixed(2) || '0.00'}
+            </div>
+          </Col>
+          <Col span={6}>
+            <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>总消耗</div>
+            <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+              ¥{balanceStats?.totalConsumed?.toFixed(2) || '0.00'}
+            </div>
+          </Col>
+          <Col span={6}>
+            <div style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, marginBottom: 4 }}>下载次数</div>
+            <div style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+              {userStats?.downloadCount || 0}<span style={{ fontSize: 14, marginLeft: 4 }}>次</span>
+            </div>
+          </Col>
+        </Row>
+      </Card>
 
       {/* 最近活动 */}
       <Card title="最近活动">

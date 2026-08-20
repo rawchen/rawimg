@@ -136,6 +136,7 @@ export interface AuthResponse {
   dailyDownloadLimit?: number;
   points: number;
   avatar?: string;
+  createTime?: string;
 }
 
 export interface PageResponse<T> {

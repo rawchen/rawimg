@@ -9,9 +9,12 @@ import {
   CloseOutlined,
   LoadingOutlined,
 } from '@ant-design/icons';
-import { userApi, ImageTaskRecord, imageClothesApi } from '@/api';
+import { userApi, ImageTaskRecord, imageClothesApi, modelPriceApi, balanceApi, BalanceStats } from '@/api';
 import demoImage from '@/assets/image-clothes/1.jpg';
+import rmbCircle from '@/assets/media/rmb-circle.svg';
 import { addOssThumbnailStyle } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -107,8 +110,16 @@ const getActualSize = (baseSize: string, resolution: string) => {
   }
 };
 
+// 根据分辨率计算实际的模型代码
+const getEffectiveModelCode = (model: string, resolution: string): string => {
+  if (resolution === '1K') return model;
+  // 2K 和 4K 使用带后缀的模型代码
+  return `${model}-${resolution.toLowerCase()}`;
+};
+
 export function ImageClothesPage() {
   const { startFlash } = useTitleFlash();
+  const { isAuthenticated } = useAuth();
 
   // 人物图片状态
   const [personImage, setPersonImage] = useState<string | null>(null);
@@ -127,10 +138,42 @@ export function ImageClothesPage() {
   const [selectedResolution, setSelectedResolution] = useState('1K');
   const [selectedModel, setSelectedModel] = useState('gpt-image-2');
 
+  // 价格和余额相关状态
+  const [modelPrice, setModelPrice] = useState<number>(0);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // 任务状态
   const [loading, setLoading] = useState(false);
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null);
   const [currentElapsed, setCurrentElapsed] = useState(0);
+
+  // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 根据分辨率计算实际的模型代码
+        const effectiveModel = getEffectiveModelCode(selectedModel, selectedResolution);
+
+        // 获取价格（无需登录）
+        const priceRes = await modelPriceApi.getPrice(effectiveModel);
+        setModelPrice(priceRes.price);
+
+        // 获取余额（需要登录，未登录时静默失败）
+        if (isAuthenticated) {
+          const balanceRes = await balanceApi.getStats();
+          setBalanceStats(balanceRes);
+        } else {
+          setBalanceStats(null);
+        }
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel, selectedResolution, isAuthenticated]);
 
   // 历史记录
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
@@ -245,6 +288,12 @@ export function ImageClothesPage() {
 
     if (clothesImageUrls.length === 0) {
       message.warning('请至少上传一张衣服图片');
+      return;
+    }
+
+    // 检查登录状态
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
       return;
     }
 
@@ -688,13 +737,25 @@ export function ImageClothesPage() {
             <button
               onClick={handleSubmit}
               disabled={loading || !personImageUrl || clothesImageUrls.length === 0}
-              className={`w-full py-3 rounded-xl font-medium text-white transition-all ${
+              className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
                 loading || !personImageUrl || clothesImageUrls.length === 0
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:shadow-lg hover:shadow-purple-500/30'
               }`}
             >
-              {loading ? '处理中...' : !personImageUrl ? '请上传人物图片' : clothesImageUrls.length === 0 ? '请上传服装图片' : '一键换装'}
+              {loading ? '处理中...' : !personImageUrl ? '请上传人物图片' : clothesImageUrls.length === 0 ? '请上传服装图片' : (
+                <>
+                  <span>一键换装</span>
+                  <span className="flex items-center gap-1">
+                    {modelPrice.toFixed(2)}
+                    <img
+                      src={rmbCircle}
+                      alt="费用"
+                      className={`w-4 h-4 ${loading || !personImageUrl || clothesImageUrls.length === 0 ? 'grayscale opacity-50' : ''}`}
+                    />
+                  </span>
+                </>
+              )}
             </button>
 
             {/* 功能介绍 */}
@@ -712,22 +773,22 @@ export function ImageClothesPage() {
                   {/* 模型切换 */}
                   <div
                     onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
-                    className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                    className={`relative flex items-center w-[68px] h-7 rounded-full transition-colors ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${selectedModel === 'gpt-image-2' ? 'bg-purple-500' : 'bg-indigo-500'}`}
                   >
-                    <span className={`absolute text-xs font-medium transition-all ${
+                    <span className={`absolute text-xs font-medium transition-all select-none ${
                       selectedModel === 'gpt-image-2'
                         ? 'left-2 text-white'
-                        : 'left-10 text-white'
+                        : 'left-8 text-white'
                     }`}>
                       {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
                     </span>
-                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ease-in-out ${
                       selectedModel === 'gpt-image-2'
-                        ? 'right-1'
-                        : 'left-1'
-                    }`} />
+                        ? 'translate-x-[2.75rem]'
+                        : 'translate-x-1'
+                    }`}/>
                   </div>
                 </div>
               </div>
@@ -904,6 +965,12 @@ export function ImageClothesPage() {
           </div>
         )}
       </Modal>
+
+      {/* 登录弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

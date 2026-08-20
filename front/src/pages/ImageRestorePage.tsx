@@ -6,8 +6,11 @@ import {
   HistoryOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import { imageRestoreApi, userApi, ImageTaskRecord } from '@/api';
+import { imageRestoreApi, userApi, ImageTaskRecord, modelPriceApi, balanceApi, BalanceStats } from '@/api';
 import { addOssThumbnailStyle } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
+import rmbCircle from '@/assets/media/rmb-circle.svg';
 
 // 导入对比示例图
 import demoBefore from '@/assets/image-restore/before.jpg';
@@ -89,6 +92,7 @@ const DEMO_HEIGHT = 808;
 
 export function ImageRestorePage() {
   const { startFlash } = useTitleFlash();
+  const { isAuthenticated } = useAuth();
 
   // 选择状态
   const [isColor, setIsColor] = useState(true); // 黑白/彩色，默认彩色
@@ -105,6 +109,35 @@ export function ImageRestorePage() {
   const [loading, setLoading] = useState(false);
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null);
   const [currentElapsed, setCurrentElapsed] = useState<number>(0);
+
+  // 价格和余额相关状态
+  const [modelPrice, setModelPrice] = useState<number>(0);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 获取价格（无需登录）
+        const priceRes = await modelPriceApi.getPrice(selectedModel);
+        setModelPrice(priceRes.price);
+
+        // 获取余额（需要登录，未登录时静默失败）
+        if (isAuthenticated) {
+          const balanceRes = await balanceApi.getStats();
+          setBalanceStats(balanceRes);
+        } else {
+          setBalanceStats(null);
+        }
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel, isAuthenticated]);
 
   // 示例滑块状态
   const [sliderPosition, setSliderPosition] = useState(50);
@@ -258,6 +291,12 @@ export function ImageRestorePage() {
   const handleSubmit = async () => {
     if (!originalImage || !originalImageUrl) {
       message.warning('请先上传图片');
+      return;
+    }
+
+    // 检查登录状态
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
       return;
     }
 
@@ -658,13 +697,25 @@ export function ImageRestorePage() {
               <button
                 onClick={handleSubmit}
                 disabled={loading || !originalImageUrl}
-                className={`w-full py-3 rounded-xl font-medium text-white transition-all ${
+                className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
                   loading || !originalImageUrl
                     ? 'bg-gray-300 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/30'
                 }`}
               >
-                {loading ? '处理中...' : !originalImageUrl ? '正在上传原图...' : '一键修复'}
+                {loading ? '处理中...' : !originalImageUrl ? '正在上传原图...' : (
+                  <>
+                    <span>一键修复</span>
+                    <span className="flex items-center gap-1">
+                      {modelPrice.toFixed(2)}
+                      <img
+                        src={rmbCircle}
+                        alt="费用"
+                        className={`w-4 h-4 ${loading || !originalImageUrl ? 'grayscale opacity-50' : ''}`}
+                      />
+                    </span>
+                  </>
+                )}
               </button>
             )}
 
@@ -683,22 +734,22 @@ export function ImageRestorePage() {
                   {/* 模型切换开关 */}
                   <div
                     onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
-                    className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                    className={`relative flex items-center w-[68px] h-7 rounded-full transition-colors ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${selectedModel === 'gpt-image-2' ? 'bg-blue-500' : 'bg-purple-500'}`}
                   >
-                    <span className={`absolute text-xs font-medium transition-all ${
+                    <span className={`absolute text-xs font-medium transition-all select-none ${
                       selectedModel === 'gpt-image-2'
                         ? 'left-2 text-white'
-                        : 'left-10 text-white'
+                        : 'left-8 text-white'
                     }`}>
                       {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
                     </span>
-                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ease-in-out ${
                       selectedModel === 'gpt-image-2'
-                        ? 'right-1'
-                        : 'left-1'
-                    }`} />
+                        ? 'translate-x-[2.75rem]'
+                        : 'translate-x-1'
+                    }`}/>
                   </div>
                 </div>
               </div>
@@ -889,6 +940,12 @@ export function ImageRestorePage() {
           </div>
         )}
       </Modal>
+
+      {/* 登录弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

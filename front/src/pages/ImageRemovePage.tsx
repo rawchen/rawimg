@@ -6,7 +6,9 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { Users, TypeOutline, Droplets, Origami, Sun, ChevronRight } from 'lucide-react';
-import { imageRemoveApi } from '@/api';
+import { imageRemoveApi, modelPriceApi, balanceApi, BalanceStats } from '@/api';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 // 导入对比图
 import peopleBefore from '@/assets/image-remove/obr-people-before.jpg';
@@ -51,11 +53,43 @@ const getImageDimensions = (src: string): Promise<{ width: number; height: numbe
 };
 
 export function ImageRemovePage() {
+  const { isAuthenticated } = useAuth();
+
   const [selectedCategory, setSelectedCategory] = useState('people');
+  const [selectedModel, setSelectedModel] = useState('gpt-image-2');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [removedImage, setRemovedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sliderPosition, setSliderPosition] = useState(50);
+
+  // 价格和余额相关状态
+  const [modelPrice, setModelPrice] = useState<number>(0);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 获取价格（无需登录）
+        const priceRes = await modelPriceApi.getPrice(selectedModel);
+        setModelPrice(priceRes.price);
+
+        // 获取余额（需要登录，未登录时静默失败）
+        if (isAuthenticated) {
+          const balanceRes = await balanceApi.getStats();
+          setBalanceStats(balanceRes);
+        } else {
+          setBalanceStats(null);
+        }
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel, isAuthenticated]);
   const [isDragging, setIsDragging] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [removedDimensions, setRemovedDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -83,6 +117,12 @@ export function ImageRemovePage() {
       return;
     }
 
+    // 检查登录状态
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     // 显示原始图片
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -103,7 +143,7 @@ export function ImageRemovePage() {
       // 调用API移除物体
       setLoading(true);
       try {
-        const result = await imageRemoveApi.removeObjects(file, selectedCategory);
+        const result = await imageRemoveApi.removeObjects(file, selectedCategory, selectedModel);
         setRemovedImage(result.removedUrl);
 
         // 获取处理后图片尺寸
@@ -122,7 +162,7 @@ export function ImageRemovePage() {
       }
     };
     reader.readAsDataURL(file);
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedModel, isAuthenticated]);
 
   // 点击上传按钮
   const handleUploadClick = () => {
@@ -415,7 +455,7 @@ export function ImageRemovePage() {
                   handleUploadClick();
                 }}
               >
-                上传图片
+                上传图片 (¥{modelPrice.toFixed(2)})
               </button>
             </div>
 
@@ -462,6 +502,12 @@ export function ImageRemovePage() {
           </div>
         </div>
       </div>
+
+      {/* 登录弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

@@ -52,9 +52,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <div className="flex bg-gray-100 min-h-[60vh]">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 fixed h-full">
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/admin" className="text-xl font-bold text-black">管理后台</Link>
-        </div>
+        {/*<div className="p-6 border-b border-gray-200">*/}
+        {/*  <Link to="/admin" className="text-xl font-bold text-black">管理后台</Link>*/}
+        {/*</div>*/}
         <nav className="p-4 space-y-1">
           {sidebarItems.map((item) => (
             <Link

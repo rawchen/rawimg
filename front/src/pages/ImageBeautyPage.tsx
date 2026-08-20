@@ -6,11 +6,14 @@ import {
   HistoryOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import { userApi, ImageTaskRecord } from '@/api';
+import { userApi, ImageTaskRecord, modelPriceApi, balanceApi, BalanceStats } from '@/api';
 import demoBefore from '@/assets/image-beauty/1.jpg';
 import demoAfter from '@/assets/image-beauty/2.jpg';
+import rmbCircle from '@/assets/media/rmb-circle.svg';
 import { addOssThumbnailStyle } from '@/lib/utils';
 import { Panda, Sparkles, Smile, Palette, Wind, CircleDot, Eye, Droplet, User, Scan, Heart } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -136,6 +139,7 @@ const imageBeautyApi = {
 
 export function ImageBeautyPage() {
   const { startFlash } = useTitleFlash();
+  const { isAuthenticated } = useAuth();
 
   // 图片状态
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -149,6 +153,13 @@ export function ImageBeautyPage() {
   // 选中的美颜选项
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
+  // 价格和余额相关状态
+  const [modelPrice, setModelPrice] = useState<number>(0);
+  const [balanceStats, setBalanceStats] = useState<BalanceStats | null>(null);
+
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // 任务状态
   const [loading, setLoading] = useState(false);
   const [taskSubmitTime, setTaskSubmitTime] = useState<number | null>(null);
@@ -157,6 +168,28 @@ export function ImageBeautyPage() {
   // 对比滑块
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isSliderDragging, setIsSliderDragging] = useState(false);
+
+  // 加载模型价格和余额
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 获取价格（无需登录）
+        const priceRes = await modelPriceApi.getPrice(selectedModel);
+        setModelPrice(priceRes.price);
+
+        // 获取余额（需要登录，未登录时静默失败）
+        if (isAuthenticated) {
+          const balanceRes = await balanceApi.getStats();
+          setBalanceStats(balanceRes);
+        } else {
+          setBalanceStats(null);
+        }
+      } catch (error) {
+        console.error('Failed to load price or balance:', error);
+      }
+    };
+    loadData();
+  }, [selectedModel, isAuthenticated]);
 
   // 历史记录
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
@@ -277,6 +310,12 @@ export function ImageBeautyPage() {
 
     if (!prompt.trim()) {
       message.warning('请选择美颜效果');
+      return;
+    }
+
+    // 检查登录状态
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
       return;
     }
 
@@ -700,13 +739,25 @@ export function ImageBeautyPage() {
               <button
                 onClick={handleSubmit}
                 disabled={loading || !prompt.trim()}
-                className={`w-full py-3 rounded-xl font-medium text-white transition-all ${
+                className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
                   loading || !prompt.trim()
                     ? 'bg-gray-300 cursor-not-allowed'
                     : 'bg-gradient-to-r from-pink-500 to-rose-600 hover:shadow-lg hover:shadow-pink-500/30'
                 }`}
               >
-                {loading ? '处理中...' : !prompt.trim() ? '请选择美颜效果' : '开始美颜'}
+                {loading ? '处理中...' : !prompt.trim() ? '请选择美颜效果' : (
+                  <>
+                    <span>开始美颜</span>
+                    <span className="flex items-center gap-1">
+                      {modelPrice.toFixed(2)}
+                      <img
+                        src={rmbCircle}
+                        alt="费用"
+                        className={`w-4 h-4 ${loading || !prompt.trim() ? 'grayscale opacity-50' : ''}`}
+                      />
+                    </span>
+                  </>
+                )}
               </button>
             )}
 
@@ -725,22 +776,22 @@ export function ImageBeautyPage() {
                   {/* 模型切换 */}
                   <div
                     onClick={() => !loading && setSelectedModel(selectedModel === 'gpt-image-2' ? 'gemini-2.5-flash-image' : 'gpt-image-2')}
-                    className={`relative flex items-center w-20 h-7 rounded-full transition-colors ${
+                    className={`relative flex items-center w-[68px] h-7 rounded-full transition-colors ${
                       loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     } ${selectedModel === 'gpt-image-2' ? 'bg-pink-500' : 'bg-purple-500'}`}
                   >
-                    <span className={`absolute text-xs font-medium transition-all ${
+                    <span className={`absolute text-xs font-medium transition-all select-none ${
                       selectedModel === 'gpt-image-2'
                         ? 'left-2 text-white'
-                        : 'left-10 text-white'
+                        : 'left-8 text-white'
                     }`}>
                       {selectedModel === 'gpt-image-2' ? 'GPT' : 'Nano'}
                     </span>
-                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-all ${
+                    <div className={`absolute w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ease-in-out ${
                       selectedModel === 'gpt-image-2'
-                        ? 'right-1'
-                        : 'left-1'
-                    }`} />
+                        ? 'translate-x-[2.75rem]'
+                        : 'translate-x-1'
+                    }`}/>
                   </div>
                 </div>
               </div>
@@ -918,6 +969,12 @@ export function ImageBeautyPage() {
           </div>
         )}
       </Modal>
+
+      {/* 登录弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }
