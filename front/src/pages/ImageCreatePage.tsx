@@ -788,28 +788,8 @@ export function ImageCreatePage() {
     loadHistory(1);
   };
 
-  // 点击历史记录项
+  // 点击历史记录项 - 打开详情Modal
   const handleHistoryClick = (record: ImageTaskRecord) => {
-    // 如果有结果图片，直接打开灯箱预览
-    if (record.resultImageUrl) {
-      const imageUrls = record.resultImageUrl
-      .split(",")
-      .filter((url) => url.trim());
-      if (imageUrls.length > 0) {
-        Fancybox.show(
-          imageUrls.map((url, index) => ({
-            src: ensureHttpsUrl(url.trim()),
-            type: "image" as const,
-            caption: `创作结果 ${index + 1}`,
-          })),
-          {
-            startIndex: 0,
-          },
-        );
-        return;
-      }
-    }
-    // 如果没有图片，打开详情Modal
     setSelectedHistory(record);
     setHistoryDetailModalVisible(true);
   };
@@ -1539,52 +1519,27 @@ export function ImageCreatePage() {
                           .filter((url) => url.trim());
                           const hasMultipleImages = imageUrls.length > 1;
 
-                          if (hasMultipleImages) {
-                            // 多图重叠效果 - 扑克牌样式
-                            return (
-                              <>
-                                <div className="relative w-full h-full">
-                                  {imageUrls.slice(0, 3).map((url, index) => (
-                                    <div
-                                      key={index}
-                                      className="absolute inset-0"
-                                      style={{
-                                        transform: `translate(${index * 8}px, ${index * 8}px)`,
-                                        zIndex: imageUrls.length - index,
-                                      }}
-                                    >
-                                      <img
-                                        src={
-                                          addOssThumbnailStyle(
-                                            ensureHttpsUrl(url.trim()),
-                                          ) || ""
-                                        }
-                                        alt={`生成结果 ${index + 1}`}
-                                        className="w-full h-full object-cover rounded-sm shadow-md"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-20 flex items-center gap-1">
-                                  <AppstoreOutlined />
-                                  {imageUrls.length}
-                                </div>
-                              </>
-                            );
-                          } else {
-                            // 单图显示
-                            return (
+                          // 列表中只显示第一张图片，不堆叠
+                          return (
+                            <>
                               <img
                                 src={
                                   addOssThumbnailStyle(
-                                    ensureHttpsUrl(record.resultImageUrl),
+                                    ensureHttpsUrl(imageUrls[0].trim()),
                                   ) || ""
                                 }
                                 alt="生成结果"
                                 className="w-full h-full object-cover"
                               />
-                            );
-                          }
+                              {/* 多图数量标签 */}
+                              {hasMultipleImages && (
+                                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-20 flex items-center gap-1">
+                                  <AppstoreOutlined />
+                                  {imageUrls.length}
+                                </div>
+                              )}
+                            </>
+                          );
                         })()
                       ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -1685,15 +1640,90 @@ export function ImageCreatePage() {
             {/* 结果图片 */}
             {selectedHistory.resultImageUrl && (
               <div className="relative mb-4 flex justify-center">
-                <Image
-                  src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ""}
-                  alt="生成结果"
-                  className="rounded-lg"
-                  style={{ maxHeight: 400, objectFit: "contain" }}
-                  preview={{
-                    mask: <div className="text-white">点击预览大图</div>,
-                  }}
-                />
+                {(() => {
+                  const imageUrls = selectedHistory.resultImageUrl
+                    .split(",")
+                    .filter((url) => url.trim());
+                  const hasMultipleImages = imageUrls.length > 1;
+
+                  if (hasMultipleImages) {
+                    // 多图堆叠展示
+                    return (
+                      <div className="relative inline-block">
+                        {imageUrls.map((url, index) => (
+                          <div
+                            key={index}
+                            className="cursor-pointer"
+                            style={{
+                              position: index === 0 ? 'relative' : 'absolute',
+                              left: index === 0 ? 0 : `${index * 15}px`,
+                              top: index === 0 ? 0 : `${index * 15}px`,
+                              zIndex: imageUrls.length - index,
+                            }}
+                            onClick={() => {
+                              // 使用 Fancybox 灯箱查看所有图片
+                              Fancybox.show(
+                                imageUrls.map((imgUrl, imgIndex) => ({
+                                  src: ensureHttpsUrl(imgUrl.trim()),
+                                  type: "image" as const,
+                                  caption: `创作结果 ${imgIndex + 1}`,
+                                })),
+                                {
+                                  startIndex: index,
+                                },
+                              );
+                            }}
+                          >
+                            <img
+                              src={ensureHttpsUrl(url.trim()) || ""}
+                              alt={`生成结果 ${index + 1}`}
+                              className="rounded-lg shadow-lg"
+                              style={{ maxWidth: 400, maxHeight: 400, display: 'block' }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                              <div className="text-white opacity-0 hover:opacity-100 transition-opacity">
+                                点击预览大图
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  } else {
+                    // 单图展示
+                    return (
+                      <div
+                        className="cursor-pointer inline-block"
+                        onClick={() => {
+                          Fancybox.show(
+                            [
+                              {
+                                src: ensureHttpsUrl(selectedHistory.resultImageUrl) || "",
+                                type: "image" as const,
+                                caption: "创作结果",
+                              },
+                            ],
+                            {
+                              startIndex: 0,
+                            },
+                          );
+                        }}
+                      >
+                        <img
+                          src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ""}
+                          alt="生成结果"
+                          className="rounded-lg"
+                          style={{ maxHeight: 400, objectFit: "contain" }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                          <div className="text-white opacity-0 hover:opacity-100 transition-opacity">
+                            点击预览大图
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
                 {/* 参考图 */}
                 {selectedHistory.referenceImageUrls && (
                   <div className="absolute bottom-4 right-4 w-24 h-24 rounded-lg border-2 border-white shadow-lg overflow-hidden">
