@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Fancybox } from "@fancyapps/ui";
+import type { FancyboxOptions } from "@fancyapps/ui";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
 
-export default function useFancybox(options = {}) {
+export default function useFancybox(options: Partial<FancyboxOptions> = {}) {
   const [root, setRoot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
