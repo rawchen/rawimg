@@ -7,10 +7,10 @@ export default function useFancybox(options = {}) {
 
   useEffect(() => {
     if (root) {
-      const fancyboxOptions = {
+      const defaultOptions = {
         hideScrollbar: false,
         placeFocusBack: false,
-        Hash: false,
+        Hash: false as const,
         Carousel: {
           Thumbs: {
             type: 'classic' as const,
@@ -29,10 +29,9 @@ export default function useFancybox(options = {}) {
             },
           },
         },
-        ...options,
       };
 
-      Fancybox.bind(root, "[data-fancybox]", fancyboxOptions);
+      Fancybox.bind(root, "[data-fancybox]", defaultOptions);
       return () => Fancybox.unbind(root, "[data-fancybox]");
     }
   }, [root, options]);

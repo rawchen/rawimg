@@ -910,11 +910,11 @@ export function ProfilePage() {
                           <LabelList
                             dataKey="cost"
                             position="top"
-                            offset={12}
+                            offset={5}
                             fill="#333"
                             fontSize={12}
                             fontWeight="bold"
-                            formatter={(value: number) => value > 0 ? `¥${value.toFixed(2)}` : ''}
+                            formatter={(value: number) => value > 0 ? `${value.toFixed(2)}` : ''}
                           />
                         )}
                       </Bar>

@@ -260,11 +260,7 @@ export function ImageCreatePage() {
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const animationRef = useRef<number | null>(null);
   const positionRef = useRef(0);
-  const [fancyboxRef] = useFancybox({
-    Thumbs: {
-      type: "classic",
-    },
-  });
+  const [fancyboxRef] = useFancybox();
 
   // 价格和余额相关状态
   const [modelPrice, setModelPrice] = useState<number>(0);
@@ -862,15 +858,26 @@ export function ImageCreatePage() {
                             imageUrls.map((url, index) => ({
                               src: url.trim(),
                               type: "image" as const,
-                              caption: `创作结果 ${index + 1}`,
+                              // caption: `创作结果 ${index + 1}`,
                             })),
                             {
                               startIndex: 0,
+                              Carousel: {
+                                Thumbs: {
+                                  type: 'classic' as const,
+                                  Carousel: {
+                                    vertical: true,
+                                    center: (ref: any) => {
+                                      return ref.getTotalSlideDim() > ref.getViewportDim();
+                                    },
+                                  },
+                                },
+                              },
                             },
                           );
                         }}
                       >
-                        {imageUrls.slice(0, 3).map((url, index) => (
+                        {imageUrls.slice(0, Math.min(imageUrls.length, 4)).map((url, index) => (
                           <div
                             key={index}
                             className="absolute transition-transform hover:scale-105"
@@ -1205,7 +1212,7 @@ export function ImageCreatePage() {
                     value={generateCount}
                     onChange={(value) => setGenerateCount(value || 1)}
                     size="small"
-                    className="w-16"
+                    className="w-12"
                   />
                 </span>
               </div>
@@ -1670,12 +1677,23 @@ export function ImageCreatePage() {
                                 })),
                                 {
                                   startIndex: index,
+                                  Carousel: {
+                                    Thumbs: {
+                                      type: 'classic' as const,
+                                      Carousel: {
+                                        vertical: true,
+                                        center: (ref: any) => {
+                                          return ref.getTotalSlideDim() > ref.getViewportDim();
+                                        },
+                                      },
+                                    },
+                                  },
                                 },
                               );
                             }}
                           >
                             <img
-                              src={ensureHttpsUrl(url.trim()) || ""}
+                              src={addOssThumbnailStyle(ensureHttpsUrl(url.trim())) || ""}
                               alt={`生成结果 ${index + 1}`}
                               className="rounded-lg shadow-lg"
                               style={{ maxWidth: 400, maxHeight: 400, display: 'block' }}
@@ -1705,12 +1723,23 @@ export function ImageCreatePage() {
                             ],
                             {
                               startIndex: 0,
+                              Carousel: {
+                                Thumbs: {
+                                  type: 'classic' as const,
+                                  Carousel: {
+                                    vertical: true,
+                                    center: (ref: any) => {
+                                      return ref.getTotalSlideDim() > ref.getViewportDim();
+                                    },
+                                  },
+                                },
+                              },
                             },
                           );
                         }}
                       >
                         <img
-                          src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ""}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(selectedHistory.resultImageUrl)) || ""}
                           alt="生成结果"
                           className="rounded-lg"
                           style={{ maxHeight: 400, objectFit: "contain" }}
