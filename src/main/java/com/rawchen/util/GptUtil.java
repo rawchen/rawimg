@@ -539,9 +539,10 @@ public class GptUtil {
      * @param prompt 编辑提示词
      * @param size   图片尺寸
      * @param modelParam 使用的模型（可选）
-     * @return 生成的图片URL或Base64数据
+     * @param n 生成图片数量（可选，默认1）
+     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
      */
-    public String editImage(List<MultipartFile> files, String prompt, String size, String modelParam) {
+    public String editImage(List<MultipartFile> files, String prompt, String size, String modelParam, Integer n) {
         List<File> tempFiles = new ArrayList<>();
         try {
             String fullUrl = apiUrl + "/v1/images/edits";
@@ -566,6 +567,11 @@ public class GptUtil {
                 request.form("size", size);
             }
 
+            // 添加n参数（可选）
+            if (n != null && n > 1) {
+                request.form("n", n);
+            }
+
             HttpResponse response = request.execute();
             String body = response.body();
             log.info("GPT image edit API response status: {}", response.getStatus());
@@ -573,11 +579,20 @@ public class GptUtil {
             if (response.isOk()) {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    // 处理多图返回
+                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
+                    if (dataArray != null && !dataArray.isEmpty()) {
+                        List<String> urls = new ArrayList<>();
+                        for (int i = 0; i < dataArray.size(); i++) {
+                            JSONObject imageData = dataArray.getJSONObject(i);
+                            if (imageData.containsKey("url")) {
+                                urls.add(imageData.getString("url"));
+                            } else if (imageData.containsKey("b64_json")) {
+                                urls.add("data:image/png;base64," + imageData.getString("b64_json"));
+                            }
+                        }
+                        // 返回逗号分隔的URL字符串
+                        return String.join(",", urls);
                     }
                 }
                 log.error("GPT image edit API unexpected response: {}", body);
@@ -604,9 +619,10 @@ public class GptUtil {
      * @param prompt 生成提示词
      * @param size   图片尺寸（如：1024x1024, 2160x3840）
      * @param modelParam 使用的模型（可选）
-     * @return 生成的图片URL或Base64数据
+     * @param n 生成图片数量（可选，默认1）
+     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
      */
-    public String generateImage(String prompt, String size, String modelParam) {
+    public String generateImage(String prompt, String size, String modelParam, Integer n) {
         try {
             String fullUrl = apiUrl + "/v1/images/generations";
             String effectiveModel = getEffectiveModel(modelParam, size);
@@ -615,7 +631,8 @@ public class GptUtil {
             JSONObject requestBody = new JSONObject();
             requestBody.put("model", effectiveModel);
             requestBody.put("prompt", prompt);
-            requestBody.put("n", 1);
+            // 如果n参数大于1，则设置n值，否则默认为1
+            requestBody.put("n", (n != null && n > 1) ? n : 1);
             if (size != null && !size.isEmpty()) {
                 requestBody.put("size", size);
             }
@@ -634,11 +651,20 @@ public class GptUtil {
             if (response.isOk()) {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/jpeg;base64," + imageData.getString("b64_json");
+                    // 处理多图返回
+                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
+                    if (dataArray != null && !dataArray.isEmpty()) {
+                        List<String> urls = new ArrayList<>();
+                        for (int i = 0; i < dataArray.size(); i++) {
+                            JSONObject imageData = dataArray.getJSONObject(i);
+                            if (imageData.containsKey("url")) {
+                                urls.add(imageData.getString("url"));
+                            } else if (imageData.containsKey("b64_json")) {
+                                urls.add("data:image/jpeg;base64," + imageData.getString("b64_json"));
+                            }
+                        }
+                        // 返回逗号分隔的URL字符串
+                        return String.join(",", urls);
                     }
                 }
                 log.error("GPT image generation API unexpected response: {}", body);

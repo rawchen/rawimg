@@ -46,6 +46,7 @@ public class ImageCreateAsyncController {
      * @param prompt        创作提示词
      * @param size          图片尺寸
      * @param model         使用的模型（可选，默认gpt-image-2）
+     * @param n             生成图片数量（可选，默认1，范围1-10）
      * @param user          当前登录用户
      * @return 任务ID
      */
@@ -55,10 +56,16 @@ public class ImageCreateAsyncController {
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "size", defaultValue = "1024x1024") String size,
             @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
+            @RequestParam(value = "n", required = false, defaultValue = "1") Integer n,
             @AuthenticationPrincipal SysUser user) {
 
         if (prompt == null || prompt.trim().isEmpty()) {
             return R.badRequest("请输入描述内容");
+        }
+
+        // 验证n参数范围
+        if (n != null && (n < 1 || n > 10)) {
+            return R.badRequest("生成图片数量必须在1-10之间");
         }
 
         // 解析参考图URL列表
@@ -73,11 +80,14 @@ public class ImageCreateAsyncController {
         // 根据分辨率计算实际使用的模型代码（用于价格查询）
         String effectiveModelCode = GptUtil.getEffectiveModelCode(model, size);
 
-        // 获取模型价格并检查余额
-        BigDecimal cost = modelPriceService.getPrice(effectiveModelCode);
-        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+        // 获取模型价格并检查余额（多图时需要乘以数量）
+        BigDecimal baseCost = modelPriceService.getPrice(effectiveModelCode);
+        if (baseCost.compareTo(BigDecimal.ZERO) == 0) {
             return R.badRequest("未配置该模型的价格: " + model);
         }
+        
+        // 计算总费用（单价 × 数量）
+        BigDecimal cost = baseCost.multiply(new BigDecimal(n != null ? n : 1));
 
         if (!userBalanceService.checkBalance(user.getId(), cost)) {
             return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");
@@ -111,9 +121,9 @@ public class ImageCreateAsyncController {
 
         // 异步执行任务
         if (refUrlList == null || refUrlList.isEmpty()) {
-            asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model);
+            asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model, n);
         } else {
-            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size, model);
+            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size, model, n);
         }
 
         CreateAsyncResponse response = new CreateAsyncResponse();

@@ -35,11 +35,11 @@ public class AsyncImageTaskExecutor {
      * 异步执行图片创作任务（纯文字生成）
      */
     @Async("imageTaskExecutor")
-    public void executeCreateTask(String taskId, String prompt, String size, String model) {
+    public void executeCreateTask(String taskId, String prompt, String size, String model, Integer n) {
         long startTime = System.currentTimeMillis();
         try {
-            log.info("Async create task {} started with model {}", taskId, model);
-            String result = gptUtil.generateImage(prompt, size, model);
+            log.info("Async create task {} started with model {}, n={}", taskId, model, n);
+            String result = gptUtil.generateImage(prompt, size, model, n);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -56,12 +56,13 @@ public class AsyncImageTaskExecutor {
      * 异步执行图片创作任务（带参考图编辑）- 通过URL
      * @param referenceUrls 参考图URL列表
      * @param model 使用的模型
+     * @param n 生成图片数量
      */
     @Async("imageTaskExecutor")
-    public void executeEditTaskWithUrls(String taskId, List<String> referenceUrls, String prompt, String size, String model) {
+    public void executeEditTaskWithUrls(String taskId, List<String> referenceUrls, String prompt, String size, String model, Integer n) {
         long startTime = System.currentTimeMillis();
         try {
-            log.info("Async edit task {} started with {} URLs, model {}", taskId, referenceUrls.size(), model);
+            log.info("Async edit task {} started with {} URLs, model {}, n={}", taskId, referenceUrls.size(), model, n);
 
             // 从URL下载图片到内存
             List<MultipartFile> files = new ArrayList<>();
@@ -77,7 +78,7 @@ public class AsyncImageTaskExecutor {
                 }
             }
 
-            String result = gptUtil.editImage(files, prompt, size, model);
+            String result = gptUtil.editImage(files, prompt, size, model, n);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -347,7 +348,7 @@ public class AsyncImageTaskExecutor {
                     "如果有多个服装单品，请合理搭配穿着。";
 
             // 调用GPT编辑API
-            String result = gptUtil.editImage(allFiles, fullPrompt, size, model);
+            String result = gptUtil.editImage(allFiles, fullPrompt, size, model, null);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -364,18 +365,19 @@ public class AsyncImageTaskExecutor {
     /**
      * 异步执行图片创作任务（带参考图编辑）
      * @param fileDataList 文件内容列表（已读入内存）
+     * @param n 生成图片数量
      */
     @Async("imageTaskExecutor")
-    public void executeEditTask(String taskId, List<byte[]> fileDataList, List<String> fileNames, String prompt, String size) {
+    public void executeEditTask(String taskId, List<byte[]> fileDataList, List<String> fileNames, String prompt, String size, Integer n) {
         long startTime = System.currentTimeMillis();
         try {
-            log.info("Async edit task {} started with {} files", taskId, fileDataList.size());
+            log.info("Async edit task {} started with {} files, n={}", taskId, fileDataList.size(), n);
             // 将byte[]转换为MultipartFile
             List<MultipartFile> files = new ArrayList<>();
             for (int i = 0; i < fileDataList.size(); i++) {
                 files.add(new MemoryMultipartFile(fileDataList.get(i), fileNames.get(i)));
             }
-            String result = gptUtil.editImage(files, prompt, size, null);
+            String result = gptUtil.editImage(files, prompt, size, null, n);
             String ossUrl = uploadResultToOss(result);
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
@@ -414,17 +416,35 @@ public class AsyncImageTaskExecutor {
     /**
      * 将GPT返回的结果上传到OSS
      * GPT返回的可能是URL，也可能是Base64数据
+     * 支持多张图片（逗号分隔）
      */
     private String uploadResultToOss(String gptResult) {
-        if (gptResult.startsWith("data:image/")) {
-            // Base64数据
-            String fileName = "task/" + java.util.UUID.randomUUID().toString().replace("-", "") + ".jpeg";
-            return ossUploadService.uploadBase64Image(gptResult, fileName);
-        } else {
-            // URL - 下载后上传到OSS
-            String fileName = "task/" + java.util.UUID.randomUUID().toString().replace("-", "") + ".jpeg";
-            return ossUploadService.uploadFromUrl(gptResult, fileName);
+        // 按逗号分隔多个结果
+        String[] results = gptResult.split(",");
+        List<String> ossUrls = new ArrayList<>();
+        
+        for (String singleResult : results) {
+            singleResult = singleResult.trim();
+            if (singleResult.isEmpty()) {
+                continue;
+            }
+            
+            String fileName = "task/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + ossUrls.size() + ".jpeg";
+            String ossUrl;
+            
+            if (singleResult.startsWith("data:image/")) {
+                // Base64数据
+                ossUrl = ossUploadService.uploadBase64Image(singleResult, fileName);
+            } else {
+                // URL - 下载后上传到OSS
+                ossUrl = ossUploadService.uploadFromUrl(singleResult, fileName);
+            }
+            
+            ossUrls.add(ossUrl);
         }
+        
+        // 返回逗号分隔的OSS URL
+        return String.join(",", ossUrls);
     }
 
     /**

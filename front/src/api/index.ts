@@ -845,7 +845,7 @@ export const imageCreateApi = {
   },
 
   // 异步创建图片 - 通过OSS URL（推荐）
-  createImageAsyncWithUrls: (referenceUrls: string | undefined, prompt: string, size: string, model?: string) => {
+  createImageAsyncWithUrls: (referenceUrls: string | undefined, prompt: string, size: string, model?: string, n?: number) => {
     const params = new URLSearchParams();
     if (referenceUrls) {
       params.append('referenceUrls', referenceUrls);
@@ -854,6 +854,9 @@ export const imageCreateApi = {
     params.append('size', size);
     if (model) {
       params.append('model', model);
+    }
+    if (n && n > 1) {
+      params.append('n', n.toString());
     }
     return api.post<{ taskId: string }>('/image-create/create_async', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
