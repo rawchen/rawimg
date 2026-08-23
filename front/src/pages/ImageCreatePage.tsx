@@ -882,10 +882,10 @@ export function ImageCreatePage() {
                             key={index}
                             className="absolute transition-transform hover:scale-105"
                             style={{
-                              width: "85%",
-                              height: "85%",
-                              left: `${index * 5}%`,
-                              top: `${index * 5}%`,
+                              width: "94%",
+                              height: "94%",
+                              left: `${index * 2}%`,
+                              top: `${index * 2}%`,
                               zIndex: imageUrls.length - index,
                             }}
                           >
@@ -1208,7 +1208,7 @@ export function ImageCreatePage() {
                   <span className="text-gray-500">生成数量</span>
                   <InputNumber
                     min={1}
-                    max={10}
+                    max={4}
                     value={generateCount}
                     onChange={(value) => setGenerateCount(value || 1)}
                     size="small"
@@ -1663,8 +1663,8 @@ export function ImageCreatePage() {
                             className="cursor-pointer"
                             style={{
                               position: index === 0 ? 'relative' : 'absolute',
-                              left: index === 0 ? 0 : `${index * 15}px`,
-                              top: index === 0 ? 0 : `${index * 15}px`,
+                              left: index === 0 ? 0 : `${index * 4}px`,
+                              top: index === 0 ? 0 : `${index * 4}px`,
                               zIndex: imageUrls.length - index,
                             }}
                             onClick={() => {
