@@ -53,7 +53,7 @@ public class ConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> i
         wrapper.eq(SysConfig::getConfigKey, key);
         SysConfig existing = getOne(wrapper);
 
-        SysConfig config = new SysConfig();
+        SysConfig config;
         if (existing == null) {
             config = new SysConfig();
             config.setConfigKey(key);
@@ -61,6 +61,12 @@ public class ConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> i
             config.setConfigType(type);
             config.setDescription(description);
             save(config);
+        } else {
+            config = existing;
+            config.setConfigValue(value);
+            config.setConfigType(type);
+            config.setDescription(description);
+            updateById(config);
         }
         return config;
     }

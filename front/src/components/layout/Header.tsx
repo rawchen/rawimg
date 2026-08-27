@@ -252,7 +252,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
               {/* Online count */}
               <div className="flex items-center space-x-1 text-sm text-gray-500">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span className="w-2">{onlineCount}</span><span>在线</span>
+                <span className="inline-block text-right tabular-nums" style={{ width: 20 }}>{onlineCount}</span><span>在线</span>
               </div>
 
               {/* Auth buttons */}

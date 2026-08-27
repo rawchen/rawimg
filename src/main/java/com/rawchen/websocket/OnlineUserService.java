@@ -9,6 +9,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +31,20 @@ public class OnlineUserService {
     // Fake active count configuration keys
     private static final String FAKE_BASE_COUNT_KEY = "fake_active_base_count";
     private static final int MAX_FAKE_VARIATION = 5;
+
+    // Time-of-day coefficient table: {hour, coefficient}
+    // Represents the ratio of online users at different times of day
+    private static final double[][] TIME_COEFFICIENTS = {
+            {0, 0.2},
+            {3, 0.1},
+            {6, 0.3},
+            {9, 0.7},
+            {12, 1.0},
+            {15, 0.9},
+            {18, 0.8},
+            {21, 1.0},
+            {23, 0.4}
+    };
 
     // Fake count management
     private volatile int currentFakeCount = 0;
@@ -104,6 +119,41 @@ public class OnlineUserService {
         return currentFakeCount;
     }
 
+    /**
+     * Get time-of-day coefficient using linear interpolation between defined points.
+     * Returns a value between 0.1 (凌晨3点) and 1.0 (中午12点/晚上21点).
+     */
+    private double getTimeCoefficient() {
+        Calendar calendar = Calendar.getInstance();
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(Calendar.MINUTE);
+        // Convert to fractional hour for smooth interpolation
+        double currentHour = hour + minute / 60.0;
+
+        // Find the interval that contains currentHour
+        for (int i = 0; i < TIME_COEFFICIENTS.length; i++) {
+            int next = (i + 1) % TIME_COEFFICIENTS.length;
+            double h1 = TIME_COEFFICIENTS[i][0];
+            double h2 = TIME_COEFFICIENTS[next][0];
+            double c1 = TIME_COEFFICIENTS[i][1];
+            double c2 = TIME_COEFFICIENTS[next][1];
+
+            // Handle wrap-around: last interval goes from 23 to 24 (which is 0 next day)
+            if (i == TIME_COEFFICIENTS.length - 1) {
+                h2 = 24.0;
+            }
+
+            if (currentHour >= h1 && currentHour < h2) {
+                // Linear interpolation between the two points
+                double ratio = (currentHour - h1) / (h2 - h1);
+                return c1 + ratio * (c2 - c1);
+            }
+        }
+
+        // Fallback (should not reach here)
+        return 1.0;
+    }
+
     // Refresh fake active count with random interval and smooth transition
     @Scheduled(fixedRate = 5000)
     public void refreshFakeCount() {
@@ -121,9 +171,14 @@ public class OnlineUserService {
 
         // Check if it's time for a major refresh (1-2 minutes random interval)
         if (currentTime >= nextRefreshTime) {
-            // Set new target count with larger variation
-            int minCount = Math.max(0, baseCount - MAX_FAKE_VARIATION);
-            int maxCount = baseCount + MAX_FAKE_VARIATION;
+            // Apply time-of-day coefficient to base count
+            // 最终假在线人数 = 基础人数 × 时间段系数 + 随机波动
+            double timeCoefficient = getTimeCoefficient();
+            int adjustedBaseCount = (int) Math.round(baseCount * timeCoefficient);
+
+            // Set new target count with random variation
+            int minCount = Math.max(0, adjustedBaseCount - MAX_FAKE_VARIATION);
+            int maxCount = adjustedBaseCount + MAX_FAKE_VARIATION;
             targetFakeCount = ThreadLocalRandom.current().nextInt(minCount, maxCount + 1);
 
             // Set next refresh time: 60-120 seconds with non-minute intervals
