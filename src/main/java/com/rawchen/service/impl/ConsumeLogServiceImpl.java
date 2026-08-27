@@ -94,7 +94,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             totalOperations++;
         }
 
-        response.setTotalCost(totalCost.setScale(4, RoundingMode.HALF_UP));
+        response.setTotalCost(totalCost.setScale(2, RoundingMode.HALF_UP));
         response.setTotalOperations(totalOperations);
 
         return response;
@@ -149,7 +149,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
                 modelCounts.merge(modelKey, 1, Integer::sum);
             }
 
-            stats.setCost(cost.setScale(4, RoundingMode.HALF_UP));
+            stats.setCost(cost.setScale(2, RoundingMode.HALF_UP));
             stats.setCount(count);
 
             // 构建模型分布
@@ -157,7 +157,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             for (Map.Entry<String, BigDecimal> entry : modelCosts.entrySet()) {
                 ConsumeLogStatsResponse.ModelDistribution dist = new ConsumeLogStatsResponse.ModelDistribution();
                 dist.setModelName(entry.getKey());
-                dist.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+                dist.setCost(entry.getValue().setScale(2, RoundingMode.HALF_UP));
                 dist.setCount(modelCounts.get(entry.getKey()));
                 distributions.add(dist);
             }
@@ -218,7 +218,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
                 modelCounts.merge(modelKey, 1, Integer::sum);
             }
 
-            stats.setCost(cost.setScale(4, RoundingMode.HALF_UP));
+            stats.setCost(cost.setScale(2, RoundingMode.HALF_UP));
             stats.setCount(count);
 
             // 构建模型分布
@@ -226,7 +226,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             for (Map.Entry<String, BigDecimal> entry : modelCosts.entrySet()) {
                 ConsumeLogStatsResponse.ModelDistribution dist = new ConsumeLogStatsResponse.ModelDistribution();
                 dist.setModelName(entry.getKey());
-                dist.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+                dist.setCost(entry.getValue().setScale(2, RoundingMode.HALF_UP));
                 dist.setCount(modelCounts.get(entry.getKey()));
                 distributions.add(dist);
             }
@@ -288,7 +288,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
                 modelCounts.merge(modelKey, 1, Integer::sum);
             }
 
-            stats.setCost(cost.setScale(4, RoundingMode.HALF_UP));
+            stats.setCost(cost.setScale(2, RoundingMode.HALF_UP));
             stats.setCount(count);
 
             // 构建模型分布
@@ -296,7 +296,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             for (Map.Entry<String, BigDecimal> entry : modelCosts.entrySet()) {
                 ConsumeLogStatsResponse.ModelDistribution dist = new ConsumeLogStatsResponse.ModelDistribution();
                 dist.setModelName(entry.getKey());
-                dist.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+                dist.setCost(entry.getValue().setScale(2, RoundingMode.HALF_UP));
                 dist.setCount(modelCounts.get(entry.getKey()));
                 distributions.add(dist);
             }
@@ -337,7 +337,7 @@ public class ConsumeLogServiceImpl extends ServiceImpl<ConsumeLogMapper, Consume
             ConsumeLogStatsResponse.ModelStats stats = new ConsumeLogStatsResponse.ModelStats();
             stats.setModelCode(entry.getKey());
             stats.setModelName(modelNames.get(entry.getKey()));
-            stats.setCost(entry.getValue().setScale(4, RoundingMode.HALF_UP));
+            stats.setCost(entry.getValue().setScale(2, RoundingMode.HALF_UP));
             stats.setCount(modelCounts.get(entry.getKey()));
 
             // 计算占比

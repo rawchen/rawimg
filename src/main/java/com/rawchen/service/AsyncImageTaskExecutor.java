@@ -419,9 +419,12 @@ public class AsyncImageTaskExecutor {
      * 支持多张图片（逗号分隔）
      */
     private String uploadResultToOss(String gptResult) {
-        // 按逗号分隔多个结果
-        String[] results = gptResult.split(",");
         List<String> ossUrls = new ArrayList<>();
+        
+        // 使用正则表达式分割，避免分割Base64数据内部的逗号
+        // Base64数据格式: data:image/xxx;base64,实际数据
+        // URL格式: https://xxx 或 http://xxx
+        String[] results = gptResult.split(",(?=(?:data:image/|https?://))");
         
         for (String singleResult : results) {
             singleResult = singleResult.trim();

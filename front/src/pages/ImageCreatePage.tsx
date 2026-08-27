@@ -260,11 +260,7 @@ export function ImageCreatePage() {
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const animationRef = useRef<number | null>(null);
   const positionRef = useRef(0);
-  const [fancyboxRef] = useFancybox({
-    Thumbs: {
-      type: "classic",
-    },
-  });
+  const [fancyboxRef] = useFancybox();
 
   // 价格和余额相关状态
   const [modelPrice, setModelPrice] = useState<number>(0);
@@ -615,45 +611,55 @@ export function ImageCreatePage() {
     }
   };
 
-  // 下载图片
+  // 下载图片（支持多张）
   const handleDownload = async () => {
     if (!createdImage) return;
 
+    // 拆分多张图片URL
+    const imageUrls = createdImage.split(",").map((u) => u.trim()).filter(Boolean);
+    if (imageUrls.length === 0) return;
+
     const now = new Date();
-    const fileName = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}_${String(Math.floor(Math.random() * 100)).padStart(2, "0")}.jpg`;
+    const baseName = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}_${String(Math.floor(Math.random() * 100)).padStart(2, "0")}`;
 
-    try {
-      // 使用 fetch 并强制 CORS 模式，避免使用无 CORS 头的缓存
-      console.log("Downloading image:", createdImage);
-      const response = await fetch(createdImage, {
+    const downloadSingle = async (url: string, fileName: string) => {
+      const response = await fetch(url, {
         mode: "cors",
-        cache: "reload", // 强制重新请求，不使用缓存
+        cache: "reload",
       });
-
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-
       const blob = await response.blob();
-      console.log("Blob size:", blob.size, "type:", blob.type);
-
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = blobUrl;
       a.download = fileName;
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
-
-      // 延迟清理，确保下载完成
       setTimeout(() => {
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(blobUrl);
       }, 100);
+    };
+
+    try {
+      for (let i = 0; i < imageUrls.length; i++) {
+        const fileName = imageUrls.length === 1
+          ? `${baseName}.jpg`
+          : `${baseName}_${i + 1}.jpg`;
+        console.log(`Downloading image ${i + 1}/${imageUrls.length}:`, imageUrls[i]);
+        await downloadSingle(imageUrls[i], fileName);
+        // 多张图之间间隔一下，避免浏览器拦截
+        if (i < imageUrls.length - 1) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
     } catch (error) {
       console.error("Download error:", error);
-      // 最终降级方案：在新标签页打开
-      window.open(createdImage, "_blank");
+      // 降级方案：在新标签页打开所有图片
+      imageUrls.forEach((url) => window.open(url, "_blank"));
       message.info("图片已在新标签页打开，请右键保存");
     }
   };
@@ -862,23 +868,34 @@ export function ImageCreatePage() {
                             imageUrls.map((url, index) => ({
                               src: url.trim(),
                               type: "image" as const,
-                              caption: `创作结果 ${index + 1}`,
+                              // caption: `创作结果 ${index + 1}`,
                             })),
                             {
                               startIndex: 0,
+                              Carousel: {
+                                Thumbs: {
+                                  type: 'classic' as const,
+                                  Carousel: {
+                                    vertical: true,
+                                    center: (ref: any) => {
+                                      return ref.getTotalSlideDim() > ref.getViewportDim();
+                                    },
+                                  },
+                                },
+                              },
                             },
                           );
                         }}
                       >
-                        {imageUrls.slice(0, 3).map((url, index) => (
+                        {imageUrls.slice(0, Math.min(imageUrls.length, 4)).map((url, index) => (
                           <div
                             key={index}
                             className="absolute transition-transform hover:scale-105"
                             style={{
-                              width: "85%",
-                              height: "85%",
-                              left: `${index * 5}%`,
-                              top: `${index * 5}%`,
+                              width: "94%",
+                              height: "94%",
+                              left: `${index * 2}%`,
+                              top: `${index * 2}%`,
                               zIndex: imageUrls.length - index,
                             }}
                           >
@@ -1201,11 +1218,11 @@ export function ImageCreatePage() {
                   <span className="text-gray-500">生成数量</span>
                   <InputNumber
                     min={1}
-                    max={10}
+                    max={4}
                     value={generateCount}
                     onChange={(value) => setGenerateCount(value || 1)}
                     size="small"
-                    className="w-16"
+                    className="w-12"
                   />
                 </span>
               </div>
@@ -1656,8 +1673,8 @@ export function ImageCreatePage() {
                             className="cursor-pointer"
                             style={{
                               position: index === 0 ? 'relative' : 'absolute',
-                              left: index === 0 ? 0 : `${index * 15}px`,
-                              top: index === 0 ? 0 : `${index * 15}px`,
+                              left: index === 0 ? 0 : `${index * 4}px`,
+                              top: index === 0 ? 0 : `${index * 4}px`,
                               zIndex: imageUrls.length - index,
                             }}
                             onClick={() => {
@@ -1670,12 +1687,23 @@ export function ImageCreatePage() {
                                 })),
                                 {
                                   startIndex: index,
+                                  Carousel: {
+                                    Thumbs: {
+                                      type: 'classic' as const,
+                                      Carousel: {
+                                        vertical: true,
+                                        center: (ref: any) => {
+                                          return ref.getTotalSlideDim() > ref.getViewportDim();
+                                        },
+                                      },
+                                    },
+                                  },
                                 },
                               );
                             }}
                           >
                             <img
-                              src={ensureHttpsUrl(url.trim()) || ""}
+                              src={addOssThumbnailStyle(ensureHttpsUrl(url.trim())) || ""}
                               alt={`生成结果 ${index + 1}`}
                               className="rounded-lg shadow-lg"
                               style={{ maxWidth: 400, maxHeight: 400, display: 'block' }}
@@ -1705,12 +1733,23 @@ export function ImageCreatePage() {
                             ],
                             {
                               startIndex: 0,
+                              Carousel: {
+                                Thumbs: {
+                                  type: 'classic' as const,
+                                  Carousel: {
+                                    vertical: true,
+                                    center: (ref: any) => {
+                                      return ref.getTotalSlideDim() > ref.getViewportDim();
+                                    },
+                                  },
+                                },
+                              },
                             },
                           );
                         }}
                       >
                         <img
-                          src={ensureHttpsUrl(selectedHistory.resultImageUrl) || ""}
+                          src={addOssThumbnailStyle(ensureHttpsUrl(selectedHistory.resultImageUrl)) || ""}
                           alt="生成结果"
                           className="rounded-lg"
                           style={{ maxHeight: 400, objectFit: "contain" }}

@@ -80,14 +80,14 @@ public class ImageCreateAsyncController {
         // 根据分辨率计算实际使用的模型代码（用于价格查询）
         String effectiveModelCode = GptUtil.getEffectiveModelCode(model, size);
 
-        // 获取模型价格并检查余额（多图时需要乘以数量）
+        // 获取模型价格并检查余额
         BigDecimal baseCost = modelPriceService.getPrice(effectiveModelCode);
         if (baseCost.compareTo(BigDecimal.ZERO) == 0) {
             return R.badRequest("未配置该模型的价格: " + model);
         }
-        
-        // 计算总费用（单价 × 数量）
-        BigDecimal cost = baseCost.multiply(new BigDecimal(n != null ? n : 1));
+
+        // 计算费用（按次消费，不乘以生成数量n）
+        BigDecimal cost = baseCost;
 
         if (!userBalanceService.checkBalance(user.getId(), cost)) {
             return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");

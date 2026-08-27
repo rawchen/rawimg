@@ -57,9 +57,9 @@ export function UserDropdown({ user, onAvatarClick }: UserDropdownProps) {
 
   const loadBalanceStats = async () => {
     try {
-      console.log('[UserDropdown] Loading balance stats...');
+      // console.log('[UserDropdown] Loading balance stats...');
       const stats = await balanceApi.getStats();
-      console.log('[UserDropdown] Balance stats loaded:', stats);
+      // console.log('[UserDropdown] Balance stats loaded:', stats);
       setBalanceStats(stats);
     } catch (error: any) {
       console.error('[UserDropdown] Failed to load balance stats:', error);
