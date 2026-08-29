@@ -38,6 +38,7 @@ import { ImageRestorePage } from '@/pages/ImageRestorePage.tsx';
 import { ImageEditPage } from '@/pages/ImageEditPage.tsx';
 import { ImageBeautyPage } from '@/pages/ImageBeautyPage.tsx';
 import { ImageClothesPage } from '@/pages/ImageClothesPage.tsx';
+import { ImageMusicPage } from '@/pages/ImageMusicPage.tsx';
 import ProfileLayout from '@/components/layout/ProfileLayout';
 import OverviewPage from '@/pages/profile/OverviewPage';
 import InfoPage from '@/pages/profile/InfoPage';
@@ -61,6 +62,7 @@ function AppContent() {
   const isEditPage = location.pathname === '/edit';
   const isBeautyPage = location.pathname === '/beauty';
   const isClothesPage = location.pathname === '/clothes';
+  const isMusicPage = location.pathname === '/music';
   const isGalleriesPage = location.pathname === '/galleries';
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -156,6 +158,9 @@ function AppContent() {
 
             {/* Image Clothes Route */}
             <Route path="/clothes" element={<ImageClothesPage />} />
+
+            {/* Music Cover Route */}
+            <Route path="/music" element={<ImageMusicPage />} />
 
             {/* Editor Route */}
             <Route path="/editor" element={<ProtectedRoute><EditorLayout /></ProtectedRoute>} />

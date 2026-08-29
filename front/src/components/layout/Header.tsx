@@ -21,19 +21,21 @@ import {
   Panda,
   SquareScissors,
   PenTool, Shirt,
+  Music,
 } from 'lucide-react';
 
 const tools = [
   { key: 'create', name: '生成创作', icon: Sparkles, hot: true },
   { key: 'beauty', name: '智能美颜', icon: Panda, hot: true },
   { key: 'clothes', name: '智能换装', icon: Shirt, new: true },
+  { key: 'music', name: '音乐封面', icon: Music, new: true },
   { key: 'edit', name: '局部改图', icon: PenTool, new: true },
   { key: 'remove', name: '物体移除', icon: PackageMinus },
   { key: 'enhance', name: '图像增强', icon: Palette },
   { key: 'matting', name: '背景移除', icon: ImageMinus },
   { key: 'expand', name: '图像扩展', icon: ImageUpscale },
   { key: 'restore', name: '照片修复', icon: ImagePlus },
-  { key: 'hairstyle', name: '发型创意', icon: SquareScissors },
+  // { key: 'hairstyle', name: '发型创意', icon: SquareScissors },
 ];
 
 export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
@@ -366,7 +368,7 @@ export function Header({ scrolled: scrolledProp }: { scrolled?: boolean }) {
         >
           <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 p-4 grid grid-cols-2 gap-0 w-96"
           >
-            {tools.slice(0, 9).map((tool) => (
+            {tools.slice(0, 100).map((tool) => (
               <Link
                 key={tool.key}
                 to={"/" + tool.key}

@@ -1218,6 +1218,9 @@ export interface ImageTaskRecord {
   resultImageUrl: string | null;
   errorMsg: string | null;
   duration: number | null;
+  songId?: string | null;
+  songName?: string | null;
+  artistName?: string | null;
   createTime: string;
   updateTime: string;
 }
@@ -1257,5 +1260,85 @@ export interface CreateOrderResponse {
   creditAmount: number;
   expireTime: string;
 }
+
+// Music API
+export const musicApi = {
+  // 搜索歌曲
+  search: (keyword: string, limit?: number, musicU?: string) =>
+    api.get<{ list: any[] }>('/music/search', { 
+      params: { keyword, limit }, 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<{ list: any[] }>,
+
+  // 获取歌曲详情
+  song: (id: string, musicU?: string) =>
+    api.get<any>('/music/song/' + id, { 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<any>,
+
+  // 获取歌曲播放链接
+  url: (id: string, br?: number, musicU?: string) =>
+    api.get<{ url: string }>('/music/url/' + id, { 
+      params: { br }, 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<{ url: string }>,
+
+  // 获取歌词
+  lyric: (id: string, musicU?: string) =>
+    api.get<{ lyric: { lyric: string; tlyric: string } }>('/music/lyric/' + id, { 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<{ lyric: { lyric: string; tlyric: string } }>,
+
+  // 获取歌单
+  playlist: (id: string, musicU?: string) =>
+    api.get<{ list: any[] }>('/music/playlist/' + id, { 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<{ list: any[] }>,
+};
+
+// Music Cover API
+export const musicCoverApi = {
+  // 异步创建音乐封面
+  createAsync: (songId: string, songName: string, lyric: string, style?: string, model?: string, n?: number) => {
+    const params = new URLSearchParams();
+    params.append('songId', songId);
+    params.append('songName', songName);
+    params.append('lyric', lyric);
+    if (style) params.append('style', style);
+    if (model) params.append('model', model);
+    if (n) params.append('n', n.toString());
+    return api.post<{ taskId: string; cost: number }>('/music-cover/create_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; cost: number }>;
+  },
+
+  // 查询任务结果
+  getResult: (taskId: string) =>
+    api.get<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      msg?: string;
+    }>('/music-cover/result', { params: { id: taskId } }) as unknown as Promise<{
+      status: 'pending' | 'done' | 'error' | 'not_found';
+      imageUrl?: string;
+      msg?: string;
+    }>,
+
+  // 获取用户的任务历史
+  getHistory: (page = 1, size = 10) =>
+    api.get<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>('/music-cover/history', { params: { page, size } }) as unknown as Promise<{
+      records: ImageTaskRecord[];
+      total: number;
+      pages: number;
+      current: number;
+      size: number;
+    }>,
+};
 
 export default api;

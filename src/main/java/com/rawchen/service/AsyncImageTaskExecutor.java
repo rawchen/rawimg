@@ -414,11 +414,22 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
-     * 将GPT返回的结果上传到OSS
+     * 将GPT返回的结果上传到OSS（默认task目录）
      * GPT返回的可能是URL，也可能是Base64数据
      * 支持多张图片（逗号分隔）
      */
     private String uploadResultToOss(String gptResult) {
+        return uploadResultToOss(gptResult, "task");
+    }
+
+    /**
+     * 将GPT返回的结果上传到OSS（指定目录）
+     * GPT返回的可能是URL，也可能是Base64数据
+     * 支持多张图片（逗号分隔）
+     * @param gptResult GPT返回的结果（URL或Base64）
+     * @param directory OSS上传目录
+     */
+    private String uploadResultToOss(String gptResult, String directory) {
         List<String> ossUrls = new ArrayList<>();
         
         // 使用正则表达式分割，避免分割Base64数据内部的逗号
@@ -432,7 +443,7 @@ public class AsyncImageTaskExecutor {
                 continue;
             }
             
-            String fileName = "task/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + ossUrls.size() + ".jpeg";
+            String fileName = directory + "/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + ossUrls.size() + ".jpeg";
             String ossUrl;
             
             if (singleResult.startsWith("data:image/")) {
@@ -448,6 +459,38 @@ public class AsyncImageTaskExecutor {
         
         // 返回逗号分隔的OSS URL
         return String.join(",", ossUrls);
+    }
+
+    /**
+     * 异步执行音乐封面生成任务
+     * @param taskId 任务ID
+     * @param prompt 提示词
+     * @param size 图片尺寸（固定1024x1024）
+     * @param model 使用的模型
+     * @param n 生成图片数量
+     */
+    @Async("imageTaskExecutor")
+    public void executeMusicCoverTask(String taskId, String prompt, String size, String model, Integer n) {
+        long startTime = System.currentTimeMillis();
+        try {
+            log.info("Async music cover task {} started with model {}, n={}", taskId, model, n);
+            
+            // 调用GPT图片生成API
+            String result = gptUtil.generateImage(prompt, size, model, n);
+            
+            // 上传到OSS的image-music目录
+            String ossUrl = uploadResultToOss(result, "image-music");
+            
+            long duration = System.currentTimeMillis() - startTime;
+            imageTaskService.updateSuccess(taskId, ossUrl, duration);
+            consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
+            log.info("Async music cover task {} completed in {}ms", taskId, duration);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Async music cover task {} failed: {}", taskId, e.getMessage());
+            imageTaskService.updateError(taskId, e.getMessage(), duration);
+            consumeLogService.updateFailed(taskId, e.getMessage());
+        }
     }
 
     /**

@@ -78,6 +78,16 @@ public class ImageTask extends BaseEntity {
     private Long duration;
 
     /**
+     * 歌曲ID（音乐封面任务专用）
+     */
+    private String songId;
+
+    /**
+     * 歌曲名称（音乐封面任务专用）
+     */
+    private String songName;
+
+    /**
      * 获取结果图片URL，自动补全https前缀
      */
     public String getResultImageUrl() {
