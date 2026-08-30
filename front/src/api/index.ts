@@ -1294,16 +1294,22 @@ export const musicApi = {
     api.get<{ list: any[] }>('/music/playlist/' + id, { 
       headers: musicU ? { 'X-Music-U': musicU } : {} 
     }) as unknown as Promise<{ list: any[] }>,
+
+  // 刷新歌单缓存
+  refreshPlaylist: (id: string, musicU?: string) =>
+    api.post<{ list: any[] }>('/music/playlist/' + id + '/refresh', {}, { 
+      headers: musicU ? { 'X-Music-U': musicU } : {} 
+    }) as unknown as Promise<{ list: any[] }>,
 };
 
 // Music Cover API
 export const musicCoverApi = {
   // 异步创建音乐封面
-  createAsync: (songId: string, songName: string, lyric: string, style?: string, model?: string, n?: number) => {
+  createAsync: (songId: string, songName: string, includeLyric: boolean, style?: string, model?: string, n?: number) => {
     const params = new URLSearchParams();
     params.append('songId', songId);
     params.append('songName', songName);
-    params.append('lyric', lyric);
+    params.append('includeLyric', includeLyric.toString());
     if (style) params.append('style', style);
     if (model) params.append('model', model);
     if (n) params.append('n', n.toString());

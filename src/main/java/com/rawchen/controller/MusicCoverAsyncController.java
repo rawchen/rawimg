@@ -11,8 +11,10 @@ import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
+import com.rawchen.service.MusicService;
 import com.rawchen.service.UserBalanceService;
 import com.rawchen.util.GptUtil;
+import com.rawchen.vo.MusicLyricVO;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,24 +41,27 @@ public class MusicCoverAsyncController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final MusicService musicService;
 
     /**
      * 异步创建音乐封面
      *
-     * @param songId   歌曲ID
-     * @param songName 歌曲名称
-     * @param lyric    歌词
-     * @param style    风格（auto/anime/watercolor/realistic/abstract/minimalist）
-     * @param model    使用的模型（可选，默认gpt-image-2）
-     * @param n        生成图片数量（可选，默认1，范围1-10）
-     * @param user     当前登录用户
+     * @param songId       歌曲ID
+     * @param songName     歌曲名称
+     * @param includeLyric 是否包含歌词（true: 包含歌词，false: 仅标题）
+     * @param lyric        歌词（可选，如未提供且 includeLyric=true 会自动获取）
+     * @param style        风格（auto/anime/watercolor/realistic/abstract/minimalist）
+     * @param model        使用的模型（可选，默认gpt-image-2）
+     * @param n            生成图片数量（可选，默认1，范围1-10）
+     * @param user         当前登录用户
      * @return 任务ID
      */
     @PostMapping("/create_async")
     public R<CreateAsyncResponse> createMusicCoverAsync(
             @RequestParam("songId") String songId,
             @RequestParam("songName") String songName,
-            @RequestParam("lyric") String lyric,
+            @RequestParam(value = "includeLyric", defaultValue = "false") Boolean includeLyric,
+            @RequestParam(value = "lyric", required = false) String lyric,
             @RequestParam(value = "style", defaultValue = "auto") String style,
             @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
             @RequestParam(value = "n", required = false, defaultValue = "1") Integer n,
@@ -71,8 +76,28 @@ public class MusicCoverAsyncController {
             return R.badRequest("生成图片数量必须在1-10之间");
         }
 
+        // 获取歌词（仅在需要时获取）
+        String effectiveLyric = "";
+        if (includeLyric) {
+            // 如果提供了歌词，直接使用
+            if (lyric != null && !lyric.trim().isEmpty()) {
+                effectiveLyric = lyric;
+            } else {
+                // 否则自动获取歌词
+                try {
+                    MusicLyricVO lyricVO = musicService.lyric(songId, null);
+                    if (lyricVO != null && lyricVO.getLyric() != null) {
+                        effectiveLyric = lyricVO.getLyric();
+                        log.info("自动获取歌词成功: songId={}", songId);
+                    }
+                } catch (Exception e) {
+                    log.warn("获取歌词失败，将使用空歌词: songId={}, error={}", songId, e.getMessage());
+                }
+            }
+        }
+
         // 构建提示词
-        String prompt = buildPrompt(songName, lyric, style);
+        String prompt = buildPrompt(songName, effectiveLyric, style);
 
         // 音乐封面固定为1024x1024
         String size = "1024x1024";

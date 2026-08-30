@@ -96,6 +96,18 @@ public class MusicController {
     }
 
     /**
+     * 刷新歌单缓存
+     */
+    @PostMapping("/playlist/{id}/refresh")
+    public R refreshPlaylist(@PathVariable String id, HttpServletRequest request) {
+        musicService.clearPlaylistCache(id);
+        String musicU = getMusicU(request);
+        List<MusicVO> list = musicService.playlist(id, musicU);
+        list.forEach(this::convertUrlToHttps);
+        return R.ok("list", list);
+    }
+
+    /**
      * 从请求头或参数中获取music_u
      */
     private String getMusicU(HttpServletRequest request) {

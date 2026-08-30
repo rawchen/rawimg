@@ -20,6 +20,7 @@ import {
   SettingOutlined,
   ClockCircleOutlined,
   AppstoreOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { musicApi, musicCoverApi, ImageTaskRecord } from '@/api';
 import PlayerComponent from '@/components/PlayerComponent';
@@ -122,16 +123,17 @@ const ImageMusicPage: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [currentLyric, setCurrentLyric] = useState('');
 
   // 用户配置
   const [musicU, setMusicU] = useState('');
   const [playlistId, setPlaylistId] = useState('');
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // 图片生成相关状态
   const [selectedStyle, setSelectedStyle] = useState('auto');
   const [selectedModel, setSelectedModel] = useState('gpt-image-2');
+  const [includeLyric, setIncludeLyric] = useState(false); // 是否包含歌词，默认为标题模式
   const [generateN, setGenerateN] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
@@ -174,6 +176,31 @@ const ImageMusicPage: React.FC = () => {
       setSearchLoading(false);
     }
   }, []);
+
+  // 刷新播放列表
+  const handleRefreshPlaylist = useCallback(async () => {
+    if (!playlistId) {
+      message.warning('请先配置播放列表ID');
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      const response = await musicApi.refreshPlaylist(playlistId, musicU);
+      const songs = Array.isArray(response) ? response : (response?.list || []);
+      setPlaylist(songs);
+      if (songs.length > 0) {
+        message.success(`已刷新并加载 ${songs.length} 首歌曲`);
+      } else {
+        message.warning('播放列表为空');
+      }
+    } catch (error) {
+      console.error('刷新播放列表失败:', error);
+      message.error('刷新播放列表失败');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [playlistId, musicU]);
 
   // 从localStorage加载用户配置，并加载播放列表
   useEffect(() => {
@@ -243,19 +270,6 @@ const ImageMusicPage: React.FC = () => {
   // 播放歌曲
   const handlePlaySong = async (song: Song) => {
     setCurrentSong(song);
-    // 获取歌词
-    if (song.id) {
-      try {
-        const response = await musicApi.lyric(song.id, musicU);
-        console.log('歌词:', response);
-        // axios拦截器已经提取了data.data，response直接就是歌词对象
-        if (response && response.lyric) {
-          setCurrentLyric(response.lyric.lyric || '');
-        }
-      } catch (error) {
-        console.error('获取歌词失败:', error);
-      }
-    }
   };
 
   // 生成音乐封面
@@ -275,7 +289,7 @@ const ImageMusicPage: React.FC = () => {
       const response = await musicCoverApi.createAsync(
         currentSong.id,
         currentSong.name,
-        currentLyric,
+        includeLyric,
         selectedStyle,
         selectedModel,
         generateN
@@ -545,7 +559,7 @@ const ImageMusicPage: React.FC = () => {
                 );
               })()}
 
-              {/* 风格选择 + 生成数量 */}
+              {/* 风格选择 + 提示词模式 + 生成数量 */}
               <div className="flex flex-wrap items-center gap-2 pt-4">
                 {styleOptions.map((option) => (
                   <button
@@ -560,17 +574,31 @@ const ImageMusicPage: React.FC = () => {
                     <span className="text-sm">{option.label}</span>
                   </button>
                 ))}
-                {/* 生成数量 */}
+                {/* 提示词模式滑动开关 */}
                 <div className="flex items-center gap-2 ml-2">
-                  <span className="text-sm text-gray-600">数量</span>
-                  <InputNumber
-                    min={1}
-                    max={10}
-                    value={generateN}
-                    onChange={value => setGenerateN(value || 1)}
-                    size="small"
-                    className="w-16"
-                  />
+                  <div className="relative flex items-center rounded-lg p-1 bg-white">
+                    {/* 滑动指示器 */}
+                    <div
+                      className="absolute top-1 bottom-1 rounded transition-all duration-200 bg-orange-500"
+                      style={{
+                        width: "calc(50% - 4px)",
+                        left: includeLyric ? "calc(50% + 0px)" : "4px",
+                      }}
+                    />
+                    {["标题", "歌词"].map((label, index) => (
+                      <button
+                        key={label}
+                        onClick={() => setIncludeLyric(index === 1)}
+                        className={`relative z-10 px-3 py-1 text-sm font-medium transition-colors ${
+                          (index === 1 ? includeLyric : !includeLyric)
+                            ? "text-white"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -582,6 +610,18 @@ const ImageMusicPage: React.FC = () => {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-gray-900">音乐封面生成</h3>
                   <div className="flex items-center gap-3">
+                    {/* 生成数量 */}
+                    <div className="flex items-center gap-1 ml-1">
+                      <span className="text-sm text-gray-600">数量</span>
+                      <InputNumber
+                        min={1}
+                        max={10}
+                        value={generateN}
+                        onChange={value => setGenerateN(value || 1)}
+                        size="small"
+                        className="w-14"
+                      />
+                    </div>
                     <button
                       onClick={() => {
                         if (!isAuthenticated) {
@@ -600,7 +640,7 @@ const ImageMusicPage: React.FC = () => {
                       className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
                     >
                       <SettingOutlined/>
-                      配置
+                      音乐配置
                     </button>
                     {/* 模型切换开关 */}
                     <div className="flex items-center gap-2">
@@ -703,11 +743,12 @@ const ImageMusicPage: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                   <PlayerComponent
                     songs={
-                      searchResults.length > 0 && currentSong 
-                        ? [currentSong] 
+                      searchResults.length > 0 && currentSong
+                        ? [currentSong]
                         : (playlist.length > 0 ? playlist : (currentSong ? [currentSong] : []))
                     }
                     currentSongId={currentSong?.id}
+                    musicU={musicU}
                     onSongSelect={handlePlaySong}
                   />
                 </div>
@@ -1070,7 +1111,7 @@ const ImageMusicPage: React.FC = () => {
 
       {/* 配置模态框 */}
       <Modal
-        title="配置"
+        title="网易云音乐配置"
         open={settingsModalVisible}
         onCancel={() => setSettingsModalVisible(false)}
         onOk={saveUserConfig}
@@ -1080,22 +1121,33 @@ const ImageMusicPage: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Music U：</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">MUSIC_U</label>
             <Input
               placeholder="网易云音乐用户token"
               value={musicU}
               onChange={e => setMusicU(e.target.value)}
             />
-            <p className="text-xs text-gray-500 mt-1">用于获取歌曲播放链接和歌词</p>
+            <p className="text-xs text-gray-500 mt-1">用于解锁VIP歌曲以及30秒限制</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">播放列表ID：</label>
-            <Input
-              placeholder="播放列表ID"
-              value={playlistId}
-              onChange={e => setPlaylistId(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">网易云音乐播放列表ID，默认为 471071972</p>
+            <label className="block text-sm font-medium text-gray-700 mb-2">播放列表ID</label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="播放列表ID"
+                value={playlistId}
+                onChange={e => setPlaylistId(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="primary"
+                loading={refreshing}
+                onClick={handleRefreshPlaylist}
+                icon={<SyncOutlined />}
+              >
+                刷新缓存
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">播放列表ID，默认为作者喜欢 471071972</p>
           </div>
         </div>
       </Modal>

@@ -304,6 +304,10 @@
   transition: all 0.3s;
 }
 
+.playlist-item:nth-child(2n-1) {
+  background: #7575750a
+}
+
 .playlist-item:hover {
   background: #f5f5f5;
 }

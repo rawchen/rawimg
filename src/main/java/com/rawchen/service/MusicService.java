@@ -59,4 +59,11 @@ public interface MusicService {
      * @return 歌曲列表
      */
     List<MusicVO> playlist(String id, String musicU);
+
+    /**
+     * 清除播放列表缓存
+     *
+     * @param id 歌单ID
+     */
+    void clearPlaylistCache(String id);
 }

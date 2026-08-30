@@ -12,6 +12,8 @@ import com.rawchen.vo.MusicLyricVO;
 import com.rawchen.vo.MusicUrlVO;
 import com.rawchen.vo.MusicVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -29,7 +31,11 @@ import java.util.stream.Collectors;
 @Service
 public class MusicServiceImpl implements MusicService {
 
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
     private static final String BASE_URL = "https://music.163.com";
+    private static final String PLAYLIST_CACHE_PREFIX = "music:playlist:";
 
     /**
      * 获取请求头
@@ -207,6 +213,16 @@ public class MusicServiceImpl implements MusicService {
 
     @Override
     public List<MusicVO> playlist(String id, String musicU) {
+        // 尝试从缓存获取
+        String cacheKey = PLAYLIST_CACHE_PREFIX + id;
+        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedData != null) {
+            log.info("从缓存获取播放列表: {}", id);
+            return JSONUtil.toList(cachedData, MusicVO.class);
+        }
+
+        // 缓存不存在，调用API获取
         Map<String, Object> body = new HashMap<>();
         body.put("s", 0);
         body.put("id", id);
@@ -245,6 +261,12 @@ public class MusicServiceImpl implements MusicService {
                     }
                 }
             }
+        }
+
+        // 存入缓存（永久保存，只能手动刷新）
+        if (!list.isEmpty()) {
+            redisTemplate.opsForValue().set(cacheKey, JSONUtil.toJsonStr(list));
+            log.info("播放列表已缓存: {}, 永久保存", id);
         }
 
         return list;
@@ -339,5 +361,14 @@ public class MusicServiceImpl implements MusicService {
         }
 
         return vo;
+    }
+
+    /**
+     * 清除播放列表缓存
+     */
+    public void clearPlaylistCache(String id) {
+        String cacheKey = PLAYLIST_CACHE_PREFIX + id;
+        Boolean deleted = redisTemplate.delete(cacheKey);
+        log.info("清除播放列表缓存: {}, 结果: {}", id, deleted);
     }
 }

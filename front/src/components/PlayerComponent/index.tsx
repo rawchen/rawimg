@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { musicApi } from '@/api';
 import './index.css';
 
 interface Song {
@@ -14,11 +15,12 @@ interface Song {
 interface PlayerComponentProps {
   songs: Song[];
   currentSongId?: string;
+  musicU?: string;
   onSongChange?: (song: Song) => void;
   onSongSelect?: (song: Song) => void;
 }
 
-const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId, onSongChange, onSongSelect }) => {
+const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId, musicU, onSongChange, onSongSelect }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -36,6 +38,28 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const isPlayingRef = useRef(false); // 保存最新的播放状态
+  const currentIndexRef = useRef(0); // 保存最新的歌曲索引
+  const songsRef = useRef<Song[]>([]); // 保存最新的歌曲列表
+  const musicURef = useRef<string | undefined>(undefined); // 保存最新的musicU
+
+  // 同步播放状态到ref
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // 同步其他状态到ref
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
+
+  useEffect(() => {
+    musicURef.current = musicU;
+  }, [musicU]);
 
   // 根据currentSongId找到对应索引并自动播放
   useEffect(() => {
@@ -49,7 +73,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
     }
   }, [currentSongId, songs]);
 
-  // 创建音频元素
+  // 创建音频元素（只在组件挂载时创建一次）
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
@@ -62,17 +86,43 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
-      if (currentIndex < songs.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        setCurrentIndex(0);
-        setIsPlaying(false);
+      setCurrentIndex(prev => {
+        if (prev < songsRef.current.length - 1) {
+          return prev + 1;
+        } else {
+          setIsPlaying(false);
+          return 0;
+        }
+      });
+    };
+
+    // 处理播放错误（URL过期等）
+    const handleError = async () => {
+      console.error('音频播放错误，尝试重新获取URL');
+      const currentSong = songsRef.current[currentIndexRef.current];
+      if (currentSong && currentSong.id) {
+        try {
+          const response = await musicApi.url(currentSong.id, undefined, musicURef.current);
+          if (response && response.url && audioRef.current) {
+            audioRef.current.src = response.url;
+            // 如果之前是播放状态，重新播放
+            if (isPlayingRef.current) {
+              audioRef.current.play().catch(() => {
+                setIsPlaying(false);
+              });
+            }
+          }
+        } catch (err) {
+          console.error('重新获取URL失败:', err);
+          setIsPlaying(false);
+        }
       }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.pause();
@@ -80,27 +130,37 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
     };
-  }, [currentIndex, songs.length]);
+  }, []); // 空依赖项，只在组件挂载时执行一次
 
-  // 切换歌曲时更新音频源
+  // 切换歌曲时更新音频源（每次都调用API获取新的播放链接，避免URL过期）
   useEffect(() => {
     if (!audioRef.current || songs.length === 0) return;
 
     const currentSong = songs[currentIndex];
-    if (currentSong && currentSong.url) {
-      audioRef.current.src = currentSong.url;
-      // 如果当前是播放状态，加载新歌曲后自动播放
-      if (isPlaying) {
-        audioRef.current.play().catch(() => {
-          setIsPlaying(false);
-        });
-      }
-      if (onSongChange) {
-        onSongChange(currentSong);
-      }
+    if (currentSong) {
+      // 每次切换歌曲都调用API获取新的播放链接
+      musicApi.url(currentSong.id, undefined, musicU).then((response: any) => {
+        if (response && response.url && audioRef.current) {
+          audioRef.current.src = response.url;
+          if (onSongChange) {
+            onSongChange(currentSong);
+          }
+          // 如果当前是播放状态，设置新音频源后立即播放
+          if (isPlayingRef.current) {
+            audioRef.current.play().catch(() => {
+              setIsPlaying(false);
+            });
+          }
+        }
+      }).catch((err: any) => {
+        console.error('获取播放链接失败:', err);
+        setIsPlaying(false);
+      });
     }
-  }, [currentIndex, songs, onSongChange]);
+    // 注意：不要将 isPlaying 加入依赖项，否则暂停/播放会重新加载音频
+  }, [currentIndex, songs, onSongChange, musicU]);
 
   // 播放状态变化时控制播放/暂停
   useEffect(() => {
