@@ -35,9 +35,11 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [isVolumeDragging, setIsVolumeDragging] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const volumeSliderRef = useRef<HTMLDivElement | null>(null);
   const isPlayingRef = useRef(false); // 保存最新的播放状态
   const currentIndexRef = useRef(0); // 保存最新的歌曲索引
   const songsRef = useRef<Song[]>([]); // 保存最新的歌曲列表
@@ -179,11 +181,11 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
   useEffect(() => {
     if (!audioRef.current) return;
     audioRef.current.volume = isMuted ? 0 : volume;
-    // 保存音量到 localStorage
-    if (!isMuted) {
+    // 拖动过程中不频繁写 localStorage，拖动结束后再保存
+    if (!isMuted && !isVolumeDragging) {
       localStorage.setItem('player-volume', volume.toString());
     }
-  }, [volume, isMuted]);
+  }, [volume, isMuted, isVolumeDragging]);
 
   // 获取歌词
   useEffect(() => {
@@ -284,16 +286,63 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
     };
   }, [isDragging, getTimeFromX]);
 
-  // 音量调整
-  const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setVolume(percent);
-    if (audioRef.current) {
-      audioRef.current.volume = percent;
-    }
-    setIsMuted(false);
+  // 音量调整：根据横坐标计算音量（0~1）
+  const getVolumeFromX = useCallback((clientX: number) => {
+    if (!volumeSliderRef.current) return null;
+    const rect = volumeSliderRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }, []);
+
+  const applyVolume = useCallback((value: number) => {
+    setVolume(value);
+    setIsMuted(false);
+    if (audioRef.current) {
+      audioRef.current.volume = value;
+    }
+  }, []);
+
+  // 按下音量条即开始连续拖动
+  const handleVolumeDragStart = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const clientX = 'clientX' in e ? e.clientX : e.touches?.[0]?.clientX;
+    if (clientX === undefined) return;
+    const value = getVolumeFromX(clientX);
+    if (value === null) return;
+    applyVolume(value);
+    setIsVolumeDragging(true);
+  }, [getVolumeFromX, applyVolume]);
+
+  // 拖动过程中持续跟随鼠标/手指更新音量
+  useEffect(() => {
+    if (!isVolumeDragging) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'clientX' in e ? e.clientX : e.touches?.[0]?.clientX;
+      if (clientX === undefined) return;
+      const value = getVolumeFromX(clientX);
+      if (value !== null) {
+        applyVolume(value);
+      }
+    };
+
+    const handleEnd = () => setIsVolumeDragging(false);
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove);
+    document.addEventListener('touchend', handleEnd);
+    document.addEventListener('touchcancel', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+      document.removeEventListener('touchcancel', handleEnd);
+    };
+  }, [isVolumeDragging, getVolumeFromX, applyVolume]);
 
   // 切换歌曲
   const playSong = useCallback((index: number) => {
@@ -414,7 +463,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
           <div 
             className="volume-control"
             onMouseEnter={() => setShowVolumeSlider(true)}
-            onMouseLeave={() => setShowVolumeSlider(false)}
+            onMouseLeave={() => { if (!isVolumeDragging) setShowVolumeSlider(false); }}
           >
             <div className="volume-button" onClick={() => setIsMuted(!isMuted)}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -425,8 +474,14 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
                 )}
               </svg>
             </div>
-            {showVolumeSlider && (
-              <div className="volume-slider" onClick={handleVolumeChange}>
+            {(showVolumeSlider || isVolumeDragging) && (
+              <div
+                ref={volumeSliderRef}
+                className={`volume-slider ${isVolumeDragging ? 'dragging' : ''}`}
+                onMouseDown={handleVolumeDragStart}
+                onTouchStart={handleVolumeDragStart}
+                title={`音量 ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+              >
                 <div className="volume-fill" style={{ width: `${isMuted ? 0 : volume * 100}%` }}>
                   <div className="volume-handle"></div>
                 </div>

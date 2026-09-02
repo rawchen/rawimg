@@ -195,6 +195,8 @@
   align-items: center;
   gap: 8px;
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .volume-button {
@@ -226,6 +228,17 @@
   cursor: pointer;
   position: relative;
   animation: fadeIn 0.2s ease-in-out;
+  touch-action: none;
+}
+
+/* 扩大上下热区，方便鼠标/手指按住拖动 */
+.volume-slider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -12px;
+  bottom: -12px;
 }
 
 @keyframes fadeIn {
@@ -246,15 +259,31 @@
   position: relative;
 }
 
+.volume-slider.dragging .volume-fill {
+  transition: none;
+}
+
 .volume-handle {
   position: absolute;
-  right: -4px;
+  right: -5px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   background: #1890ff;
   border-radius: 50%;
+  cursor: grab;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+
+.volume-slider:hover .volume-handle,
+.volume-slider.dragging .volume-handle {
+  transform: translateY(-50%) scale(1.25);
+}
+
+.volume-slider.dragging .volume-handle {
+  cursor: grabbing;
 }
 
 .lyric-toggle {
