@@ -31,11 +31,13 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
   });
   const [isMuted, setIsMuted] = useState(false);
   const [showLyric, setShowLyric] = useState(false);
+  const [showPlaylist, setShowPlaylist] = useState(true);
   const [lyricsCache, setLyricsCache] = useState<Record<string, string>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
+  const [popAnim, setPopAnim] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -215,6 +217,8 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return;
 
+    setPopAnim(p => p + 1);
+
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -224,6 +228,20 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
       }).catch(() => {});
     }
   }, [isPlaying]);
+
+  // 空格键播放/暂停
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      // 焦点在输入框/文本域时不触发
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      e.preventDefault();
+      togglePlay();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay]);
 
   // 进度条点击
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -433,7 +451,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
               <div className="song-artist">{currentSong?.artist || '未知歌手'}</div>
             </div>
           </div>
-          <div className="play-button" onClick={togglePlay}>
+          <div className={`play-button${popAnim ? ' pop' : ''}`} key={popAnim} onClick={togglePlay}>
             {isPlaying ? (
               <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
@@ -497,11 +515,19 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ songs, currentSongId,
               </svg>
             </div>
           )}
+
+          {songs.length > 1 && (
+            <div className={`lyric-toggle ${showPlaylist ? 'active' : ''}`} onClick={() => setShowPlaylist(!showPlaylist)} title={showPlaylist ? '收起播放列表' : '展开播放列表'}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"></path>
+              </svg>
+            </div>
+          )}
         </div>
       </div>
 
       {/* 播放列表 */}
-      {songs.length > 1 && (
+      {showPlaylist && songs.length > 1 && (
         <div className="playlist">
           <div className="playlist-body">
             {songs.map((song, index) => (
