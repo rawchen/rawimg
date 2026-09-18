@@ -918,7 +918,7 @@ export function ImageCreatePage() {
                       <>
                         <Image
                           src={createdImage || previewImage}
-                          alt="创作结果"
+                          // alt="创作结果"
                           className="w-full h-full object-contain"
                           rootClassName="w-full h-full"
                           style={{
@@ -1728,7 +1728,7 @@ export function ImageCreatePage() {
                               {
                                 src: ensureHttpsUrl(selectedHistory.resultImageUrl) || "",
                                 type: "image" as const,
-                                caption: "创作结果",
+                                // caption: "创作结果",
                               },
                             ],
                             {
