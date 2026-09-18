@@ -145,7 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
     } catch (error: any) {
-      const isAuthError = error?.code === 401 || error?.response?.status === 401;
+      const isAuthError = error?.code === 401 || error?.response?.status === 401
+        || error?.code === 403 || error?.response?.status === 403;
       if (isAuthError) {
         logout();
       } else {

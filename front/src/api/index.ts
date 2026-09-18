@@ -57,11 +57,24 @@ api.interceptors.response.use(
       (err as any).code = data.code || error.response.status;
       (err as any).msg = data.msg || '请求失败';
       
-      // 401 未登录，清除token并跳转首页
+      // 401 未登录或token过期，清除登录状态并跳转首页
       if (data.code === 401 || error.response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
+        return Promise.reject(err);
+      }
+
+      // 403 权限不足：非admin接口的403说明token已失效（Spring Security未认证默认返回403），
+      // 需要清除登录状态并跳转首页；admin接口的403是真正的权限不足，不清除登录状态
+      if (data.code === 403 || error.response.status === 403) {
+        const requestUrl = error.config?.url || '';
+        if (!requestUrl.includes('/admin/')) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+          return Promise.reject(err);
+        }
       }
       return Promise.reject(err);
     }
