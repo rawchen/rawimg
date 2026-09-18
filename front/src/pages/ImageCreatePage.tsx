@@ -901,7 +901,7 @@ export function ImageCreatePage() {
                           >
                             <img
                               src={url.trim()}
-                              alt={`创作结果 ${index + 1}`}
+                              // alt={`创作结果 ${index + 1}`}
                               className="w-full h-full object-cover rounded-lg shadow-lg"
                             />
                           </div>
@@ -1683,7 +1683,7 @@ export function ImageCreatePage() {
                                 imageUrls.map((imgUrl, imgIndex) => ({
                                   src: ensureHttpsUrl(imgUrl.trim()),
                                   type: "image" as const,
-                                  caption: `创作结果 ${imgIndex + 1}`,
+                                  // caption: `创作结果 ${imgIndex + 1}`,
                                 })),
                                 {
                                   startIndex: index,
