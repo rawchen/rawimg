@@ -1706,7 +1706,7 @@ export function ImageCreatePage() {
                               src={addOssThumbnailStyle(ensureHttpsUrl(url.trim())) || ""}
                               alt={`生成结果 ${index + 1}`}
                               className="rounded-lg shadow-lg"
-                              style={{ maxWidth: 400, maxHeight: 400, display: 'block' }}
+                              style={{ maxWidth: 400, maxHeight: 390, display: 'block' }}
                             />
                             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
                               <div className="text-white opacity-0 hover:opacity-100 transition-opacity">
@@ -1752,7 +1752,7 @@ export function ImageCreatePage() {
                           src={addOssThumbnailStyle(ensureHttpsUrl(selectedHistory.resultImageUrl)) || ""}
                           alt="生成结果"
                           className="rounded-lg"
-                          style={{ maxHeight: 400, objectFit: "contain" }}
+                          style={{ maxHeight: 390, objectFit: "contain" }}
                         />
                         <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
                           <div className="text-white opacity-0 hover:opacity-100 transition-opacity">
@@ -1788,7 +1788,7 @@ export function ImageCreatePage() {
               <h4 className="text-sm font-medium text-gray-700 mb-2">
                 提示词
               </h4>
-              <div className="max-h-32 overflow-y-auto">
+              <div className="max-h-28 overflow-y-auto">
                 <p className="text-sm text-gray-600">
                   {selectedHistory.prompt}
                 </p>

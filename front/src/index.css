@@ -40,6 +40,11 @@ html, body, #root {
   animation: fadeIn 0.2s ease-out;
 }
 
+/* 图片预览占满屏幕高度 */
+.ant-image-preview-img {
+  max-height: 100vh !important;
+}
+
 /* 紧凑型表格样式 */
 .compact-table .ant-table-tbody > tr > td {
   padding: 8px 16px !important;
