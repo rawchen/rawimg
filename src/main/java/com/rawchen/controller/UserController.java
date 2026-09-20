@@ -7,8 +7,10 @@ import com.rawchen.dto.UserProfileResponse;
 import com.rawchen.dto.UserStats;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
+import com.rawchen.entity.UserBalance;
 import com.rawchen.service.EmailService;
 import com.rawchen.service.UserActionService;
+import com.rawchen.service.UserBalanceService;
 import com.rawchen.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +19,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -28,6 +32,7 @@ public class UserController {
     private final UserService userService;
     private final UserActionService userActionService;
     private final EmailService emailService;
+    private final UserBalanceService userBalanceService;
 
     @GetMapping("/users/me")
     public R<UserProfileResponse> getCurrentUser(@AuthenticationPrincipal SysUser user) {
@@ -93,7 +98,14 @@ public class UserController {
             users = userService.findAll(page, size);
         }
 
-        return R.ok(PageResponse.of(users, page, UserProfileResponse::from));
+        // 批量查询用户余额
+        List<Long> userIds = users.getRecords().stream()
+                .map(SysUser::getId)
+                .collect(Collectors.toList());
+        Map<Long, UserBalance> balanceMap = userBalanceService.getByUserIds(userIds);
+
+        return R.ok(PageResponse.of(users, page,
+                user -> UserProfileResponse.from(user, balanceMap.get(user.getId()))));
     }
 
     @PutMapping("/admin/users/{id}/role")

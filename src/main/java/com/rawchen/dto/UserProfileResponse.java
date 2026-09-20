@@ -1,9 +1,11 @@
 package com.rawchen.dto;
 
 import com.rawchen.entity.SysUser;
+import com.rawchen.entity.UserBalance;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -23,8 +25,15 @@ public class UserProfileResponse {
     private LocalDateTime createTime;
     private LocalDateTime lastLoginTime;
     private SysUser.UserStatus status;
+    private BigDecimal balance;
+    private BigDecimal totalRecharged;
+    private BigDecimal totalConsumed;
 
     public static UserProfileResponse from(SysUser user) {
+        return from(user, null);
+    }
+
+    public static UserProfileResponse from(SysUser user, UserBalance userBalance) {
         UserProfileResponse response = new UserProfileResponse();
         BeanUtils.copyProperties(user, response);
 
@@ -35,6 +44,16 @@ public class UserProfileResponse {
                 response.setDailyDownloadLimit(level.getDailyLimit());
                 response.setDailyDownloadCount(user.getDailyDownloadCount());
             }
+        }
+
+        if (userBalance != null) {
+            response.setBalance(userBalance.getBalance());
+            response.setTotalRecharged(userBalance.getTotalRecharged());
+            response.setTotalConsumed(userBalance.getTotalConsumed());
+        } else {
+            response.setBalance(BigDecimal.ZERO);
+            response.setTotalRecharged(BigDecimal.ZERO);
+            response.setTotalConsumed(BigDecimal.ZERO);
         }
 
         return response;

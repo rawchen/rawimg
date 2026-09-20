@@ -291,6 +291,35 @@ export function UsersPage() {
       render: (points: number) => <span>{points}</span>
     },
     {
+      title: '余额',
+      dataIndex: 'balance',
+      key: 'balance',
+      width: 100,
+      render: (balance: number) => (
+        <span style={{ color: balance > 0 ? '#52c41a' : '#999' }}>
+          ¥{Number(balance || 0).toFixed(2)}
+        </span>
+      )
+    },
+    {
+      title: '累计充值',
+      dataIndex: 'totalRecharged',
+      key: 'totalRecharged',
+      width: 110,
+      render: (totalRecharged: number) => (
+        <span style={{ color: '#1677ff' }}>¥{Number(totalRecharged || 0).toFixed(2)}</span>
+      )
+    },
+    {
+      title: '累计消费',
+      dataIndex: 'totalConsumed',
+      key: 'totalConsumed',
+      width: 110,
+      render: (totalConsumed: number) => (
+        <span style={{ color: '#ff4d4f' }}>¥{Number(totalConsumed || 0).toFixed(2)}</span>
+      )
+    },
+    {
       title: '注册时间',
       dataIndex: 'createTime',
       key: 'createTime',
@@ -387,7 +416,7 @@ export function UsersPage() {
               showQuickJumper: true,
               showTotal: (total) => `共 ${total} 条记录`
             }}
-            scroll={{ x: 1200 }}
+            scroll={{ x: 1500 }}
           />
         </Card>
 

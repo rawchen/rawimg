@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 用户余额服务实现
@@ -43,6 +47,17 @@ public class UserBalanceServiceImpl extends ServiceImpl<UserBalanceMapper, UserB
         }
 
         return balance;
+    }
+
+    @Override
+    public Map<Long, UserBalance> getByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        LambdaQueryWrapper<UserBalance> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(UserBalance::getUserId, userIds);
+        List<UserBalance> balances = list(wrapper);
+        return balances.stream().collect(Collectors.toMap(UserBalance::getUserId, b -> b));
     }
 
     @Override

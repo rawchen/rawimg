@@ -26,6 +26,9 @@ export interface SysUser {
   createTime: string;
   lastLoginTime?: string;
   status: 'NORMAL' | 'BANNED';
+  balance?: number;
+  totalRecharged?: number;
+  totalConsumed?: number;
 }
 
 export interface CurrentUser {

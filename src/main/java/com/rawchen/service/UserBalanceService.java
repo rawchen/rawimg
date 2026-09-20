@@ -5,6 +5,8 @@ import com.rawchen.dto.BalanceStatsResponse;
 import com.rawchen.entity.UserBalance;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 用户余额服务接口
@@ -18,6 +20,14 @@ public interface UserBalanceService extends IService<UserBalance> {
      * @return 余额信息
      */
     UserBalance getByUserId(Long userId);
+
+    /**
+     * 批量获取用户余额
+     *
+     * @param userIds 用户ID列表
+     * @return 用户ID到余额信息的映射
+     */
+    Map<Long, UserBalance> getByUserIds(List<Long> userIds);
 
     /**
      * 充值余额
