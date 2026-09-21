@@ -298,7 +298,7 @@ const ConsumePage: React.FC = () => {
                   domain={[0, (dataMax: number) => dataMax * 1.15]}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`¥${value.toFixed(2)}`, '']}
+                  formatter={(value: number, name: string) => [`¥${value.toFixed(2)}`, name]}
                   labelFormatter={(label) => `时间: ${label}`}
                 />
                 <Legend />
