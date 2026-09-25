@@ -30,7 +30,7 @@ import {
 } from "@/api";
 import previewImage from "@/assets/image-create/preview_image.jpg";
 import rmbCircle from "@/assets/media/rmb-circle.svg";
-import { addOssThumbnailStyle } from "@/lib/utils";
+import { addOssThumbnailStyle, removeOssProcessStyle } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import useFancybox from "@/hooks/useFancybox";
@@ -918,6 +918,7 @@ export function ImageCreatePage() {
       setUploadedOssUrls([template.imageUrl]); // 直接使用imageUrl作为OSS URL
     }
     setInspirationModalVisible(false);
+    setTemplateModalVisible(false);
   };
 
   // 确保URL有https前缀
@@ -1719,9 +1720,9 @@ export function ImageCreatePage() {
                         <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">
                           {template.title}
                         </h4>
-                        <p className="text-xs text-gray-500 line-clamp-1">
-                          {template.prompt}
-                        </p>
+                        {/*<p className="text-xs text-gray-500 line-clamp-1">*/}
+                        {/*  {template.prompt}*/}
+                        {/*</p>*/}
                       </div>
                     </div>
                   ))}
@@ -1759,11 +1760,12 @@ export function ImageCreatePage() {
             {selectedInspiration.imageUrl && (
               <div className="flex justify-center mb-4">
                 <Image
-                  src={selectedInspiration.imageUrl}
+                  src={removeOssProcessStyle(selectedInspiration.imageUrl)}
                   alt={selectedInspiration.title}
                   className="rounded-lg"
                   style={{ maxHeight: 256, objectFit: "contain" }}
                   preview={{
+                    src: removeOssProcessStyle(selectedInspiration.imageUrl),
                     mask: <div className="text-white">点击预览大图</div>,
                   }}
                 />

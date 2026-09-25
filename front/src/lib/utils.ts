@@ -29,3 +29,25 @@ export function addOssThumbnailStyle(url: string | null | undefined, style?: str
   }
   return url;
 }
+
+/**
+ * 从OSS图片URL中移除x-oss-process处理参数，返回原图URL
+ * @param url 图片URL
+ * @returns 移除OSS处理参数后的URL
+ */
+export function removeOssProcessStyle(url: string | null | undefined): string {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'cdn.rawchen.com') {
+      // 移除 x-oss-process 参数（可能在 ? 后或 & 后）
+      urlObj.searchParams.delete('x-oss-process');
+      const search = urlObj.searchParams.toString();
+      return search ? `${urlObj.origin}${urlObj.pathname}?${search}` : `${urlObj.origin}${urlObj.pathname}`;
+    }
+  } catch (e) {
+    // URL解析失败，尝试用正则处理
+    return url.replace(/[?&]x-oss-process=[^&]*/, '').replace(/\?$/, '');
+  }
+  return url;
+}
