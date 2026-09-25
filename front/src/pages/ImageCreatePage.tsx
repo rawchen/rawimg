@@ -518,7 +518,9 @@ export function ImageCreatePage() {
             const ext = file.name.split(".").pop() || "jpg";
             const fileName = `${stsToken.uploadFolder}/reference/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
             const result = await ossClient.put(fileName, file);
-            const ossUrl = `${stsToken.customDomain}/${result.name}`;
+            // customDomain 可能不含协议（如 "cdn.rawchen.com"），用 ensureHttpsUrl 兜底，
+            // 否则拼接出的相对路径会导致 Fancybox 等组件加载失败
+            const ossUrl = ensureHttpsUrl(`${stsToken.customDomain}/${result.name}`) || `${stsToken.customDomain}/${result.name}`;
 
             setUploadedOssUrls((prev) => {
               const newArr = [...prev];
