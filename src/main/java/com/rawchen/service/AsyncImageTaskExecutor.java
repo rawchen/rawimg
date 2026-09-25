@@ -2,8 +2,8 @@ package com.rawchen.service;
 
 import com.rawchen.entity.ImageTask;
 import com.rawchen.util.GptUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -14,19 +14,37 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * 异步图像任务执行器
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AsyncImageTaskExecutor {
 
     private final GptUtil gptUtil;
     private final ImageTaskService imageTaskService;
     private final OssUploadService ossUploadService;
     private final ConsumeLogService consumeLogService;
+
+    /**
+     * OSS 上传专用线程池，避免并行上传时占用业务线程池（imageTaskExecutor）。
+     */
+    private final Executor ossUploadExecutor;
+
+    public AsyncImageTaskExecutor(GptUtil gptUtil,
+                                  ImageTaskService imageTaskService,
+                                  OssUploadService ossUploadService,
+                                  ConsumeLogService consumeLogService,
+                                  @Qualifier("ossUploadExecutor") Executor ossUploadExecutor) {
+        this.gptUtil = gptUtil;
+        this.imageTaskService = imageTaskService;
+        this.ossUploadService = ossUploadService;
+        this.consumeLogService = consumeLogService;
+        this.ossUploadExecutor = ossUploadExecutor;
+    }
 
     @Value("${aliyun.oss.custom-domain}")
     private String customDomain;
@@ -426,39 +444,73 @@ public class AsyncImageTaskExecutor {
      * 将GPT返回的结果上传到OSS（指定目录）
      * GPT返回的可能是URL，也可能是Base64数据
      * 支持多张图片（逗号分隔）
+     * <p>
+     * 性能优化：多张图片时使用 ossUploadExecutor 并行上传，
+     * 避免 4 张图串行上传累计耗时 5+ 分钟的问题。
+     *
      * @param gptResult GPT返回的结果（URL或Base64）
      * @param directory OSS上传目录
      */
     private String uploadResultToOss(String gptResult, String directory) {
-        List<String> ossUrls = new ArrayList<>();
-        
         // 使用正则表达式分割，避免分割Base64数据内部的逗号
         // Base64数据格式: data:image/xxx;base64,实际数据
         // URL格式: https://xxx 或 http://xxx
         String[] results = gptResult.split(",(?=(?:data:image/|https?://))");
-        
-        for (String singleResult : results) {
-            singleResult = singleResult.trim();
-            if (singleResult.isEmpty()) {
-                continue;
+
+        // 过滤空项，保留原始下标以便生成 _0/_1/_2/_3 后缀
+        List<int[]> indexAndResult = new ArrayList<>();
+        for (int i = 0; i < results.length; i++) {
+            String r = results[i].trim();
+            if (!r.isEmpty()) {
+                indexAndResult.add(new int[]{indexAndResult.size(), i});
+                // results 数组下标 i 暂用不到，但保留原始切割位置以便调试
             }
-            
-            String fileName = directory + "/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + ossUrls.size() + ".jpeg";
-            String ossUrl;
-            
-            if (singleResult.startsWith("data:image/")) {
-                // Base64数据
-                ossUrl = ossUploadService.uploadBase64Image(singleResult, fileName);
-            } else {
-                // URL - 下载后上传到OSS
-                ossUrl = ossUploadService.uploadFromUrl(singleResult, fileName);
-            }
-            
-            ossUrls.add(ossUrl);
         }
-        
-        // 返回逗号分隔的OSS URL
+
+        // 仅有一张图：走同步路径，省去 CompletableFuture 的开销
+        if (indexAndResult.size() <= 1) {
+            List<String> single = new ArrayList<>();
+            if (!indexAndResult.isEmpty()) {
+                String singleResult = results[indexAndResult.get(0)[1]].trim();
+                String ossUrl = uploadSingleResult(singleResult, directory, 0);
+                single.add(ossUrl);
+            }
+            return String.join(",", single);
+        }
+
+        // 多张图：使用 ossUploadExecutor 并行上传
+        long uploadStart = System.currentTimeMillis();
+        List<CompletableFuture<String>> futures = new ArrayList<>(indexAndResult.size());
+        for (int k = 0; k < indexAndResult.size(); k++) {
+            final int seq = k; // 顺序下标，保证文件名 _0/_1/... 与原顺序一致
+            final String singleResult = results[indexAndResult.get(k)[1]].trim();
+            futures.add(CompletableFuture.supplyAsync(
+                    () -> uploadSingleResult(singleResult, directory, seq),
+                    ossUploadExecutor));
+        }
+
+        // 等待所有上传完成；任何一个失败则抛出
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // 按顺序取出结果
+        List<String> ossUrls = new ArrayList<>(futures.size());
+        for (CompletableFuture<String> f : futures) {
+            ossUrls.add(f.join());
+        }
+        log.info("OSS parallel upload done: count={}, cost={}ms", ossUrls.size(), System.currentTimeMillis() - uploadStart);
         return String.join(",", ossUrls);
+    }
+
+    /**
+     * 上传单张结果到OSS（Base64或URL）
+     */
+    private String uploadSingleResult(String singleResult, String directory, int seq) {
+        String fileName = directory + "/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + seq + ".jpeg";
+        if (singleResult.startsWith("data:image/")) {
+            return ossUploadService.uploadBase64Image(singleResult, fileName);
+        } else {
+            return ossUploadService.uploadFromUrl(singleResult, fileName);
+        }
     }
 
     /**

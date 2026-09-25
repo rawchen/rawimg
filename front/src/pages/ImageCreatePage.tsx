@@ -18,7 +18,6 @@ import {
   LoadingOutlined,
   ClearOutlined,
   AppstoreOutlined,
-  HolderOutlined,
 } from "@ant-design/icons";
 import {
   imageCreateApi,
@@ -769,7 +768,7 @@ export function ImageCreatePage() {
 
       // 轮询任务结果
       const pollInterval = 5000; // 5秒轮询一次
-      const maxPolls = 120; // 最多轮询120次（10分钟）
+      const maxPolls = 360; // 最多轮询360次（30分钟）
       let pollCount = 0;
 
       const poll = async () => {
@@ -1516,11 +1515,6 @@ export function ImageCreatePage() {
                       visualOrder = index + 1;
                     }
                   }
-                  // 拖拽中，序号切换为视觉位置；非拖拽时 = 真实位置
-                  const displayNo =
-                    draggedIndex !== null && !isUploading
-                      ? visualOrder + 1
-                      : index + 1;
                   return (
                     <div
                       key={index}
@@ -1530,24 +1524,28 @@ export function ImageCreatePage() {
                       draggable={!isUploading}
                       onDragStart={handleDragStart(index)}
                       onDragEnd={handleDragEnd}
+                      onClick={() => {
+                        // 点击预览大图（Fancybox 灯箱）
+                        // 优先使用 OSS 大图 URL，否则回退本地预览 URL
+                        const srcUrl = uploadedOssUrls[index] || img;
+                        Fancybox.show([
+                          { src: srcUrl, type: "image" as const },
+                        ]);
+                      }}
                       style={{ order: visualOrder }}
-                      className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 select-none cursor-grab hover:border-orange-300 ${
+                      className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 select-none cursor-pointer hover:border-orange-300 ${
                         isDragging
-                          ? "opacity-40 border-orange-400 cursor-grabbing"
+                          ? "opacity-40 border-orange-400"
                           : "border-gray-200"
                       }`}
-                      title="按住拖动可调整顺序"
+                      title="点击查看大图"
                     >
                       <img
                         src={img}
-                        alt={`参考图${displayNo}`}
+                        alt={`参考图 ${index + 1}`}
                         draggable={false}
                         className="w-full h-full object-cover pointer-events-none"
                       />
-                      {/* 序号标记（图1、图2...）跟随视觉位置 */}
-                      <div className="absolute top-1 left-1 px-1.5 h-5 bg-orange-500 text-white text-xs rounded flex items-center justify-center font-medium z-10">
-                        {displayNo}
-                      </div>
                       {/* 上传中提示 */}
                       {isUploading && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -1567,12 +1565,6 @@ export function ImageCreatePage() {
                         >
                           <CloseOutlined className="text-xs" />
                         </button>
-                      )}
-                      {/* 拖拽手柄提示（hover 显示） */}
-                      {!isUploading && (
-                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-black/40 rounded flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity z-10">
-                          <HolderOutlined className="text-xs" />
-                        </div>
                       )}
                     </div>
                   );

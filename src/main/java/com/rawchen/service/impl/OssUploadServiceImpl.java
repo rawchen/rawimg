@@ -1,10 +1,12 @@
 package com.rawchen.service.impl;
 
+import com.aliyun.oss.ClientBuilderConfiguration;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.rawchen.config.OssConfig;
 import com.rawchen.service.OssUploadService;
+import javax.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,9 +18,14 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * OSS后端上传服务实现
+ * <p>
+ * 性能优化：
+ * 1. OSSClient 单例化（懒加载 + 线程安全），避免每次上传都新建/销毁 client。
+ * 2. 复用连接池，减少 TCP/TLS 握手开销。
  */
 @Slf4j
 @Service
@@ -26,6 +33,64 @@ import java.util.Random;
 public class OssUploadServiceImpl implements OssUploadService {
 
     private final OssConfig ossConfig;
+
+    /**
+     * OSSClient 单例（懒加载，线程安全）。
+     * 使用 AtomicReference + compareAndSet 实现无锁双重检查，避免 synchronized 带来的并发争用。
+     */
+    private final AtomicReference<OSS> ossClientRef = new AtomicReference<>();
+
+    /**
+     * 获取 OSSClient 单例。第一次调用时懒加载。
+     */
+    private OSS getOssClient() {
+        OSS client = ossClientRef.get();
+        if (client != null) {
+            return client;
+        }
+        OSS newClient = createOssClient();
+        if (ossClientRef.compareAndSet(null, newClient)) {
+            log.info("OSSClient initialized: endpoint={}, bucket={}", ossConfig.getEndpoint(), ossConfig.getBucketName());
+            return newClient;
+        }
+        // 并发场景下另一个线程已经初始化好了，关闭新建的实例并复用已有实例
+        newClient.shutdown();
+        return ossClientRef.get();
+    }
+
+    /**
+     * 创建 OSSClient 实例，统一配置连接池与超时。
+     */
+    private OSS createOssClient() {
+        ClientBuilderConfiguration cfg = new ClientBuilderConfiguration();
+        // 长连接空闲超时（毫秒），默认 60s
+        cfg.setIdleConnectionTime(60000);
+        // 连接超时（毫秒）
+        cfg.setConnectionTimeout(10000);
+        // Socket 超时（毫秒）
+        cfg.setSocketTimeout(30000);
+        // 重试次数
+        cfg.setMaxErrorRetry(3);
+        return new OSSClientBuilder().build(
+                ossConfig.getEndpoint(),
+                ossConfig.getAccessKeyId(),
+                ossConfig.getAccessKeySecret(),
+                cfg
+        );
+    }
+
+    @PreDestroy
+    public void destroy() {
+        OSS client = ossClientRef.getAndSet(null);
+        if (client != null) {
+            try {
+                client.shutdown();
+                log.info("OSSClient shutdown");
+            } catch (Exception e) {
+                log.warn("OSSClient shutdown error: {}", e.getMessage());
+            }
+        }
+    }
 
     @Override
     public String uploadBase64Image(String base64Data, String fileName) {
@@ -194,26 +259,18 @@ public class OssUploadServiceImpl implements OssUploadService {
     }
 
     /**
-     * 上传到OSS
+     * 上传到OSS（复用单例 client）
      */
     private void uploadToOss(InputStream inputStream, String objectKey, String contentType, long contentLength) {
-        OSS ossClient = new OSSClientBuilder().build(
-                ossConfig.getEndpoint(),
-                ossConfig.getAccessKeyId(),
-                ossConfig.getAccessKeySecret()
-        );
-
-        try {
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(contentType);
-            if (contentLength > 0) {
-                metadata.setContentLength(contentLength);
-            }
-            ossClient.putObject(ossConfig.getBucketName(), objectKey, inputStream, metadata);
-            log.info("Uploaded to OSS: {}", objectKey);
-        } finally {
-            ossClient.shutdown();
+        OSS ossClient = getOssClient();
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(contentType);
+        if (contentLength > 0) {
+            metadata.setContentLength(contentLength);
         }
+        // 单例 client 复用，不再调用 shutdown
+        ossClient.putObject(ossConfig.getBucketName(), objectKey, inputStream, metadata);
+        log.info("Uploaded to OSS: {}", objectKey);
     }
 
     /**

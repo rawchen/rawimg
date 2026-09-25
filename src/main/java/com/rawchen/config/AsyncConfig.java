@@ -43,4 +43,34 @@ public class AsyncConfig {
         log.info("Image task executor initialized");
         return executor;
     }
+
+    /**
+     * OSS 上传专用线程池
+     * <p>
+     * 用于把多张图片并行上传到 OSS，避免占用 imageTaskExecutor 的业务线程。
+     * 核心/最大线程数按"一次最多 8 张图并行"配置，可根据并发任务量调整。
+     */
+    @Bean("ossUploadExecutor")
+    public Executor ossUploadExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        // 核心线程数（常驻）
+        executor.setCorePoolSize(4);
+        // 最大线程数（峰值并发上传能力）
+        executor.setMaxPoolSize(8);
+        // 队列容量（待上传任务排队）
+        executor.setQueueCapacity(200);
+        // 线程名前缀
+        executor.setThreadNamePrefix("oss-upload-");
+        // 拒绝策略：交给调用线程执行，避免任务丢失
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // 线程空闲时间（秒）
+        executor.setKeepAliveSeconds(60);
+        // 等待任务完成后再关闭线程池
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        // 等待时间
+        executor.setAwaitTerminationSeconds(120);
+        executor.initialize();
+        log.info("OSS upload executor initialized");
+        return executor;
+    }
 }
