@@ -18,6 +18,7 @@ import {
   LoadingOutlined,
   ClearOutlined,
   AppstoreOutlined,
+  HolderOutlined,
 } from "@ant-design/icons";
 import {
   imageCreateApi,
@@ -169,6 +170,32 @@ const getActualSize = (baseSize: string, resolution: string) => {
   }
 };
 
+// 反推实际尺寸对应的 base size 和 resolution（与 getActualSize 映射保持一致）
+const reverseActualSize = (
+  actualSize: string,
+): { baseSize: string; resolution: string } => {
+  const reverseMap: Record<string, { baseSize: string; resolution: string }> = {
+    "1024x1024": { baseSize: "1024x1024", resolution: "1K" },
+    "1536x1024": { baseSize: "1536x1024", resolution: "1K" },
+    "1024x1536": { baseSize: "1024x1536", resolution: "1K" },
+    "1920x1080": { baseSize: "1920x1080", resolution: "1K" },
+    "1080x1920": { baseSize: "1080x1920", resolution: "1K" },
+    "2560x1440": { baseSize: "1920x1080", resolution: "2K" },
+    "1440x2560": { baseSize: "1080x1920", resolution: "2K" },
+    "3840x2160": { baseSize: "1920x1080", resolution: "4K" },
+    "2160x3840": { baseSize: "1080x1920", resolution: "4K" },
+  };
+  return reverseMap[actualSize] || { baseSize: "1920x1080", resolution: "1K" };
+};
+
+// 模型代码转显示名
+const getModelDisplayName = (model: string | null | undefined): string => {
+  if (!model) return "-";
+  const m = model.toLowerCase();
+  if (m.includes("gemini")) return "Nano";
+  return "GPT";
+};
+
 // 根据模型和分辨率获取实际使用的模型代码
 const getEffectiveModelCode = (model: string, resolution: string): string => {
   // gpt-image-2 根据分辨率返回不同价格模型（实际模型名不变，仅用于价格查询）
@@ -216,6 +243,8 @@ export function ImageCreatePage() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]); // 本地预览图
   const [uploadedOssUrls, setUploadedOssUrls] = useState<string[]>([]); // OSS URL
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null); // 正在上传的图片索引
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null); // 正在拖拽的图片索引
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null); // 拖拽悬停的目标索引
   const [selectedSize, setSelectedSize] = useState("1920x1080");
   const [selectedResolution, setSelectedResolution] = useState("1K"); // 分辨率选择
   const [selectedModel, setSelectedModel] = useState("gpt-image-2"); // 模型选择
@@ -414,10 +443,22 @@ export function ImageCreatePage() {
       }
 
       const fileArray = Array.from(files);
-      if (uploadedImages.length + fileArray.length > 5) {
+      // 锁定基准长度，确保按用户选择的顺序展示（避免 FileReader 异步回调导致顺序错乱）
+      const baseLength = uploadedImages.length;
+      if (baseLength + fileArray.length > 5) {
         message.warning("最多上传5张图片");
         return;
       }
+
+      // 预填充空位，确保后续可以按确定下标写入，避免异步竞态
+      setUploadedImages((prev) => [
+        ...prev,
+        ...new Array(fileArray.length).fill(""),
+      ]);
+      setUploadedOssUrls((prev) => [
+        ...prev,
+        ...new Array(fileArray.length).fill(""),
+      ]);
 
       // 获取STS Token
       let stsToken;
@@ -425,6 +466,9 @@ export function ImageCreatePage() {
         stsToken = await ossApi.getStsToken();
       } catch (error) {
         message.error("获取上传凭证失败");
+        // 清理预填充的空位
+        setUploadedImages((prev) => prev.slice(0, baseLength));
+        setUploadedOssUrls((prev) => prev.slice(0, baseLength));
         return;
       }
 
@@ -442,20 +486,33 @@ export function ImageCreatePage() {
       // 逐个上传文件
       for (let i = 0; i < fileArray.length; i++) {
         const file = fileArray[i];
-        const currentIndex = uploadedImages.length + i;
+        // 按进入函数时的基准长度 + 当前循环下标，写入到固定位置，保持选择顺序
+        const targetIndex = baseLength + i;
 
         if (!file.type.startsWith("image/")) {
           message.error(`${file.name} 不是图片文件`);
+          // 清理该空位
+          setUploadedImages((prev) =>
+            prev.filter((_, idx) => idx !== targetIndex),
+          );
+          setUploadedOssUrls((prev) =>
+            prev.filter((_, idx) => idx !== targetIndex),
+          );
           continue;
         }
 
-        setUploadingIndex(currentIndex);
+        setUploadingIndex(targetIndex);
 
         // 本地预览
         const reader = new FileReader();
         reader.onload = async (e) => {
           const localUrl = e.target?.result as string;
-          setUploadedImages((prev) => [...prev, localUrl]);
+          // 按固定下标写入，保证多文件并发上传时顺序与选择时一致
+          setUploadedImages((prev) => {
+            const newArr = [...prev];
+            newArr[targetIndex] = localUrl;
+            return newArr;
+          });
 
           // 上传到OSS
           try {
@@ -464,25 +521,178 @@ export function ImageCreatePage() {
             const result = await ossClient.put(fileName, file);
             const ossUrl = `${stsToken.customDomain}/${result.name}`;
 
-            setUploadedOssUrls((prev) => [...prev, ossUrl]);
+            setUploadedOssUrls((prev) => {
+              const newArr = [...prev];
+              newArr[targetIndex] = ossUrl;
+              return newArr;
+            });
           } catch (error) {
             message.error(`${file.name} 上传失败`);
-            // 移除失败的预览图
-            setUploadedImages((prev) => prev.slice(0, -1));
+            // 移除失败的预览图与占位
+            setUploadedImages((prev) =>
+              prev.filter((_, idx) => idx !== targetIndex),
+            );
+            setUploadedOssUrls((prev) =>
+              prev.filter((_, idx) => idx !== targetIndex),
+            );
           } finally {
-            setUploadingIndex(null);
+            // 仅在最后一项完成时清空 uploadingIndex
+            if (targetIndex === baseLength + fileArray.length - 1) {
+              setUploadingIndex(null);
+            }
           }
         };
         reader.readAsDataURL(file);
       }
     },
-    [uploadedImages.length],
+    [uploadedImages.length, isAuthenticated],
   );
 
   // 移除图片
   const handleRemoveImage = (index: number) => {
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
     setUploadedOssUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 拖拽换位相关 ref（用于节流，避免 dragOver 高频触发导致闪烁）
+  const dragOverTimeoutRef = useRef<number | null>(null);
+  const pendingDragOverIndexRef = useRef<number | null>(null);
+  // 参考图列表容器 ref，用于基于鼠标坐标判断目标 index
+  const uploadedImagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // 拖拽换位 - drag start
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    if (uploadingIndex === index) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    // 必须设置 data 才能在某些浏览器(Firefox)正常触发 drop
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  // 容器层 drag over（基于鼠标 X 坐标找最近图片卡，避免子元素边界抖动闪烁）
+  // 设计要点：
+  // 1. 只在外层 flex 容器监听 dragOver，子元素不监听——避免鼠标在两个子元素之间
+  //    抖动时 dragOverIndex 频繁切换。
+  // 2. 用鼠标 clientX 找最近的卡片中心作为目标 index——抖动只要不跨越卡片中心，
+  //    目标 index 就稳定。
+  // 3. 80ms 节流——避免高频触发 React 重渲染。
+  // 4. 添加按钮区域（外层容器中非图片卡的部分）不更新 dragOverIndex，
+  //    防止"原位 ↔ 换位"闪烁。
+  const handleContainerDragOver = (e: React.DragEvent) => {
+    if (draggedIndex === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    const container = uploadedImagesContainerRef.current;
+    if (!container) return;
+
+    // 找出容器内所有参考图卡片
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-ref-image-card]"),
+    );
+    if (cards.length === 0) return;
+
+    // 用鼠标 clientX 找最近的卡片（基于视觉位置 visualOrder 而非真实 data-index）
+    let nearestVisualOrder = -1;
+    let nearestDist = Infinity;
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cardCenterX = rect.left + rect.width / 2;
+      const dist = Math.abs(e.clientX - cardCenterX);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestVisualOrder = Number(card.dataset.visualOrder ?? -1);
+      }
+    });
+
+    if (nearestVisualOrder < 0) return;
+    // 与拖拽元素自身的视觉位置相同时跳过（避免自己 trigger 自己）
+    if (nearestVisualOrder === draggedIndex) return;
+
+    // 节流更新到 state（dragOverIndex 是视觉位置，对应 visualOrder 计算）
+    pendingDragOverIndexRef.current = nearestVisualOrder;
+    if (dragOverTimeoutRef.current !== null) return;
+    dragOverTimeoutRef.current = window.setTimeout(() => {
+      if (pendingDragOverIndexRef.current !== null) {
+        setDragOverIndex(pendingDragOverIndexRef.current);
+      }
+      dragOverTimeoutRef.current = null;
+    }, 80);
+  };
+
+  // 容器层 drop（基于鼠标 X 坐标找最近卡片的视觉位置作为目标索引）
+  // 关键设计：用视觉位置 (visualOrder) 作为目标索引，而非真实 data-index。
+  // 原因：拖拽中 visualOrder 让被拖拽元素显示在目标位置，
+  //       用户在视觉上"目标位置"释放鼠标时，data-index 找到的会是拖拽元素自身（fromIndex），
+  //       导致 nearestIndex === fromIndex 直接 return，看起来"位置没变动"。
+  //       用视觉位置可以正确反映用户意图："拖到视觉位置 X = drop 后数组索引 X"。
+  const handleContainerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const fromIndex = draggedIndex;
+    if (fromIndex === null) return;
+
+    // 清理节流
+    if (dragOverTimeoutRef.current !== null) {
+      window.clearTimeout(dragOverTimeoutRef.current);
+      dragOverTimeoutRef.current = null;
+    }
+    pendingDragOverIndexRef.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    const container = uploadedImagesContainerRef.current;
+    if (!container) return;
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-ref-image-card]"),
+    );
+    if (cards.length === 0) return;
+
+    let nearestVisualOrder = -1;
+    let nearestDist = Infinity;
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cardCenterX = rect.left + rect.width / 2;
+      const dist = Math.abs(e.clientX - cardCenterX);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestVisualOrder = Number(card.dataset.visualOrder ?? -1);
+      }
+    });
+
+    if (nearestVisualOrder < 0) return;
+    // nearestVisualOrder 等于拖拽元素自身的视觉位置 = 拖回原位置 = noop
+    // 拖拽开始时 visualOrder = 真实 index（未拖拽时 visualOrder 等于 index）
+    if (nearestVisualOrder === fromIndex) return;
+
+    // 同步重排 uploadedImages 与 uploadedOssUrls
+    setUploadedImages((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length) return prev;
+      const filtered = prev.filter((_, idx) => idx !== fromIndex);
+      const item = prev[fromIndex];
+      filtered.splice(nearestVisualOrder, 0, item);
+      return filtered;
+    });
+    setUploadedOssUrls((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length) return prev;
+      const filtered = prev.filter((_, idx) => idx !== fromIndex);
+      const item = prev[fromIndex];
+      filtered.splice(nearestVisualOrder, 0, item);
+      return filtered;
+    });
+  };
+
+  // 拖拽换位 - drag end（兜底清理）
+  const handleDragEnd = () => {
+    if (dragOverTimeoutRef.current !== null) {
+      window.clearTimeout(dragOverTimeoutRef.current);
+      dragOverTimeoutRef.current = null;
+    }
+    pendingDragOverIndexRef.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   // 提交创作
@@ -808,6 +1018,46 @@ export function ImageCreatePage() {
     }
     setPrompt(record.prompt);
     setCreatedImage(ensureHttpsUrl(record.resultImageUrl) || null);
+
+    // 反推并应用尺寸 + 分辨率（从历史实际尺寸还原为 baseSize + resolution）
+    if (record.size) {
+      const { baseSize, resolution } = reverseActualSize(record.size);
+      setSelectedSize(baseSize);
+      setSelectedResolution(resolution);
+    }
+
+    // 应用模型（去除 2K/4K 后缀，只取基础模型代码）
+    if (record.model) {
+      const m = record.model.toLowerCase();
+      if (m.includes("gemini")) {
+        setSelectedModel("gemini-2.5-flash-image");
+      } else {
+        setSelectedModel("gpt-image-2");
+      }
+    }
+
+    // 解析参考图URL并应用为参考图实例
+    let refUrls: string[] = [];
+    if (record.referenceImageUrls) {
+      try {
+        const parsed = JSON.parse(record.referenceImageUrls);
+        if (Array.isArray(parsed)) {
+          refUrls = parsed.filter((url) => typeof url === "string" && url.trim());
+        }
+      } catch {
+        refUrls = [];
+      }
+    }
+
+    // 将参考图URL转换为HTTPS，并限制最多5张
+    const httpsRefUrls = refUrls
+      .map((url) => ensureHttpsUrl(url))
+      .filter((url): url is string => !!url)
+      .slice(0, 5);
+
+    setUploadedImages(httpsRefUrls);
+    setUploadedOssUrls(httpsRefUrls);
+
     setHistoryDetailModalVisible(false);
     setHistoryModalVisible(false);
   };
@@ -1230,37 +1480,108 @@ export function ImageCreatePage() {
                 帮助模型理解你想要的风格和构图
               </p>
 
-              <div className="flex flex-wrap gap-3">
-                {uploadedImages.map((img, index) => (
-                  <div
-                    key={index}
-                    className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
-                  >
-                    <img
-                      src={img}
-                      alt={`参考图${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    {/* 上传中提示 */}
-                    {uploadingIndex === index && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <LoadingOutlined className="text-white text-lg" />
+              <div
+                ref={uploadedImagesContainerRef}
+                className="flex flex-wrap gap-3"
+                onDragOver={handleContainerDragOver}
+                onDrop={handleContainerDrop}
+              >
+                {uploadedImages.map((img, index) => {
+                  // 过滤掉预填充的空位（极短时间内出现）
+                  if (!img) return null;
+                  const isUploading = uploadingIndex === index;
+                  const isDragging = draggedIndex === index;
+                  // 计算视觉位置：使用 flex order 让目标位置立即变成即将换位的图
+                  // 序号也跟着视觉位置走（visualOrder + 1），即"立即见效"
+                  let visualOrder = index;
+                  if (
+                    draggedIndex !== null &&
+                    dragOverIndex !== null &&
+                    draggedIndex !== dragOverIndex
+                  ) {
+                    if (index === draggedIndex) {
+                      visualOrder = dragOverIndex;
+                    } else if (
+                      draggedIndex < dragOverIndex &&
+                      index > draggedIndex &&
+                      index <= dragOverIndex
+                    ) {
+                      visualOrder = index - 1;
+                    } else if (
+                      draggedIndex > dragOverIndex &&
+                      index >= dragOverIndex &&
+                      index < draggedIndex
+                    ) {
+                      visualOrder = index + 1;
+                    }
+                  }
+                  // 拖拽中，序号切换为视觉位置；非拖拽时 = 真实位置
+                  const displayNo =
+                    draggedIndex !== null && !isUploading
+                      ? visualOrder + 1
+                      : index + 1;
+                  return (
+                    <div
+                      key={index}
+                      data-ref-image-card="true"
+                      data-index={index}
+                      data-visual-order={visualOrder}
+                      draggable={!isUploading}
+                      onDragStart={handleDragStart(index)}
+                      onDragEnd={handleDragEnd}
+                      style={{ order: visualOrder }}
+                      className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 select-none cursor-grab hover:border-orange-300 ${
+                        isDragging
+                          ? "opacity-40 border-orange-400 cursor-grabbing"
+                          : "border-gray-200"
+                      }`}
+                      title="按住拖动可调整顺序"
+                    >
+                      <img
+                        src={img}
+                        alt={`参考图${displayNo}`}
+                        draggable={false}
+                        className="w-full h-full object-cover pointer-events-none"
+                      />
+                      {/* 序号标记（图1、图2...）跟随视觉位置 */}
+                      <div className="absolute top-1 left-1 px-1.5 h-5 bg-orange-500 text-white text-xs rounded flex items-center justify-center font-medium z-10">
+                        {displayNo}
                       </div>
-                    )}
-                    {/* 删除按钮（上传完成后显示） */}
-                    {uploadingIndex !== index && (
-                      <button
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
-                      >
-                        <CloseOutlined className="text-xs" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      {/* 上传中提示 */}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <LoadingOutlined className="text-white text-lg" />
+                        </div>
+                      )}
+                      {/* 删除按钮（上传完成后显示） */}
+                      {!isUploading && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveImage(index);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 z-10"
+                          title="删除"
+                        >
+                          <CloseOutlined className="text-xs" />
+                        </button>
+                      )}
+                      {/* 拖拽手柄提示（hover 显示） */}
+                      {!isUploading && (
+                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-black/40 rounded flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity z-10">
+                          <HolderOutlined className="text-xs" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {uploadedImages.length < 5 && uploadingIndex === null && (
-                  <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-orange-400 transition-colors">
+                  <label
+                    style={{ order: 999 }}
+                    className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-orange-400 transition-colors"
+                  >
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1764,22 +2085,87 @@ export function ImageCreatePage() {
                   }
                 })()}
                 {/* 参考图 */}
-                {selectedHistory.referenceImageUrls && (
-                  <div className="absolute bottom-4 right-4 w-24 h-24 rounded-lg border-2 border-white shadow-lg overflow-hidden">
-                    <Image
-                      src={
-                        ensureHttpsUrl(
-                          JSON.parse(selectedHistory.referenceImageUrls)[0],
-                        ) || ""
-                      }
-                      alt="参考图"
-                      className="w-full h-full object-cover"
-                      preview={{
-                        mask: <div className="text-white text-xs">预览</div>,
-                      }}
-                    />
-                  </div>
-                )}
+                {selectedHistory.referenceImageUrls &&
+                  (() => {
+                    let refUrls: string[] = [];
+                    try {
+                      refUrls = JSON.parse(selectedHistory.referenceImageUrls);
+                    } catch {
+                      refUrls = [];
+                    }
+                    if (!refUrls || refUrls.length === 0) return null;
+                    const hasMultiple = refUrls.length > 1;
+                    const displayUrls = refUrls.slice(
+                      0,
+                      Math.min(refUrls.length, 4),
+                    );
+                    return (
+                      <div
+                        className={`absolute bottom-4 right-4 w-24 h-24 z-50 ${
+                          hasMultiple ? "overflow-visible" : "overflow-hidden"
+                        }`}
+                      >
+                        {displayUrls.map((url, index) => (
+                          <div
+                            key={index}
+                            className={`absolute rounded-lg border-2 border-white shadow-lg overflow-hidden transition-transform hover:scale-105 cursor-pointer ${
+                              hasMultiple ? "" : "w-full h-full"
+                            }`}
+                            style={
+                              hasMultiple
+                                ? {
+                                    width: "75%",
+                                    height: "75%",
+                                    left: `${index * 8}%`,
+                                    top: `${index * 8}%`,
+                                    zIndex: displayUrls.length - index,
+                                  }
+                                : undefined
+                            }
+                            onClick={() => {
+                              Fancybox.show(
+                                refUrls.map((imgUrl) => ({
+                                  src: ensureHttpsUrl(imgUrl) || "",
+                                  type: "image" as const,
+                                })),
+                                {
+                                  startIndex: refUrls.indexOf(url),
+                                  Carousel: {
+                                    Thumbs: {
+                                      type: 'classic' as const,
+                                      Carousel: {
+                                        vertical: true,
+                                        center: (ref: any) => {
+                                          return (
+                                            ref.getTotalSlideDim() >
+                                            ref.getViewportDim()
+                                          );
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              );
+                            }}
+                          >
+                            <img
+                              src={
+                                addOssThumbnailStyle(ensureHttpsUrl(url)) || ""
+                              }
+                              alt={`参考图 ${index + 1}`}
+                              className="w-full h-full"
+                              style={{ objectFit: "cover" }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <div className="text-white opacity-0 hover:opacity-100 transition-opacity text-xs">
+                                预览
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
               </div>
             )}
 
@@ -1806,6 +2192,7 @@ export function ImageCreatePage() {
                 <span>耗时: {formatDuration(selectedHistory.duration)}</span>
               )}
               <span>时间: {formatDate(selectedHistory.createTime)}</span>
+              <span>模型: {getModelDisplayName(selectedHistory.model)}</span>
             </div>
 
             {/* 使用按钮 */}
