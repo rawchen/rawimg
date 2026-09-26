@@ -474,6 +474,7 @@ export function ImageCreatePage() {
       // 动态加载 ali-oss
       const OSS = (await import("ali-oss")).default;
 
+      // 上传 client：使用 OSS 标准 endpoint 直接上传（不走 customDomain，避免上传失败）
       const ossClient = new OSS({
         region: stsToken.region,
         accessKeyId: stsToken.accessKeyId,
@@ -481,6 +482,16 @@ export function ImageCreatePage() {
         stsToken: stsToken.securityToken,
         bucket: stsToken.bucketName,
       });
+
+      // 从 customDomain 中提取 CDN 域名（路径最后一段），用于拼接干净的预览 URL。
+      //   "cdn.rawchen.com"                           → "cdn.rawchen.com"
+      //   "https://cdn.rawchen.com"                   → "cdn.rawchen.com"
+      //   "https://img.rawchen.com/cdn.rawchen.com"   → "cdn.rawchen.com"
+      const rawCustomDomain = stsToken.customDomain || "";
+      const cdnDomain = rawCustomDomain
+        .replace(/^https?:\/\//, "")
+        .split("/")
+        .pop() || "";
 
       // 逐个上传文件
       for (let i = 0; i < fileArray.length; i++) {
@@ -518,9 +529,9 @@ export function ImageCreatePage() {
             const ext = file.name.split(".").pop() || "jpg";
             const fileName = `${stsToken.uploadFolder}/reference/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
             const result = await ossClient.put(fileName, file);
-            // customDomain 可能不含协议（如 "cdn.rawchen.com"），用 ensureHttpsUrl 兜底，
-            // 否则拼接出的相对路径会导致 Fancybox 等组件加载失败
-            const ossUrl = ensureHttpsUrl(`${stsToken.customDomain}/${result.name}`) || `${stsToken.customDomain}/${result.name}`;
+
+            // 生成干净的预览 URL（bucket 公开可读，无需签名）
+            const ossUrl = `https://${cdnDomain}/${result.name}`;
 
             setUploadedOssUrls((prev) => {
               const newArr = [...prev];
