@@ -637,6 +637,8 @@ public class GptUtil {
                 requestBody.put("size", size);
             }
             requestBody.put("output_format", "jpeg");
+            // 要求返回 base64，避免走 uploadFromUrl (HttpURLConnection 跨网下载慢)
+            requestBody.put("response_format", "b64_json");
 
             HttpResponse response = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
