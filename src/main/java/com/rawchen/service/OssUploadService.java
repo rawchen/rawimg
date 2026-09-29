@@ -52,4 +52,16 @@ public interface OssUploadService {
      * @return OSS完整URL
      */
     String uploadFromUrlWithFolder(String imageUrl, String folder);
+
+    /**
+     * 基于完整 URL 生成一个 OSS 临时签名 URL（带过期时间），供第三方服务拉取图片。
+     * <p>
+     * 用法场景：调用方拿到的是 OSS 公开访问 URL，但 bucket 是私有的，
+     * 需要给出一个临时可访问的 URL 给外部系统（比如 GPT 中转站）下载图片。
+     *
+     * @param fullUrl        完整的访问 URL（customDomain + objectKey 形式）
+     * @param expireSeconds  过期秒数，建议 300~600 秒
+     * @return 带签名的完整 URL
+     */
+    String generatePresignedUrl(String fullUrl, int expireSeconds);
 }

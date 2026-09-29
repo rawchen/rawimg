@@ -55,10 +55,14 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeCreateTask(String taskId, String prompt, String size, String model, Integer n) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async create task {} started with model {}, n={}", taskId, model, n);
             String result = gptUtil.generateImage(prompt, size, model, n);
+            timer.step("call gpt.generateImage (includes network RTT + upstream)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -79,25 +83,29 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeEditTaskWithUrls(String taskId, List<String> referenceUrls, String prompt, String size, String model, Integer n) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async edit task {} started with {} URLs, model {}, n={}", taskId, referenceUrls.size(), model, n);
 
-            // 从URL下载图片到内存
-            List<MultipartFile> files = new ArrayList<>();
+            // 中转站 /v1/images/edits 的 image 字段不接受 URL（multipart form 解析会 500），
+            // 必须传文件二进制。因此把参考图下载到内存再作为 MultipartFile 上传。
+            List<MultipartFile> files = new ArrayList<>(referenceUrls.size());
+            int totalSize = 0;
             for (int i = 0; i < referenceUrls.size(); i++) {
                 String url = referenceUrls.get(i);
-                try {
-                    byte[] imageData = downloadImageFromUrl(url);
-                    String fileName = "reference_" + i + ".jpg";
-                    files.add(new MemoryMultipartFile(imageData, fileName));
-                } catch (Exception e) {
-                    log.error("Failed to download image from {}: {}", url, e.getMessage());
-                    throw new RuntimeException("下载参考图失败: " + e.getMessage());
-                }
+                byte[] data = downloadImageFromUrl(url);
+                String name = "ref_" + i + guessExtension(url);
+                files.add(new MemoryMultipartFile(data, name));
+                totalSize += data.length;
             }
+            timer.step("download " + files.size() + " reference images (total=" + totalSize + "B)");
 
             String result = gptUtil.editImage(files, prompt, size, model, n);
+            timer.step("call gpt.editImage (upload refs + upstream + return)");
+
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -107,6 +115,20 @@ public class AsyncImageTaskExecutor {
             imageTaskService.updateError(taskId, e.getMessage(), duration);
             consumeLogService.updateFailed(taskId, e.getMessage());
         }
+    }
+
+    /**
+     * 从 URL 推断文件扩展名（含扩展名则返回 ".xxx"，否则返回 ".jpg"）。
+     */
+    private String guessExtension(String url) {
+        if (url == null) return ".jpg";
+        int qIdx = url.indexOf('?');
+        String path = qIdx >= 0 ? url.substring(0, qIdx) : url;
+        int dotIdx = path.lastIndexOf('.');
+        if (dotIdx > 0 && dotIdx > path.lastIndexOf('/') && dotIdx < path.length() - 1) {
+            return path.substring(dotIdx);
+        }
+        return ".jpg";
     }
 
     /**
@@ -146,15 +168,20 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeEnhanceTaskWithUrl(String taskId, String referenceUrl, String prompt) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async enhance task {} started", taskId);
 
             // 从URL下载图片到内存
             byte[] imageData = downloadImageFromUrl(referenceUrl);
+            timer.step("download reference (size=" + imageData.length + "B)");
             MultipartFile file = new MemoryMultipartFile(imageData, "reference.jpg");
 
             String result = gptUtil.enhanceImage(file, prompt);
+            timer.step("call gpt.enhanceImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -176,16 +203,21 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeMattingTask(String taskId, String originalImageUrl, String prompt, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async matting task {} started with model {}", taskId, model);
 
             // 从URL下载图片到内存
             byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            timer.step("download reference (size=" + imageData.length + "B)");
             MultipartFile file = new MemoryMultipartFile(imageData, "matting_original.png");
 
             // 调用GPT抠图API
             String result = gptUtil.mattingImage(file, prompt, model);
+            timer.step("call gpt.mattingImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -208,16 +240,21 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeRestoreTask(String taskId, String originalImageUrl, String prompt, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async restore task {} started with model {}", taskId, model);
 
             // 从URL下载图片到内存
             byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            timer.step("download reference (size=" + imageData.length + "B)");
             MultipartFile file = new MemoryMultipartFile(imageData, "restore_original.jpg");
 
             // 调用GPT修复API（使用mattingImage方法，因为它支持图片编辑）
             String result = gptUtil.restoreImage(file, prompt, model);
+            timer.step("call gpt.restoreImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -241,12 +278,16 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeExpandTask(String taskId, String originalImageUrl, String maskImageUrl, String size, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async expand task {} started with model {}", taskId, model);
 
             // 调用GPT扩展API，maskUrl直接传递URL（API支持）
             String result = gptUtil.expandImage(originalImageUrl, maskImageUrl, size, model);
+            timer.step("call gpt.expandImage (download ref via gpt + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -270,12 +311,16 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeEditInpaintTask(String taskId, String originalImageUrl, String maskImageUrl, String prompt, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async edit inpaint task {} started with model {}", taskId, model);
 
             // 调用GPT局部改图API
             String result = gptUtil.inpaintImage(originalImageUrl, maskImageUrl, prompt, model);
+            timer.step("call gpt.inpaintImage (download ref via gpt + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -298,11 +343,13 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeBeautyTask(String taskId, String originalImageUrl, String prompt, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async beauty task {} started with model {}", taskId, model);
 
             // 从URL下载图片到内存
             byte[] imageData = downloadImageFromUrl(originalImageUrl);
+            timer.step("download reference (size=" + imageData.length + "B)");
             MultipartFile file = new MemoryMultipartFile(imageData, "beauty_original.jpg");
 
             // 添加美颜前缀提示词
@@ -310,7 +357,10 @@ public class AsyncImageTaskExecutor {
 
             // 调用GPT美颜API（复用mattingImage方法，因为参数结构相同）
             String result = gptUtil.mattingImage(file, fullPrompt, model);
+            timer.step("call gpt.mattingImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -335,39 +385,31 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeClothesTask(String taskId, String personImageUrl, List<String> clothesImageUrls, String prompt, String size, String model) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async clothes task {} started with {} clothes images, model {}", taskId, clothesImageUrls.size(), model);
 
-            // 下载人物图片
-            byte[] personImageData = downloadImageFromUrl(personImageUrl);
-            MultipartFile personFile = new MemoryMultipartFile(personImageData, "person.jpg");
-
-            // 下载衣服图片
-            List<MultipartFile> clothesFiles = new ArrayList<>();
-            for (int i = 0; i < clothesImageUrls.size(); i++) {
-                String clothesUrl = clothesImageUrls.get(i);
-                try {
-                    byte[] clothesData = downloadImageFromUrl(clothesUrl);
-                    clothesFiles.add(new MemoryMultipartFile(clothesData, "clothes_" + i + ".jpg"));
-                } catch (Exception e) {
-                    log.error("Failed to download clothes image from {}: {}", clothesUrl, e.getMessage());
-                    throw new RuntimeException("下载服装图片失败: " + e.getMessage());
-                }
+            // 把 OSS URL 换成带签名的临时 URL（10 分钟过期），让中转站自己下载。
+            // 人物图 + 服装图合成一个列表传给中转站。
+            List<String> allSignedUrls = new ArrayList<>();
+            allSignedUrls.add(ossUploadService.generatePresignedUrl(personImageUrl, 600));
+            for (String clothesUrl : clothesImageUrls) {
+                allSignedUrls.add(ossUploadService.generatePresignedUrl(clothesUrl, 600));
             }
-
-            // 构建完整的图片列表（人物图片 + 衣服图片）
-            List<MultipartFile> allFiles = new ArrayList<>();
-            allFiles.add(personFile);
-            allFiles.addAll(clothesFiles);
+            timer.step("generate signed urls (count=" + allSignedUrls.size() + ")");
 
             // 构建换装提示词
             String fullPrompt = "请将提供的服装图片应用到人物身上，保持人物原有的姿势、表情和背景。" +
                     "确保服装自然贴合人物身形，注意服装的透视和光影效果要与环境协调。" +
                     "如果有多个服装单品，请合理搭配穿着。";
 
-            // 调用GPT编辑API
-            String result = gptUtil.editImage(allFiles, fullPrompt, size, model, null);
+            // 让中转站自己下载参考图（不经过本服务）
+            String result = gptUtil.editImageByUrls(allSignedUrls, fullPrompt, size, model, null);
+            timer.step("call gpt.editImageByUrls (gpt self-fetch " + allSignedUrls.size() + " refs + upstream + return)");
+
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -388,15 +430,22 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeEditTask(String taskId, List<byte[]> fileDataList, List<String> fileNames, String prompt, String size, Integer n) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async edit task {} started with {} files, n={}", taskId, fileDataList.size(), n);
             // 将byte[]转换为MultipartFile
             List<MultipartFile> files = new ArrayList<>();
+            int totalSize = 0;
             for (int i = 0; i < fileDataList.size(); i++) {
                 files.add(new MemoryMultipartFile(fileDataList.get(i), fileNames.get(i)));
+                totalSize += fileDataList.get(i).length;
             }
+            timer.step("prepare files (size=" + totalSize + "B)");
             String result = gptUtil.editImage(files, prompt, size, null, n);
+            timer.step("call gpt.editImage (upload " + files.size() + " refs + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -415,11 +464,16 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeEnhanceTask(String taskId, byte[] fileData, String fileName, String prompt) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async enhance task {} started", taskId);
             MultipartFile file = new MemoryMultipartFile(fileData, fileName);
+            timer.step("prepare file (size=" + fileData.length + "B)");
             String result = gptUtil.enhanceImage(file, prompt);
+            timer.step("call gpt.enhanceImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
+            timer.step("upload result to oss");
+            timer.total();
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -524,15 +578,19 @@ public class AsyncImageTaskExecutor {
     @Async("imageTaskExecutor")
     public void executeMusicCoverTask(String taskId, String prompt, String size, String model, Integer n) {
         long startTime = System.currentTimeMillis();
+        StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async music cover task {} started with model {}, n={}", taskId, model, n);
-            
+
             // 调用GPT图片生成API
             String result = gptUtil.generateImage(prompt, size, model, n);
-            
+            timer.step("call gpt.generateImage (includes network RTT + upstream)");
+
             // 上传到OSS的image-music目录
             String ossUrl = uploadResultToOss(result, "image-music");
-            
+            timer.step("upload result to oss");
+            timer.total();
+
             long duration = System.currentTimeMillis() - startTime;
             imageTaskService.updateSuccess(taskId, ossUrl, duration);
             consumeLogService.updateSuccess(taskId, ossUrl, (int) duration);
@@ -542,6 +600,47 @@ public class AsyncImageTaskExecutor {
             log.error("Async music cover task {} failed: {}", taskId, e.getMessage());
             imageTaskService.updateError(taskId, e.getMessage(), duration);
             consumeLogService.updateFailed(taskId, e.getMessage());
+        }
+    }
+
+    /**
+     * 步骤计时器：记录每个步骤的耗时，输出到日志，便于定位瓶颈。
+     * 用法：
+     *   StepTimer timer = new StepTimer(taskId);
+     *   ... do something ...
+     *   timer.step("download reference");
+     *   ... do something ...
+     *   timer.step("call gpt api");
+     *   ...
+     *   timer.total();
+     */
+    static class StepTimer {
+        private final String taskId;
+        private final long start;
+        private long last;
+
+        StepTimer(String taskId) {
+            this.taskId = taskId;
+            this.start = System.currentTimeMillis();
+            this.last = start;
+        }
+
+        /**
+         * 记录一个步骤的耗时：从上一步（或起点）到现在的时间。
+         */
+        void step(String label) {
+            long now = System.currentTimeMillis();
+            log.info("[Task {}] STEP '{}' cost {}ms (cumulative={}ms)",
+                    taskId, label, now - last, now - start);
+            last = now;
+        }
+
+        /**
+         * 记录整个任务的累计耗时。
+         */
+        void total() {
+            long now = System.currentTimeMillis();
+            log.info("[Task {}] TOTAL cost {}ms", taskId, now - start);
         }
     }
 

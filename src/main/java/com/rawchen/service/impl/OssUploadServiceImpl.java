@@ -10,6 +10,7 @@ import javax.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -17,6 +18,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -137,17 +139,22 @@ public class OssUploadServiceImpl implements OssUploadService {
 
     @Override
     public String uploadFromUrl(String imageUrl, String fileName) {
+        long t0 = System.currentTimeMillis();
+        byte[] bytes = null;
+        String contentType = "image/jpeg";
         try {
+            // ============ 第一步：从 GPT 中转站下载结果图 ============
             URL url = new URL(imageUrl);
             // 设置Referer防止防盗链403
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             String referer = url.getProtocol() + "://" + url.getHost();
             connection.setRequestProperty("Referer", referer);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-            InputStream inputStream = connection.getInputStream();
+            // 连接/读超时：避免某个慢响应把任务挂死
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(60000);
 
-            // 尝试从URL推断内容类型
-            String contentType = "image/jpeg";
+            // 推断内容类型
             String path = url.getPath();
             if (path.endsWith(".png")) {
                 contentType = "image/png";
@@ -157,10 +164,24 @@ public class OssUploadServiceImpl implements OssUploadService {
                 contentType = "image/webp";
             }
 
-            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
-            uploadToOss(inputStream, objectKey, contentType, -1);
+            // 先一次性读到内存，便于分步计时。GPT 返回的图片一般 1~5MB，byte[] 完全够用。
+            try (InputStream inputStream = connection.getInputStream()) {
+                bytes = StreamUtils.copyToByteArray(inputStream);
+            }
+            long downloadCost = System.currentTimeMillis() - t0;
+            double sizeKB = bytes == null ? 0 : (bytes.length / 1024.0);
+            log.info("OSS uploadFromUrl: download step done, size={}KB, cost={}ms, url={}",
+                    String.format("%.1f", sizeKB), downloadCost, imageUrl);
 
-            inputStream.close();
+            // ============ 第二步：上传到 OSS ============
+            long uploadStart = System.currentTimeMillis();
+            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
+            try (InputStream uploadStream = new ByteArrayInputStream(bytes)) {
+                uploadToOss(uploadStream, objectKey, contentType, bytes.length);
+            }
+            long uploadCost = System.currentTimeMillis() - uploadStart;
+            log.info("OSS uploadFromUrl: upload step done, size={}KB, cost={}ms, objectKey={}",
+                    String.format("%.1f", sizeKB), uploadCost, objectKey);
 
             return buildFullUrl(objectKey);
         } catch (Exception e) {
@@ -244,6 +265,60 @@ public class OssUploadServiceImpl implements OssUploadService {
             log.error("Upload from URL failed: {}", e.getMessage());
             throw new RuntimeException("上传图片失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 基于完整访问 URL 生成一个 OSS 临时签名 URL（带过期时间）。
+     * <p>
+     * 解码策略：仅提取 URL 的 path 部分作为 objectKey。
+     * 支持 customDomain 的多种配置形式：
+     *   - "https://cdn.rawchen.com/rawimg/xxx.jpg"
+     *   - "https://img.rawchen.com/cdn.rawchen.com/rawimg/xxx.jpg"
+     *   - "//cdn.rawchen.com/rawimg/xxx.jpg"
+     * 都能正确解析出 objectKey = "rawimg/xxx.jpg"。
+     *
+     * @param fullUrl       完整的访问 URL
+     * @param expireSeconds 过期秒数（300~600 比较合适）
+     * @return 带签名的 URL，访问私有 bucket 不需要鉴权头
+     */
+    @Override
+    public String generatePresignedUrl(String fullUrl, int expireSeconds) {
+        if (fullUrl == null || fullUrl.isEmpty()) {
+            throw new IllegalArgumentException("fullUrl 不能为空");
+        }
+        String objectKey = extractObjectKey(fullUrl);
+        if (objectKey.isEmpty()) {
+            throw new IllegalArgumentException("无法从 URL 中解析出 objectKey: " + fullUrl);
+        }
+        Date expiration = new Date(System.currentTimeMillis() + expireSeconds * 1000L);
+        OSS client = getOssClient();
+        URL signed = client.generatePresignedUrl(
+                ossConfig.getBucketName(), objectKey, expiration);
+        log.debug("Generated presigned URL for object={}, expireSeconds={}", objectKey, expireSeconds);
+        return signed.toString();
+    }
+
+    /**
+     * 从完整 URL 中提取 OSS objectKey（去除协议、域名部分）。
+     */
+    private String extractObjectKey(String fullUrl) {
+        // 去掉协议和域名，只保留路径部分
+        String url = fullUrl.trim();
+        int schemeIdx = url.indexOf("://");
+        if (schemeIdx >= 0) {
+            url = url.substring(schemeIdx + 3);
+        }
+        int pathIdx = url.indexOf('/');
+        if (pathIdx < 0) {
+            return "";
+        }
+        String path = url.substring(pathIdx + 1);
+        // 去掉 query string
+        int qIdx = path.indexOf('?');
+        if (qIdx >= 0) {
+            path = path.substring(0, qIdx);
+        }
+        return path;
     }
 
     /**

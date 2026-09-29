@@ -45,7 +45,9 @@ mybatis-plus:
   type-aliases-package: com.lenslog.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 默认关闭 SQL 输出（不打 Preparing/Parameters/Updates），减少日志噪音。
+    # 调试 SQL 时改成: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
   global-config:
     db-config:
       id-type: auto
@@ -107,4 +109,8 @@ logging:
   level:
     com.lenslog: INFO
     org.springframework.security: INFO
-    com.baomidou.mybatisplus: DEBUG
+    # 默认关闭 MyBatis / MyBatis-Plus 调试日志（避免 Creating new SqlSession /
+    # Closing non transactional SqlSession / Transaction synchronization 等噪音）
+    # 调试 SQL 时改成 DEBUG；调试 ORM 行为时改成 DEBUG
+    com.baomidou.mybatisplus: INFO
+    org.apache.ibatis: INFO

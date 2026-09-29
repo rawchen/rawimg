@@ -221,10 +221,9 @@ public class GptUtil {
                 // GPT image edit response: { "data": [ { "url": "..." } ] } or { "data": [ { "b64_json": "..." } ] }
                 if (json.containsKey("data")) {
                     JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    String image = extractImageData(imageData, "image/png");
+                    if (image != null) {
+                        return image;
                     }
                 }
                 log.error("GPT image API unexpected response: {}", body);
@@ -287,10 +286,9 @@ public class GptUtil {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
                     JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    String image = extractImageData(imageData, "image/png");
+                    if (image != null) {
+                        return image;
                     }
                 }
                 log.error("GPT image expand API unexpected response: {}", body);
@@ -351,10 +349,9 @@ public class GptUtil {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
                     JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    String image = extractImageData(imageData, "image/png");
+                    if (image != null) {
+                        return image;
                     }
                 }
                 log.error("GPT inpaint API unexpected response: {}", body);
@@ -407,10 +404,9 @@ public class GptUtil {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
                     JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/png;base64," + imageData.getString("b64_json");
+                    String image = extractImageData(imageData, "image/png");
+                    if (image != null) {
+                        return image;
                     }
                 }
                 log.error("GPT matting API unexpected response: {}", body);
@@ -460,10 +456,9 @@ public class GptUtil {
                 JSONObject json = JSON.parseObject(body);
                 if (json.containsKey("data")) {
                     JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    if (imageData.containsKey("url")) {
-                        return imageData.getString("url");
-                    } else if (imageData.containsKey("b64_json")) {
-                        return "data:image/jpeg;base64," + imageData.getString("b64_json");
+                    String image = extractImageData(imageData, "image/jpeg");
+                    if (image != null) {
+                        return image;
                     }
                 }
                 log.error("GPT restore API unexpected response: {}", body);
@@ -480,6 +475,36 @@ public class GptUtil {
                 FileUtil.del(tempFile);
             }
         }
+    }
+
+    /**
+     * 从 GPT 响应中提取图片数据，优先 b64_json，回退 url。
+     * <p>
+     * 关键优化：中转站响应里 url 和 b64_json 都是可选字段，有些实现会**两个同时返回**，
+     * 判断顺序决定走哪条路径。b64_json 数据走 JSON 响应同一连接（几十 KB/s 升级到几 MB/s），
+     * url 走境外域名下载（实测 2.7MB ~4 分钟）。
+     * <p>
+     * 调用方无需关心中转站是否真的遵守 response_format，只要拿到 b64_json 就用。
+     *
+     * @param imageData   单个图片响应对象（包含 url / b64_json 字段）
+     * @param defaultMime b64_json 时的默认 MIME（image/png / image/jpeg / image/webp）
+     * @return "data:image/xxx;base64,..." 或 "https://..."；两者都为空返回 null
+     */
+    private String extractImageData(JSONObject imageData, String defaultMime) {
+        if (imageData == null) {
+            return null;
+        }
+        // 优先 b64_json（快路径，免境外下载）
+        String b64 = imageData.getString("b64_json");
+        if (b64 != null && !b64.isEmpty()) {
+            return "data:" + defaultMime + ";base64," + b64;
+        }
+        // 回退到 url（需要再走一遍 HttpURLConnection 下载，慢路径）
+        String url = imageData.getString("url");
+        if (url != null && !url.isEmpty()) {
+            return url;
+        }
+        return null;
     }
 
     /**
@@ -585,10 +610,9 @@ public class GptUtil {
                         List<String> urls = new ArrayList<>();
                         for (int i = 0; i < dataArray.size(); i++) {
                             JSONObject imageData = dataArray.getJSONObject(i);
-                            if (imageData.containsKey("url")) {
-                                urls.add(imageData.getString("url"));
-                            } else if (imageData.containsKey("b64_json")) {
-                                urls.add("data:image/png;base64," + imageData.getString("b64_json"));
+                            String image = extractImageData(imageData, "image/png");
+                            if (image != null) {
+                                urls.add(image);
                             }
                         }
                         // 返回逗号分隔的URL字符串
@@ -610,6 +634,86 @@ public class GptUtil {
                     FileUtil.del(tempFile);
                 }
             }
+        }
+    }
+
+    /**
+     * 调用GPT图像编辑API（URL模式）—— 让中转站自己下载参考图，避免本服务做"下载→再上传"的来回传输。
+     * <p>
+     * 与 {@link #editImage(List, String, String, String, Integer)} 的区别：
+     *   - editImage：先把参考图从 OSS 下载到本服务内存，再 multipart 上传到中转站（双向传输）
+     *   - editImageByUrls：直接把参考图 URL（带签名）传给中转站，让中转站自己下载（单向：本服务→中转站只有 JSON）
+     * <p>
+     * 性能收益：省去本服务下载参考图 + 上传参考图到中转站两段大文件传输，预期可省 30~120 秒/任务。
+     * <p>
+     * 要求：
+     *   1. 中转站必须支持 multipart form 字段传 URL（参考 expandImage 中的 mask 字段）
+     *   2. 传入的 URL 必须可被中转站访问（OSS 私有 bucket 需要先签名）
+     *
+     * @param imageUrls   参考图的 OSS 签名 URL 列表（中转站可直接下载的 URL）
+     * @param prompt      编辑提示词
+     * @param size        图片尺寸
+     * @param modelParam  使用的模型（可选）
+     * @param n           生成图片数量（可选，默认1）
+     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
+     */
+    public String editImageByUrls(List<String> imageUrls, String prompt, String size, String modelParam, Integer n) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            throw new IllegalArgumentException("imageUrls 不能为空");
+        }
+        try {
+            String fullUrl = apiUrl + "/v1/images/edits";
+            String effectiveModel = getEffectiveModel(modelParam, size);
+            String effectiveApiKey = getApiKeyBySizeAndModel(size, modelParam);
+            HttpRequest request = HttpRequest.post(fullUrl)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
+                    .form("model", effectiveModel)
+                    .form("prompt", prompt)
+                    .timeout(30 * 60 * 1000);
+
+            // 直接把 URL 作为 image 字段传给中转站（参考 expandImage 中 mask 的传法）。
+            // 多张参考图用 image[] 形式提交。
+            for (String imageUrl : imageUrls) {
+                request.form("image", imageUrl);
+            }
+
+            if (size != null && !size.isEmpty()) {
+                request.form("size", size);
+            }
+
+            if (n != null && n > 1) {
+                request.form("n", n);
+            }
+
+            HttpResponse response = request.execute();
+            String body = response.body();
+            log.info("GPT image edit (url-mode) API response status: {}", response.getStatus());
+
+            if (response.isOk()) {
+                JSONObject json = JSON.parseObject(body);
+                if (json.containsKey("data")) {
+                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
+                    if (dataArray != null && !dataArray.isEmpty()) {
+                        List<String> urls = new ArrayList<>();
+                        for (int i = 0; i < dataArray.size(); i++) {
+                            JSONObject imageData = dataArray.getJSONObject(i);
+                            String image = extractImageData(imageData, "image/png");
+                            if (image != null) {
+                                urls.add(image);
+                            }
+                        }
+                        return String.join(",", urls);
+                    }
+                }
+                log.error("GPT image edit (url-mode) unexpected response: {}", body);
+                throw new RuntimeException("图像编辑失败，API返回异常");
+            } else {
+                log.error("GPT image edit (url-mode) error: status={}, body={}", response.getStatus(), body);
+                throw new RuntimeException("图像编辑失败: " + body);
+            }
+        } catch (Exception e) {
+            log.error("GPT image edit (url-mode) failed: {}", e.getMessage());
+            throw new RuntimeException("图像编辑失败: " + e.getMessage());
         }
     }
 
@@ -637,7 +741,11 @@ public class GptUtil {
                 requestBody.put("size", size);
             }
             requestBody.put("output_format", "jpeg");
-            // 要求返回 base64，避免走 uploadFromUrl (HttpURLConnection 跨网下载慢)
+            // 关键优化：要求中转站返回 base64 而非 URL。
+            // 中转站返回的 URL（如 image.openai-hub.net）走境外域名，
+            // 从中国大陆服务器下载 2.7MB 实测 4 分多钟（速度 ~11KB/s）。
+            // 返回 base64 后直接走 JSON 响应同一连接，速度提升数十倍。
+            // 中转站若不支持此参数，会忽略/报错，下方有降级逻辑。
             requestBody.put("response_format", "b64_json");
 
             HttpResponse response = HttpRequest.post(fullUrl)
@@ -659,10 +767,9 @@ public class GptUtil {
                         List<String> urls = new ArrayList<>();
                         for (int i = 0; i < dataArray.size(); i++) {
                             JSONObject imageData = dataArray.getJSONObject(i);
-                            if (imageData.containsKey("url")) {
-                                urls.add(imageData.getString("url"));
-                            } else if (imageData.containsKey("b64_json")) {
-                                urls.add("data:image/jpeg;base64," + imageData.getString("b64_json"));
+                            String image = extractImageData(imageData, "image/jpeg");
+                            if (image != null) {
+                                urls.add(image);
                             }
                         }
                         // 返回逗号分隔的URL字符串
