@@ -10,7 +10,7 @@ import {
   ZoomOutOutlined,
   DownloadOutlined,
   SettingOutlined,
-  FolderOpenOutlined,
+  HomeOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { Download, Fullscreen } from 'lucide-react';
@@ -510,10 +510,10 @@ export function EditorToolbar() {
         <button
           onClick={() => navigate('/')}
           className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 hover:text-orange-600 flex items-center gap-2 transition-colors cursor-pointer"
-          title="返回图库"
+          title="返回主页"
         >
-          <FolderOpenOutlined />
-          <span className="hidden sm:inline">库</span>
+          <HomeOutlined />
+          <span className="hidden sm:inline">主页</span>
         </button>
         <button
           onClick={handleImportClick}
