@@ -109,5 +109,8 @@ public class ConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> i
         if (getConfigValue("register_initial_balance") == null) {
             setConfig("register_initial_balance", "0.1", "number", "注册初始余额");
         }
+        if (getConfigValue("icp_number") == null) {
+            setConfig("icp_number", "", "string", "网站备案号（为空则不显示在页脚）");
+        }
     }
 }

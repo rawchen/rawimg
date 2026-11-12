@@ -365,18 +365,16 @@ export const vipPackageApi = {
 };
 
 // Config API
+export interface PublicConfig {
+  siteTitle: string;
+  siteDescription: string;
+  freePreviewLimit: string;
+  cardKeyPurchaseUrl: string;
+  icpNumber: string;
+}
+
 export const configApi = {
-  getPublicConfig: () => api.get<{
-    siteTitle: string;
-    siteDescription: string;
-    freePreviewLimit: string;
-    cardKeyPurchaseUrl: string;
-  }>('/public/config') as unknown as Promise<{
-    siteTitle: string;
-    siteDescription: string;
-    freePreviewLimit: string;
-    cardKeyPurchaseUrl: string;
-  }>,
+  getPublicConfig: () => api.get<PublicConfig>('/public/config') as unknown as Promise<PublicConfig>,
 };
 
 // Order API

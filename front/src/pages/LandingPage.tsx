@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { IcpNumber } from '@/components/layout/Footer';
 import enhanceBf from '@/assets/media/enhance-bf.webp';
 import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
@@ -1071,6 +1072,7 @@ export function LandingPage() {
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-sm">
             <p>&copy; 2026 RAWIMG. All rights reserved.</p>
+            <IcpNumber className="mt-2 text-gray-500" />
           </div>
         </div>
       </footer>

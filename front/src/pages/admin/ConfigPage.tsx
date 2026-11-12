@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { adminApi } from '@/api';
 import { AdminLayout } from '@/components/layout/AdminLayout';
+import { clearPublicConfigCache } from '@/hooks/usePublicConfig';
 
 interface ConfigItem {
   id: number;
@@ -34,6 +35,8 @@ export function ConfigPage() {
   const [loading, setLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfigItem | null>(null);
+  const [icpNumber, setIcpNumber] = useState('');
+  const [icpSaving, setIcpSaving] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -45,10 +48,31 @@ export function ConfigPage() {
     try {
       const response = await adminApi.getConfigs() as any;
       setConfigs(response);
+      const icpConfig = (response || []).find((item: ConfigItem) => item.configKey === 'icp_number');
+      setIcpNumber(icpConfig?.configValue || '');
     } catch (error) {
       message.error('获取配置列表失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveIcp = async () => {
+    setIcpSaving(true);
+    try {
+      await adminApi.setConfig(
+        'icp_number',
+        icpNumber.trim(),
+        'string',
+        '网站备案号（为空则不显示在页脚）'
+      );
+      message.success('备案号保存成功');
+      clearPublicConfigCache();
+      fetchConfigs();
+    } catch (error) {
+      message.error('备案号保存失败');
+    } finally {
+      setIcpSaving(false);
     }
   };
 
@@ -148,6 +172,31 @@ export function ConfigPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* 备案号设置 */}
+        <Card title="备案设置">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <Form.Item label="备案号" className="flex-1 mb-0">
+              <Input
+                value={icpNumber}
+                onChange={(e) => setIcpNumber(e.target.value)}
+                placeholder="例如：京ICP备2024000000号-1"
+                allowClear
+              />
+            </Form.Item>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={icpSaving}
+              onClick={handleSaveIcp}
+            >
+              保存
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            对应配置项 icp_number，填写后将在页面底部页脚展示备案号；留空则不显示。
+          </p>
+        </Card>
+
         {/* 配置列表 */}
         <Card
           title="系统配置"

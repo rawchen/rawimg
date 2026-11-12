@@ -25,6 +25,7 @@ public class ConfigController {
         config.put("siteDescription", configService.getConfigValue("site_description", "A beautiful image gallery platform"));
         config.put("freePreviewLimit", configService.getConfigValue("free_preview_limit", "3"));
         config.put("cardKeyPurchaseUrl", configService.getConfigValue("card_key_purchase_url", ""));
+        config.put("icpNumber", configService.getConfigValue("icp_number", ""));
         return R.ok(config);
     }
 
