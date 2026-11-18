@@ -10,13 +10,13 @@ import {
   Space,
   Popconfirm,
   Tag,
-  Select
+  Select,
+  Switch
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
-  SaveOutlined
+  DeleteOutlined
 } from '@ant-design/icons';
 import { adminApi } from '@/api';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -35,8 +35,7 @@ export function ConfigPage() {
   const [loading, setLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfigItem | null>(null);
-  const [icpNumber, setIcpNumber] = useState('');
-  const [icpSaving, setIcpSaving] = useState(false);
+  const [toggleSavingKey, setToggleSavingKey] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -48,8 +47,6 @@ export function ConfigPage() {
     try {
       const response = await adminApi.getConfigs() as any;
       setConfigs(response);
-      const icpConfig = (response || []).find((item: ConfigItem) => item.configKey === 'icp_number');
-      setIcpNumber(icpConfig?.configValue || '');
     } catch (error) {
       message.error('获取配置列表失败');
     } finally {
@@ -57,30 +54,34 @@ export function ConfigPage() {
     }
   };
 
-  const handleSaveIcp = async () => {
-    setIcpSaving(true);
+  // 布尔类型配置直接在表格内切换（true/false）
+  const handleToggleBoolean = async (config: ConfigItem, checked: boolean) => {
+    setToggleSavingKey(config.configKey);
     try {
       await adminApi.setConfig(
-        'icp_number',
-        icpNumber.trim(),
-        'string',
-        '网站备案号（为空则不显示在页脚）'
+        config.configKey,
+        checked ? 'true' : 'false',
+        'boolean',
+        config.description
       );
-      message.success('备案号保存成功');
+      message.success(`${config.configKey} 已${checked ? '开启' : '关闭'}`);
       clearPublicConfigCache();
       fetchConfigs();
     } catch (error) {
-      message.error('备案号保存失败');
+      message.error('保存失败');
     } finally {
-      setIcpSaving(false);
+      setToggleSavingKey(null);
     }
   };
 
   const handleEdit = (config: ConfigItem) => {
     setEditingConfig(config);
+    const isBoolean = (config.configType || 'string') === 'boolean';
     form.setFieldsValue({
       key: config.configKey,
-      value: config.configValue,
+      value: isBoolean
+        ? String(config.configValue ?? '').trim().toLowerCase() === 'true'
+        : config.configValue,
       type: config.configType || 'string',
       description: config.description
     });
@@ -96,9 +97,13 @@ export function ConfigPage() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      await adminApi.setConfig(values.key, values.value, values.type, values.description);
+      const value = values.type === 'boolean'
+        ? (values.value === true || String(values.value).toLowerCase() === 'true' ? 'true' : 'false')
+        : values.value;
+      await adminApi.setConfig(values.key, value, values.type, values.description);
       message.success('保存配置成功');
       setEditModalVisible(false);
+      clearPublicConfigCache();
       fetchConfigs();
     } catch (error) {
       message.error('保存配置失败');
@@ -138,18 +143,35 @@ export function ConfigPage() {
       key: 'configValue',
       width: 300,
       ellipsis: true,
-      render: (value: string) => (
-        <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-          {value}
-        </code>
-      )
+      render: (value: string, record: ConfigItem) => {
+        if (record.configType === 'boolean') {
+          return (
+            <Switch
+              size="small"
+              checked={String(value ?? '').trim().toLowerCase() === 'true'}
+              loading={toggleSavingKey === record.configKey}
+              checkedChildren="true"
+              unCheckedChildren="false"
+              onChange={(checked) => handleToggleBoolean(record, checked)}
+            />
+          );
+        }
+        return (
+          <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+            {value}
+          </code>
+        );
+      }
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
       width: 300,
-      ellipsis: true
+      ellipsis: true,
+      render: (description: string) => (
+        <span title={description}>{description}</span>
+      )
     },
     {
       title: '操作',
@@ -172,31 +194,6 @@ export function ConfigPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* 备案号设置 */}
-        <Card title="备案设置">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-            <Form.Item label="备案号" className="flex-1 mb-0">
-              <Input
-                value={icpNumber}
-                onChange={(e) => setIcpNumber(e.target.value)}
-                placeholder="例如：京ICP备2024000000号-1"
-                allowClear
-              />
-            </Form.Item>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={icpSaving}
-              onClick={handleSaveIcp}
-            >
-              保存
-            </Button>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">
-            对应配置项 icp_number，填写后将在页面底部页脚展示备案号；留空则不显示。
-          </p>
-        </Card>
-
         {/* 配置列表 */}
         <Card
           title="系统配置"
@@ -238,13 +235,6 @@ export function ConfigPage() {
               <Input placeholder="例如: site_title" disabled={!!editingConfig} />
             </Form.Item>
             <Form.Item
-              label="配置值"
-              name="value"
-              rules={[{ required: true, message: '请输入配置值' }]}
-            >
-              <Input.TextArea rows={4} placeholder="请输入配置值" />
-            </Form.Item>
-            <Form.Item
               label="类型"
               name="type"
               rules={[{ required: true, message: '请选择配置类型' }]}
@@ -255,6 +245,27 @@ export function ConfigPage() {
                 <Select.Option value="number">数字</Select.Option>
                 <Select.Option value="boolean">布尔</Select.Option>
               </Select>
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(prev, curr) => prev.type !== curr.type}>
+              {({ getFieldValue }) =>
+                getFieldValue('type') === 'boolean' ? (
+                  <Form.Item
+                    label="配置值"
+                    name="value"
+                    valuePropName="checked"
+                  >
+                    <Switch checkedChildren="true" unCheckedChildren="false" />
+                  </Form.Item>
+                ) : (
+                  <Form.Item
+                    label="配置值"
+                    name="value"
+                    rules={[{ required: true, message: '请输入配置值' }]}
+                  >
+                    <Input.TextArea rows={4} placeholder="请输入配置值" />
+                  </Form.Item>
+                )
+              }
             </Form.Item>
             <Form.Item
               label="描述"

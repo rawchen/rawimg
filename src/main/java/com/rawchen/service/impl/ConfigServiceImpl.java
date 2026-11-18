@@ -112,5 +112,8 @@ public class ConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> i
         if (getConfigValue("icp_number") == null) {
             setConfig("icp_number", "", "string", "网站备案号（为空则不显示在页脚）");
         }
+        if (getConfigValue("show_pricing") == null) {
+            setConfig("show_pricing", "false", "boolean", "是否在首页显示充值定价模块（true显示，false隐藏）");
+        }
     }
 }

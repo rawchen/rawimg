@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { IcpNumber } from '@/components/layout/Footer';
+import { usePublicConfig } from '@/hooks/usePublicConfig';
+import { rechargeApi, type RechargePackage } from '@/api';
 import enhanceBf from '@/assets/media/enhance-bf.webp';
 import eraserBf from '@/assets/media/eraser-bf.webp';
 import retouchBf from '@/assets/media/retouch-bf.webp';
@@ -39,7 +41,6 @@ import {
   Sparkles,
   ArrowLeftRight,
   Check,
-  Star,
   PlayCircle,
   Expand,
   Smile,
@@ -153,49 +154,6 @@ const tools = [
   { key: 'vbgremove', name: '视频背景移除', desc: '智能视频抠图', icon: <Scissors className="w-5 h-5" />, category: 'video', new: true },
 ];
 
-const reviews = [
-  {
-    name: '李明',
-    role: '摄影师',
-    avatar: 'L',
-    content: 'RAW 解码能力太强了，一键处理 CR3 文件，效果远超预期！',
-    rating: 5,
-    rotation: '-2deg',
-  },
-  {
-    name: '王芳',
-    role: '自媒体博主',
-    avatar: 'W',
-    content: '在线编辑太方便了，不用安装任何软件，随时随地处理图片。',
-    rating: 5,
-    rotation: '3deg',
-  },
-  {
-    name: '张伟',
-    role: '设计师',
-    avatar: 'Z',
-    content: 'AI 背景移除非常精准，边缘处理自然，省了我大量时间。',
-    rating: 5,
-    rotation: '-1deg',
-  },
-  {
-    name: '陈晓',
-    role: '电商运营',
-    avatar: 'C',
-    content: '批量处理效率提升了 3 倍，强烈推荐给所有电商同行！',
-    rating: 5,
-    rotation: '2deg',
-  },
-  {
-    name: '赵雷',
-    role: '视频创作者',
-    avatar: 'R',
-    content: '视频增强功能很实用，老素材焕然一新。',
-    rating: 5,
-    rotation: '-3deg',
-  },
-];
-
 const faqs = [
   {
     question: 'RAWIMG 是什么？',
@@ -206,20 +164,20 @@ const faqs = [
     answer: '我们支持主流相机的 RAW 格式，包括 Canon (CR3/CR2)、Nikon (NEF)、Sony (ARW)、Fuji (RAF)、Panasonic (RW2) 等，覆盖 90% 以上的相机型号。',
   },
   {
-    question: '免费版有什么限制？',
-    answer: '免费版每月可进行 10 次 AI 处理，支持基础 RAW 解码和标准画质导出。如果需要更多功能，可以考虑升级到专业版或企业版。',
+    question: '如何计费？',
+    answer: 'RAWIMG 采用余额计费：充值多少，到账多少余额，每次 AI 处理按实际消耗扣除对应金额，用多少扣多少，不做订阅捆绑。',
   },
   {
     question: '数据安全有保障吗？',
     answer: '我们采用端到端加密技术，所有上传的图片会在处理完成后自动删除，不会被保存或用于其他用途。您可以放心使用。',
   },
   {
-    question: '如何升级到专业版？',
-    answer: '您可以在登录后访问定价页面，选择适合您的订阅计划。我们支持支付宝、微信支付等多种支付方式。',
+    question: '如何充值余额？',
+    answer: '登录后在充值页面选择充值套餐或使用卡密兑换，支付成功后余额即时到账，可在个人中心的钱包管理中查看余额与消费明细。',
   },
   {
-    question: '可以取消订阅吗？',
-    answer: '当然可以。您可以随时在账户设置中取消订阅，取消后您仍可以使用当前计费周期内的服务。',
+    question: '余额会过期吗？',
+    answer: '不会。充值得到的余额长期有效，未使用的余额不会被清零；您可以随时在消费记录中查看每一笔扣费明细。',
   },
 ];
 
@@ -355,6 +313,7 @@ if (typeof document !== 'undefined') {
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const publicConfig = usePublicConfig();
   const [activeToolTab, setActiveToolTab] = useState('all');
   const [activePersona, setActivePersona] = useState(0);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -366,11 +325,37 @@ export function LandingPage() {
   const sliderRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [rechargePackages, setRechargePackages] = useState<RechargePackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+
+  // 是否显示首页定价（充值）模块，由系统配置 show_pricing 控制
+  const showPricing = (publicConfig?.showPricing ?? '').trim().toLowerCase() === 'true';
 
   useEffect(() => {
     // Hero loaded animation
     setTimeout(() => setHeroLoaded(true), 100);
   }, []);
+
+  // 加载充值套餐（充值多少，到账多少余额）
+  useEffect(() => {
+    if (!showPricing) return;
+    let mounted = true;
+    setPackagesLoading(true);
+    rechargeApi
+      .getPackages()
+      .then((packages) => {
+        if (mounted) setRechargePackages(packages || []);
+      })
+      .catch(() => {
+        if (mounted) setRechargePackages([]);
+      })
+      .finally(() => {
+        if (mounted) setPackagesLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [showPricing]);
 
   // 幻灯片自动切换
   useEffect(() => {
@@ -447,7 +432,7 @@ export function LandingPage() {
     };
   }, [handleMouseMove, handleMouseUp, handleTouchMove]);
 
-  // Scroll animation observer
+  // Scroll animation observer（定价模块为异步渲染，需随 showPricing 变化重新监听）
   useEffect(() => {
     const scrollContainer = document.getElementById('scroll-container');
     const observer = new IntersectionObserver(
@@ -465,10 +450,11 @@ export function LandingPage() {
     elements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, []);
+  }, [showPricing]);
 
   const handleStartEdit = () => navigate('/create');
   const handleGoToGalleries = () => navigate('/editor');
+  const handleGoToRecharge = () => navigate('/profile/wallet');
 
   const filteredTools = activeToolTab === 'all'
     ? tools
@@ -811,68 +797,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Reviews Section */}
-      <section className="py-16 px-4 bg-white scroll-animate">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">用户评价</h2>
-            <p className="text-orange-500 font-medium">数万用户的信赖</p>
-          </div>
-
-          <div className="hidden lg:flex justify-center gap-4">
-            {reviews.map((review, index) => (
-              <div
-                key={review.name}
-                className="bg-[#ffecd7] rounded-2xl p-5 hover:-translate-y-2 hover:scale-105 transition-all duration-400 w-52 flex-shrink-0"
-                style={{
-                  transform: `rotate(${review.rotation})`,
-                  transitionDelay: `${index * 100}ms`
-                }}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-semibold text-sm hover:scale-110 transition-transform duration-300">
-                    {review.avatar}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">{review.name}</p>
-                    <p className="text-xs text-gray-500">{review.role}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{review.content}</p>
-                <div className="flex gap-0.5">
-                  {[...Array(review.rating)].map((_, i) => (
-                    <Star key={i} className="w-3 h-3 text-orange-500 fill-orange-500 hover:scale-125 transition-transform duration-200" style={{ transitionDelay: `${i * 50}ms` }} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile Reviews */}
-          <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-            {reviews.slice(0, 4).map((review) => (
-              <div key={review.name} className="bg-gray-50 rounded-xl p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-semibold">
-                    {review.avatar}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{review.name}</p>
-                    <p className="text-xs text-gray-500">{review.role}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{review.content}</p>
-                <div className="flex gap-0.5">
-                  {[...Array(review.rating)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-orange-500 fill-orange-500" />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Trust Badges */}
       <section className="py-12 px-4 bg-gray-50 scroll-animate">
         <div className="max-w-7xl mx-auto">
@@ -892,77 +816,92 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-16 px-4 bg-white scroll-animate">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4">简单透明的定价</h2>
-            <p className="text-gray-600">选择适合你的方案，开始创作之旅</p>
+      {/* Pricing Section - 充值多少，到账多少余额 */}
+      {showPricing && (
+        <section id="pricing" className="py-16 px-4 bg-white scroll-animate">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4">简单透明的定价</h2>
+              <p className="text-gray-600">充值多少，到账多少余额，按实际使用扣除</p>
+            </div>
+
+            {rechargePackages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+                {rechargePackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`relative rounded-2xl p-6 text-center transition-all duration-400 ${
+                      pkg.recommended
+                        ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-xl shadow-orange-500/20 hover:-translate-y-2 hover:scale-[1.02]'
+                        : 'bg-gray-50 text-gray-900 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02]'
+                    }`}
+                  >
+                    {pkg.recommended && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-semibold">
+                        推荐
+                      </div>
+                    )}
+                    <p className={`text-sm mb-2 ${pkg.recommended ? 'text-white/80' : 'text-gray-500'}`}>充值</p>
+                    <div className="mb-4">
+                      <span className="text-4xl font-bold">¥{Number(pkg.amount).toFixed(0)}</span>
+                    </div>
+                    <div className={`rounded-xl py-3 px-4 mb-4 ${pkg.recommended ? 'bg-white/15' : 'bg-white'}`}>
+                      <p className={`text-xs mb-1 ${pkg.recommended ? 'text-white/80' : 'text-gray-500'}`}>到账余额</p>
+                      <p className="text-xl font-bold">¥{Number(pkg.creditAmount).toFixed(2)}</p>
+                      {Number(pkg.bonusAmount) > 0 && (
+                        <p className={`text-xs mt-1 ${pkg.recommended ? 'text-white/90' : 'text-orange-500'}`}>
+                          含赠送 ¥{Number(pkg.bonusAmount).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <ul className={`space-y-2 mb-6 text-sm text-left ${pkg.recommended ? 'text-white/90' : 'text-gray-600'}`}>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        余额长期有效
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        按次扣除，用多少扣多少
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        消费明细随时可查
+                      </li>
+                    </ul>
+                    <button
+                      onClick={handleGoToRecharge}
+                      className={`w-full py-3 rounded-full font-semibold transition-all duration-300 cursor-pointer ${
+                        pkg.recommended
+                          ? 'bg-white text-orange-600 hover:shadow-lg hover:bg-gray-100'
+                          : 'border border-gray-200 hover:bg-orange-500 hover:text-white hover:border-orange-500'
+                      }`}
+                    >
+                      立即充值
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="max-w-2xl mx-auto bg-gray-50 rounded-2xl p-8 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">按需充值，余额永不过期</h3>
+                <p className="text-gray-500 text-sm mb-6">
+                  {packagesLoading ? '正在加载充值套餐…' : '充值多少，到账多少余额，每次处理按实际消耗扣除。'}
+                </p>
+                <button
+                  onClick={handleGoToRecharge}
+                  className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-full font-semibold hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                >
+                  立即充值
+                </button>
+              </div>
+            )}
+
+            <p className="text-center text-sm text-gray-500 mt-8">
+              充值余额可用于全部 AI 功能，支付成功后即时到账，可在个人中心查看消费明细。
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {/* Free Plan */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02] transition-all duration-400 group">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">免费版</h3>
-              <p className="text-gray-500 text-sm mb-4">适合个人体验</p>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-900">¥0</span>
-                <span className="text-gray-500">/月</span>
-              </div>
-              <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><Check className="w-4 h-4 text-green-500" />每月 10 次 AI 处理</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><Check className="w-4 h-4 text-green-500" />基础 RAW 解码</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><Check className="w-4 h-4 text-green-500" />标准画质导出</li>
-              </ul>
-              <button onClick={handleStartEdit} className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
-                免费开始
-              </button>
-            </div>
-
-            {/* Pro Plan */}
-            <div className="relative bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl shadow-orange-500/20 scale-105 hover:scale-[1.08] hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-400">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-semibold animate-pulse">
-                最受欢迎
-              </div>
-              <h3 className="text-xl font-semibold mb-2">专业版</h3>
-              <p className="text-white/80 text-sm mb-4">适合创作者</p>
-              <div className="mb-6">
-                <span className="text-4xl font-bold">¥49</span>
-                <span className="text-white/80">/月</span>
-              </div>
-              <ul className="space-y-2 mb-6 text-sm">
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300"><Check className="w-4 h-4" />无限 AI 处理</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-100"><Check className="w-4 h-4" />完整 RAW 解码</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-200"><Check className="w-4 h-4" />高清画质导出</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-300"><Check className="w-4 h-4" />全部 AI 滤镜</li>
-                <li className="flex items-center gap-2 hover:translate-x-2 transition-transform duration-300 delay-400"><Check className="w-4 h-4" />批量处理</li>
-              </ul>
-              <button onClick={handleStartEdit} className="w-full py-3 bg-white text-orange-600 rounded-full font-semibold hover:shadow-lg hover:bg-gray-100 transition-all duration-300 cursor-pointer">
-                立即订阅
-              </button>
-            </div>
-
-            {/* Enterprise Plan */}
-            <div className="bg-gray-50 rounded-2xl p-6 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02] transition-all duration-400 group">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">企业版</h3>
-              <p className="text-gray-500 text-sm mb-4">适合团队</p>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-900">¥199</span>
-                <span className="text-gray-500">/月</span>
-              </div>
-              <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300"><Check className="w-4 h-4 text-green-500" />专业版全部功能</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-100"><Check className="w-4 h-4 text-green-500" />API 接入</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-200"><Check className="w-4 h-4 text-green-500" />团队协作</li>
-                <li className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-300"><Check className="w-4 h-4 text-green-500" />私有化部署</li>
-              </ul>
-              <button className="w-full py-3 border border-gray-200 rounded-full font-medium hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all duration-300 cursor-pointer">
-                联系销售
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* FAQ Section */}
       <section className="py-16 px-4 bg-gray-50 scroll-animate">
@@ -1044,13 +983,15 @@ export function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/editor" className="hover:text-white transition-colors cursor-pointer">编辑器</Link></li>
                 <li><Link to="/galleries" className="hover:text-white transition-colors cursor-pointer">图集</Link></li>
-                <li><a onClick={() => {
-                  const container = document.getElementById('scroll-container');
-                  const pricing = document.getElementById('pricing');
-                  if (container && pricing) {
-                    container.scrollTo({ top: pricing.offsetTop - 80, behavior: 'smooth' });
-                  }
-                }} className="hover:text-white transition-colors cursor-pointer">定价</a></li>
+                {showPricing && (
+                  <li><a onClick={() => {
+                    const container = document.getElementById('scroll-container');
+                    const pricing = document.getElementById('pricing');
+                    if (container && pricing) {
+                      container.scrollTo({ top: pricing.offsetTop - 80, behavior: 'smooth' });
+                    }
+                  }} className="hover:text-white transition-colors cursor-pointer">定价</a></li>
+                )}
               </ul>
             </div>
             <div>

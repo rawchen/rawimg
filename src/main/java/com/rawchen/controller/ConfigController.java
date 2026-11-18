@@ -26,6 +26,7 @@ public class ConfigController {
         config.put("freePreviewLimit", configService.getConfigValue("free_preview_limit", "3"));
         config.put("cardKeyPurchaseUrl", configService.getConfigValue("card_key_purchase_url", ""));
         config.put("icpNumber", configService.getConfigValue("icp_number", ""));
+        config.put("showPricing", configService.getConfigValue("show_pricing", "false"));
         return R.ok(config);
     }
 

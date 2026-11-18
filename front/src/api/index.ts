@@ -371,6 +371,7 @@ export interface PublicConfig {
   freePreviewLimit: string;
   cardKeyPurchaseUrl: string;
   icpNumber: string;
+  showPricing: string;
 }
 
 export const configApi = {

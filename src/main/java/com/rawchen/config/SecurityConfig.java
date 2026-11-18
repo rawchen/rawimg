@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .antMatchers("/api/public/**").permitAll()
                         .antMatchers("/api/music/**").permitAll() // 音乐API接口
                         .antMatchers("/api/recharge/notify").permitAll() // 支付回调接口
+                        .antMatchers("/api/recharge/packages").permitAll() // 充值套餐列表（首页定价模块公开）
                         .antMatchers("/api/image-create/templates/random").permitAll()
                         .antMatchers("/ws/**").permitAll()
                         .antMatchers("/uploads/**").permitAll()
