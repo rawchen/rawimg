@@ -48,7 +48,7 @@ public class ConsumeLog extends BaseEntity {
     private String status;
 
     /**
-     * 图片尺寸，如 1920x1080
+     * 图片尺寸，如 1536x864
      */
     @TableField("image_size")
     private String imageSize;

@@ -78,8 +78,8 @@ const sizeOptions = [
   { value: '1024x1024', label: '1:1', desc: '正方形', displayWidth: 16, displayHeight: 16 },
   { value: '1536x1024', label: '3:2', desc: '横屏', displayWidth: 18, displayHeight: 12 },
   { value: '1024x1536', label: '2:3', desc: '竖屏', displayWidth: 12, displayHeight: 18 },
-  { value: '1920x1080', label: '16:9', desc: '横屏', displayWidth: 20, displayHeight: 11.25 },
-  { value: '1080x1920', label: '9:16', desc: '竖屏', displayWidth: 11.25, displayHeight: 20 },
+  { value: '1536x864', label: '16:9', desc: '横屏', displayWidth: 20, displayHeight: 11.25 },
+  { value: '864x1536', label: '9:16', desc: '竖屏', displayWidth: 11.25, displayHeight: 20 },
 ];
 
 export function ImageExpandPage() {

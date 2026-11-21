@@ -76,8 +76,8 @@ const sizeOptions = [
   { value: '1024x1024', label: '1:1', desc: '正方形', displayWidth: 16, displayHeight: 16 },
   { value: '1536x1024', label: '3:2', desc: '横屏', displayWidth: 18, displayHeight: 12 },
   { value: '1024x1536', label: '2:3', desc: '竖屏', displayWidth: 12, displayHeight: 18 },
-  { value: '1920x1080', label: '16:9', desc: '横屏', displayWidth: 20, displayHeight: 11 },
-  { value: '1080x1920', label: '9:16', desc: '竖屏', displayWidth: 11, displayHeight: 20 },
+  { value: '1536x864', label: '16:9', desc: '横屏', displayWidth: 20, displayHeight: 11 },
+  { value: '864x1536', label: '9:16', desc: '竖屏', displayWidth: 11, displayHeight: 20 },
 ];
 
 // 分辨率选项
@@ -89,14 +89,14 @@ const resolutionOptions = [
 
 // 判断比例是否支持高清分辨率切换
 const isHdSupported = (size: string) => {
-  return size === '1920x1080' || size === '1080x1920';
+  return size === '1536x864' || size === '864x1536';
 };
 
 // 根据比例和分辨率计算实际size
 const getActualSize = (baseSize: string, resolution: string) => {
   if (!isHdSupported(baseSize)) return baseSize;
 
-  const isLandscape = baseSize === '1920x1080';
+  const isLandscape = baseSize === '1536x864';
 
   switch (resolution) {
     case '1K':
@@ -134,7 +134,7 @@ export function ImageClothesPage() {
   const [resultImage, setResultImage] = useState<string | null>(null);
 
   // 尺寸和模型
-  const [selectedSize, setSelectedSize] = useState('1920x1080');
+  const [selectedSize, setSelectedSize] = useState('1536x864');
   const [selectedResolution, setSelectedResolution] = useState('1K');
   const [selectedModel, setSelectedModel] = useState('gpt-image-2');
 

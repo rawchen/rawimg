@@ -121,14 +121,14 @@ const sizeOptions = [
     displayHeight: 18,
   },
   {
-    value: "1920x1080",
+    value: "1536x864",
     label: "16:9",
     desc: "横屏",
     displayWidth: 20,
     displayHeight: 11,
   },
   {
-    value: "1080x1920",
+    value: "864x1536",
     label: "9:16",
     desc: "竖屏",
     displayWidth: 11,
@@ -145,7 +145,7 @@ const resolutionOptions = [
 
 // 判断比例是否支持高清分辨率切换
 const isHdSupported = (size: string) => {
-  return size === "1920x1080" || size === "1080x1920";
+  return size === "1536x864" || size === "864x1536";
 };
 
 // 判断比例是否显示分辨率切换组件（所有比例都显示）
@@ -155,7 +155,7 @@ const shouldShowResolutionToggle = () => true;
 const getActualSize = (baseSize: string, resolution: string) => {
   if (!isHdSupported(baseSize)) return baseSize;
 
-  const isLandscape = baseSize === "1920x1080";
+  const isLandscape = baseSize === "1536x864";
 
   switch (resolution) {
     case "1K":
@@ -177,14 +177,17 @@ const reverseActualSize = (
     "1024x1024": { baseSize: "1024x1024", resolution: "1K" },
     "1536x1024": { baseSize: "1536x1024", resolution: "1K" },
     "1024x1536": { baseSize: "1024x1536", resolution: "1K" },
-    "1920x1080": { baseSize: "1920x1080", resolution: "1K" },
-    "1080x1920": { baseSize: "1080x1920", resolution: "1K" },
-    "2560x1440": { baseSize: "1920x1080", resolution: "2K" },
-    "1440x2560": { baseSize: "1080x1920", resolution: "2K" },
-    "3840x2160": { baseSize: "1920x1080", resolution: "4K" },
-    "2160x3840": { baseSize: "1080x1920", resolution: "4K" },
+    "1536x864": { baseSize: "1536x864", resolution: "1K" },
+    "864x1536": { baseSize: "864x1536", resolution: "1K" },
+    "2560x1440": { baseSize: "1536x864", resolution: "2K" },
+    "1440x2560": { baseSize: "864x1536", resolution: "2K" },
+    "3840x2160": { baseSize: "1536x864", resolution: "4K" },
+    "2160x3840": { baseSize: "864x1536", resolution: "4K" },
+    // 兼容历史记录中的旧尺寸（16:9 / 9:16）
+    "1920x1080": { baseSize: "1536x864", resolution: "1K" },
+    "1080x1920": { baseSize: "864x1536", resolution: "1K" },
   };
-  return reverseMap[actualSize] || { baseSize: "1920x1080", resolution: "1K" };
+  return reverseMap[actualSize] || { baseSize: "1536x864", resolution: "1K" };
 };
 
 // 模型代码转显示名
@@ -244,7 +247,7 @@ export function ImageCreatePage() {
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null); // 正在上传的图片索引
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null); // 正在拖拽的图片索引
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null); // 拖拽悬停的目标索引
-  const [selectedSize, setSelectedSize] = useState("1920x1080");
+  const [selectedSize, setSelectedSize] = useState("1536x864");
   const [selectedResolution, setSelectedResolution] = useState("1K"); // 分辨率选择
   const [selectedModel, setSelectedModel] = useState("gpt-image-2"); // 模型选择
   const [generateCount, setGenerateCount] = useState(1); // 生成数量，默认为1

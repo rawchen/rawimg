@@ -52,7 +52,7 @@ public class ImageClothesAsyncController {
             @RequestParam("personImageUrl") String personImageUrl,
             @RequestParam("clothesImageUrls") String clothesImageUrls,
             @RequestParam("prompt") String prompt,
-            @RequestParam(value = "size", defaultValue = "1920x1080") String size,
+            @RequestParam(value = "size", defaultValue = "1536x864") String size,
             @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
             @AuthenticationPrincipal SysUser user) {
 

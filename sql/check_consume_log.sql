@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `consume_log` (
     `model_code` VARCHAR(100) NOT NULL COMMENT '使用的模型代码',
     `model_name` VARCHAR(100) DEFAULT NULL COMMENT '模型名称',
     `status` VARCHAR(20) NOT NULL COMMENT '状态：pending-处理中，success-成功，failed-失败',
-    `image_size` VARCHAR(20) DEFAULT NULL COMMENT '图片尺寸，如 1920x1080',
+    `image_size` VARCHAR(20) DEFAULT NULL COMMENT '图片尺寸，如 1536x864',
     `total_cost` DECIMAL(10, 4) NOT NULL COMMENT '本次花费（元）',
     `duration_ms` INT DEFAULT NULL COMMENT '任务耗时（毫秒）',
     `error_msg` TEXT DEFAULT NULL COMMENT '错误信息',
