@@ -5,6 +5,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ModelPriceService;
+import com.rawchen.service.OssUploadService;
 import com.rawchen.service.UserBalanceService;
 import com.rawchen.util.GptUtil;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class ImageRemoveController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final OssUploadService ossUploadService;
 
     /**
      * 物体移除接口
@@ -76,7 +78,8 @@ public class ImageRemoveController {
         log.info("Removing objects from image with prompt: {}, cost: {}", removePrompt, cost);
 
         try {
-            String resultUrl = gptUtil.enhanceImage(file, removePrompt);
+            String resultUrl = ossUploadService.uploadImagePayloads(
+                    gptUtil.enhanceImage(file, removePrompt), "image/remove");
 
             // 创建消费日志
             ModelPrice price = modelPriceService.getByModelCode(model);

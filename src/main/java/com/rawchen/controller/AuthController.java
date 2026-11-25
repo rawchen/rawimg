@@ -57,11 +57,8 @@ public class AuthController {
     @PostMapping("/register")
     public R<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         // Validate captcha
-        if (request.getCaptchaSessionId() != null && request.getCaptchaAnswer() != null) {
-            if (!CaptchaUtil.validateCaptcha(request.getCaptchaSessionId(),
-                    Integer.parseInt(request.getCaptchaAnswer()))) {
-                return R.fail("验证码错误");
-            }
+        if (!validateCaptchaIfPresent(request.getCaptchaSessionId(), request.getCaptchaAnswer())) {
+            return R.fail("验证码错误");
         }
 
         // 验证邮箱验证码
@@ -113,11 +110,8 @@ public class AuthController {
     @PostMapping("/login")
     public R<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         // Validate captcha
-        if (request.getCaptchaSessionId() != null && request.getCaptchaAnswer() != null) {
-            if (!CaptchaUtil.validateCaptcha(request.getCaptchaSessionId(),
-                    Integer.parseInt(request.getCaptchaAnswer()))) {
-                return R.fail("验证码错误");
-            }
+        if (!validateCaptchaIfPresent(request.getCaptchaSessionId(), request.getCaptchaAnswer())) {
+            return R.fail("验证码错误");
         }
         String token;
         try {
@@ -148,11 +142,37 @@ public class AuthController {
         return R.ok(response);
     }
 
+    @RateLimit(key = "captcha", time = 60, count = 10, message = "验证码获取过于频繁，请稍后再试")
     @PostMapping("/captcha")
     public R<Map<String, Object>> getCaptcha() {
-        String sessionId = "captcha_" + System.currentTimeMillis();
+        String sessionId = CaptchaUtil.newSessionId();
         Map<String, Object> captcha = CaptchaUtil.generateCaptcha(sessionId);
         return R.ok(captcha);
+    }
+
+    /**
+     * 按需校验验证码。
+     * <p>
+     * 未携带验证码字段时跳过校验；答案非数字时按校验失败处理，
+     * 避免 {@link NumberFormatException} 抛出导致接口 500，
+     * 也避免校验失败时验证码条目残留。
+     *
+     * @param sessionId 验证码会话 ID
+     * @param answer    用户提交的答案
+     * @return 是否通过校验
+     */
+    private boolean validateCaptchaIfPresent(String sessionId, String answer) {
+        if (sessionId == null || sessionId.trim().isEmpty()
+                || answer == null || answer.trim().isEmpty()) {
+            return true;
+        }
+        int parsedAnswer;
+        try {
+            parsedAnswer = Integer.parseInt(answer.trim());
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        return CaptchaUtil.validateCaptcha(sessionId, parsedAnswer);
     }
 
     @GetMapping("/me")

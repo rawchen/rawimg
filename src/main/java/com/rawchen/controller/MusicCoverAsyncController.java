@@ -9,6 +9,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
+import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.MusicService;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 音乐封面异步控制器
@@ -42,6 +44,7 @@ public class MusicCoverAsyncController {
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
     private final MusicService musicService;
+    private final ImageTaskRejectHandler imageTaskRejectHandler;
 
     /**
      * 异步创建音乐封面
@@ -145,8 +148,12 @@ public class MusicCoverAsyncController {
         consumeLogService.createLog(user.getId(), taskId, "music_cover", effectiveModelCode,
                 price != null ? price.getModelName() : model, size, cost);
 
-        // 异步执行任务
-        asyncImageTaskExecutor.executeMusicCoverTask(taskId, prompt, size, model, n);
+        // 异步执行任务（队列满时立即拒绝并退还费用，绝不让 HTTP 线程代跑）
+        try {
+            asyncImageTaskExecutor.executeMusicCoverTask(taskId, prompt, size, model, n);
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
+        }
 
         CreateAsyncResponse response = new CreateAsyncResponse();
         response.setTaskId(taskId);

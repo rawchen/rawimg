@@ -7,6 +7,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
+import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 图像智能美颜异步控制器
@@ -35,6 +37,7 @@ public class ImageBeautyAsyncController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final ImageTaskRejectHandler imageTaskRejectHandler;
 
     /**
      * 异步智能美颜 - 前端已通过OSS上传原图
@@ -96,8 +99,12 @@ public class ImageBeautyAsyncController {
         consumeLogService.createLog(user.getId(), taskId, "beauty", model,
                 price != null ? price.getModelName() : model, null, cost);
 
-        // 异步执行任务
-        asyncImageTaskExecutor.executeBeautyTask(taskId, originalImageUrl, prompt, model);
+        // 异步执行任务（队列满时立即拒绝并退还费用，绝不让 HTTP 线程代跑）
+        try {
+            asyncImageTaskExecutor.executeBeautyTask(taskId, originalImageUrl, prompt, model);
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
+        }
 
         log.info("Beauty task {} created for user {} with model {}, cost {}", taskId, user.getId(), model, cost);
 

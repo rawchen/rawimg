@@ -7,6 +7,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
+import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 图像增强异步控制器
@@ -35,6 +37,7 @@ public class ImageEnhanceAsyncController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final ImageTaskRejectHandler imageTaskRejectHandler;
 
     /**
      * 异步增强图片 - 前端已通过STS上传图片到OSS
@@ -97,8 +100,12 @@ public class ImageEnhanceAsyncController {
         consumeLogService.createLog(user.getId(), taskId, "enhance", model,
                 price != null ? price.getModelName() : model, null, cost);
 
-        // 异步执行任务
-        asyncImageTaskExecutor.executeEnhanceTaskWithUrl(taskId, referenceUrl, enhancePrompt);
+        // 异步执行任务（队列满时立即拒绝并退还费用，绝不让 HTTP 线程代跑）
+        try {
+            asyncImageTaskExecutor.executeEnhanceTaskWithUrl(taskId, referenceUrl, enhancePrompt);
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
+        }
 
         log.info("Enhance task {} created for user {} with model {}, cost {}", taskId, user.getId(), model, cost);
 

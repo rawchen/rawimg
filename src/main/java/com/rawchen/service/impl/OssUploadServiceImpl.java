@@ -112,14 +112,32 @@ public class OssUploadServiceImpl implements OssUploadService {
             }
 
             byte[] bytes = Base64.getDecoder().decode(imageData);
-            InputStream inputStream = new ByteArrayInputStream(bytes);
 
             String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
-            uploadToOss(inputStream, objectKey, contentType, bytes.length);
+            try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+                uploadToOss(inputStream, objectKey, contentType, bytes.length);
+            }
 
             return buildFullUrl(objectKey);
         } catch (Exception e) {
             log.error("Upload base64 image failed: {}", e.getMessage());
+            throw new RuntimeException("上传图片失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public String uploadBytes(byte[] data, String contentType, String fileName) {
+        if (data == null || data.length == 0) {
+            throw new RuntimeException("上传图片失败: 图片内容为空");
+        }
+        try {
+            String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
+            try (InputStream inputStream = new ByteArrayInputStream(data)) {
+                uploadToOss(inputStream, objectKey, contentType, data.length);
+            }
+            return buildFullUrl(objectKey);
+        } catch (Exception e) {
+            log.error("Upload bytes failed: {}", e.getMessage());
             throw new RuntimeException("上传图片失败: " + e.getMessage());
         }
     }
@@ -142,11 +160,12 @@ public class OssUploadServiceImpl implements OssUploadService {
         long t0 = System.currentTimeMillis();
         byte[] bytes = null;
         String contentType = "image/jpeg";
+        HttpURLConnection connection = null;
         try {
             // ============ 第一步：从 GPT 中转站下载结果图 ============
             URL url = new URL(imageUrl);
             // 设置Referer防止防盗链403
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection = (HttpURLConnection) url.openConnection();
             String referer = url.getProtocol() + "://" + url.getHost();
             connection.setRequestProperty("Referer", referer);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
@@ -187,6 +206,11 @@ public class OssUploadServiceImpl implements OssUploadService {
         } catch (Exception e) {
             log.error("Upload from URL failed: {}", e.getMessage());
             throw new RuntimeException("上传图片失败: " + e.getMessage());
+        } finally {
+            // 无论成功与否都必须断开连接，否则 socket 会一直挂到 GC 回收
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 
@@ -212,12 +236,12 @@ public class OssUploadServiceImpl implements OssUploadService {
             String fileName = folder + generateFileNameWithExtension(extension);
             String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
 
-            InputStream inputStream = file.getInputStream();
             long contentLength = file.getSize();
 
-            uploadToOss(inputStream, objectKey, contentType, contentLength);
-
-            inputStream.close();
+            // 必须用 try-with-resources：否则 uploadToOss 抛异常时流不会关闭，泄漏 FD
+            try (InputStream inputStream = file.getInputStream()) {
+                uploadToOss(inputStream, objectKey, contentType, contentLength);
+            }
 
             return buildFullUrl(objectKey);
         } catch (Exception e) {
@@ -228,14 +252,14 @@ public class OssUploadServiceImpl implements OssUploadService {
 
     @Override
     public String uploadFromUrlWithFolder(String imageUrl, String folder) {
+        HttpURLConnection connection = null;
         try {
             URL url = new URL(imageUrl);
             // 设置Referer防止防盗链403
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection = (HttpURLConnection) url.openConnection();
             String referer = url.getProtocol() + "://" + url.getHost();
             connection.setRequestProperty("Referer", referer);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-            InputStream inputStream = connection.getInputStream();
 
             // 从URL推断内容类型和文件扩展名
             String contentType = "image/jpeg";
@@ -256,14 +280,20 @@ public class OssUploadServiceImpl implements OssUploadService {
             String fileName = folder + generateFileNameWithExtension(extension);
             String objectKey = ossConfig.getUploadFolder() + "/" + fileName;
 
-            uploadToOss(inputStream, objectKey, contentType, -1);
-
-            inputStream.close();
+            // 必须用 try-with-resources：否则 uploadToOss 抛异常时流不会关闭，泄漏 FD
+            try (InputStream inputStream = connection.getInputStream()) {
+                uploadToOss(inputStream, objectKey, contentType, -1);
+            }
 
             return buildFullUrl(objectKey);
         } catch (Exception e) {
             log.error("Upload from URL failed: {}", e.getMessage());
             throw new RuntimeException("上传图片失败: " + e.getMessage());
+        } finally {
+            // 无论成功与否都必须断开连接，否则 socket 会一直挂到 GC 回收
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 

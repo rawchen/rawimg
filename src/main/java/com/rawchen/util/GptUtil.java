@@ -3,7 +3,6 @@ package com.rawchen.util;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -195,9 +194,9 @@ public class GptUtil {
      *
      * @param file   上传的图片文件
      * @param prompt 增强提示词
-     * @return 增强后的图片URL或Base64数据
+     * @return 增强后的图片结果（图片地址或图片字节）
      */
-    public String enhanceImage(MultipartFile file, String prompt) {
+    public List<ImagePayload> enhanceImage(MultipartFile file, String prompt) {
         File tempFile = null;
         try {
             // 将MultipartFile转为临时文件
@@ -205,33 +204,15 @@ public class GptUtil {
             file.transferTo(tempFile);
 
             String fullUrl = apiUrl + "/v1/images/edits";
-            HttpResponse response = HttpRequest.post(fullUrl)
+            HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + apiKey)
                     .form("image", tempFile)
                     .form("model", model)
                     .form("prompt", prompt)
-                    .timeout(120000)
-                    .execute();
+                    .timeout(120000);
 
-            String body = response.body();
-            log.info("GPT image API response status: {}", response.getStatus());
-
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                // GPT image edit response: { "data": [ { "url": "..." } ] } or { "data": [ { "b64_json": "..." } ] }
-                if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    String image = extractImageData(imageData, "image/png");
-                    if (image != null) {
-                        return image;
-                    }
-                }
-                log.error("GPT image API unexpected response: {}", body);
-                throw new RuntimeException("图像增强失败，API返回异常");
-            } else {
-                log.error("GPT image API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像增强失败: " + response.getStatus());
-            }
+            // GPT image edit response: { "data": [ { "url": "..." } ] } or { "data": [ { "b64_json": "..." } ] }
+            return executeAndParseImages(request, "image/png", "image", "图像增强失败");
         } catch (IOException e) {
             log.error("GPT image API IO error: {}", e.getMessage());
             throw new RuntimeException("图像上传失败: " + e.getMessage());
@@ -249,9 +230,9 @@ public class GptUtil {
      * @param maskUrl  遮罩图片URL（原图部分黑色#000000，扩展部分白色#ffffff）
      * @param size     扩展后的图片尺寸
      * @param model    使用的模型名称
-     * @return 扩展后的图片URL或Base64数据
+     * @return 扩展后的图片结果（图片地址或图片字节）
      */
-    public String expandImage(String imageUrl, String maskUrl, String size, String model) {
+    public List<ImagePayload> expandImage(String imageUrl, String maskUrl, String size, String model) {
         // 固定提示词，不暴露给前端
         String prompt = "自然地扩展图像边界，保持风格和内容的连贯性，生成与原图风格一致的背景内容，原图保持不变";
 
@@ -278,24 +259,23 @@ public class GptUtil {
                 request.form("size", size);
             }
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT image expand API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT image expand API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    String image = extractImageData(imageData, "image/png");
-                    if (image != null) {
-                        return image;
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT image expand API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("图像扩展失败: " + status);
                 }
-                log.error("GPT image expand API unexpected response: {}", body);
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/png");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT image expand API unexpected response: no image found");
                 throw new RuntimeException("图像扩展失败，API返回异常");
-            } else {
-                log.error("GPT image expand API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像扩展失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (Exception e) {
             log.error("GPT image expand API error: {}", e.getMessage());
@@ -317,9 +297,9 @@ public class GptUtil {
      * @param maskUrl  遮罩图片URL（纯色选区+透明背景）
      * @param prompt   编辑提示词
      * @param model    使用的模型名称
-     * @return 编辑后的图片URL或Base64数据
+     * @return 编辑后的图片结果（图片地址或图片字节）
      */
-    public String inpaintImage(String imageUrl, String maskUrl, String prompt, String model) {
+    public List<ImagePayload> inpaintImage(String imageUrl, String maskUrl, String prompt, String model) {
         File imageFile = null;
         File maskFile = null;
         try {
@@ -341,24 +321,23 @@ public class GptUtil {
                     .form("input_fidelity", "high")
                     .timeout(10 * 60 * 1000);
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT inpaint API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT inpaint API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    String image = extractImageData(imageData, "image/png");
-                    if (image != null) {
-                        return image;
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT inpaint API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("局部改图失败: " + status);
                 }
-                log.error("GPT inpaint API unexpected response: {}", body);
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/png");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT inpaint API unexpected response: no image found");
                 throw new RuntimeException("局部改图失败，API返回异常");
-            } else {
-                log.error("GPT inpaint API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("局部改图失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (Exception e) {
             log.error("GPT inpaint API error: {}", e.getMessage());
@@ -379,9 +358,9 @@ public class GptUtil {
      * @param file   上传的图片文件
      * @param prompt 抠图提示词
      * @param model  使用的模型名称
-     * @return 抠图后的图片URL或Base64数据
+     * @return 抠图后的图片结果（图片地址或图片字节）
      */
-    public String mattingImage(MultipartFile file, String prompt, String model) {
+    public List<ImagePayload> mattingImage(MultipartFile file, String prompt, String model) {
         File tempFile = null;
         try {
             // 将MultipartFile转为临时文件
@@ -396,24 +375,23 @@ public class GptUtil {
                     .form("prompt", prompt)
                     .timeout(10 * 60 * 1000);
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT matting API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT matting API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    String image = extractImageData(imageData, "image/png");
-                    if (image != null) {
-                        return image;
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT matting API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("图像抠图失败: " + status);
                 }
-                log.error("GPT matting API unexpected response: {}", body);
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/png");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT matting API unexpected response: no image found");
                 throw new RuntimeException("图像抠图失败，API返回异常");
-            } else {
-                log.error("GPT matting API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像抠图失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (IOException e) {
             log.error("GPT matting API IO error: {}", e.getMessage());
@@ -431,9 +409,9 @@ public class GptUtil {
      * @param file   上传的图片文件
      * @param prompt 修复提示词
      * @param model  使用的模型名称
-     * @return 修复后的图片URL或Base64数据
+     * @return 修复后的图片结果（图片地址或图片字节）
      */
-    public String restoreImage(MultipartFile file, String prompt, String model) {
+    public List<ImagePayload> restoreImage(MultipartFile file, String prompt, String model) {
         File tempFile = null;
         try {
             // 将MultipartFile转为临时文件
@@ -448,24 +426,23 @@ public class GptUtil {
                     .form("prompt", prompt)
                     .timeout(10 * 60 * 1000);
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT restore API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT restore API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    JSONObject imageData = json.getJSONArray("data").getJSONObject(0);
-                    String image = extractImageData(imageData, "image/jpeg");
-                    if (image != null) {
-                        return image;
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT restore API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("老照片修复失败: " + status);
                 }
-                log.error("GPT restore API unexpected response: {}", body);
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/jpeg");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT restore API unexpected response: no image found");
                 throw new RuntimeException("老照片修复失败，API返回异常");
-            } else {
-                log.error("GPT restore API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("老照片修复失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (IOException e) {
             log.error("GPT restore API IO error: {}", e.getMessage());
@@ -478,33 +455,69 @@ public class GptUtil {
     }
 
     /**
-     * 从 GPT 响应中提取图片数据，优先 b64_json，回退 url。
+     * 执行图片接口请求并解析出图片结果。
      * <p>
-     * 关键优化：中转站响应里 url 和 b64_json 都是可选字段，有些实现会**两个同时返回**，
-     * 判断顺序决定走哪条路径。b64_json 数据走 JSON 响应同一连接（几十 KB/s 升级到几 MB/s），
-     * url 走境外域名下载（实测 2.7MB ~4 分钟）。
+     * 相比原来的 {@code response.body() + fastjson} 做法，这里有两点关键变化：
+     * <ol>
+     *     <li>使用异步模式执行，响应体不会被 Hutool 预读进内存，而是直接从网络流按字节解析；</li>
+     *     <li>base64 文本全程不转成 String，直接在响应字节数组上解码成图片字节。</li>
+     * </ol>
+     * 原因：Java 8 的 String 底层是 char[]（1 字符 2 字节），一份 3.6MB 的 base64 文本
+     * 转成 String 就占 7.2MB；而旧链路里 base64 会被反复复制（响应体 → JSON 解析 →
+     * 拼 data URI → 正则 split → substring），单张图能放大到 50MB 以上，直接打满 -Xmx512m 的堆。
+     * 改造后单张图峰值约 6~7MB。
      * <p>
-     * 调用方无需关心中转站是否真的遵守 response_format，只要拿到 b64_json 就用。
+     * 字段语义与旧的 {@code extractImageData} 保持一致：优先 b64_json（免境外下载的快路径），
+     * 没有才回退到 url。
      *
-     * @param imageData   单个图片响应对象（包含 url / b64_json 字段）
-     * @param defaultMime b64_json 时的默认 MIME（image/png / image/jpeg / image/webp）
-     * @return "data:image/xxx;base64,..." 或 "https://..."；两者都为空返回 null
+     * @param request      已构建好的请求
+     * @param defaultMime  b64_json 场景的默认 MIME（image/png / image/jpeg）
+     * @param scene        场景标识，仅用于日志
+     * @param errorMessage 失败时的异常提示前缀
+     * @return 图片结果列表（至少一个）
+     * @throws IOException 读写响应流失败
      */
-    private String extractImageData(JSONObject imageData, String defaultMime) {
-        if (imageData == null) {
-            return null;
+    private List<ImagePayload> executeAndParseImages(HttpRequest request, String defaultMime,
+                                                       String scene, String errorMessage) throws IOException {
+        // executeAsync：响应体不预读入内存，bodyStream() 直接返回网络流
+        HttpResponse response = request.executeAsync();
+        try {
+            int status = response.getStatus();
+            log.info("GPT {} API response status: {}", scene, status);
+            if (!response.isOk()) {
+                log.error("GPT {} API error: status={}, body={}", scene, status, readErrorBody(response));
+                throw new RuntimeException(errorMessage + ": " + status);
+            }
+            List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), defaultMime);
+            if (payloads.isEmpty()) {
+                log.error("GPT {} API unexpected response: no image found", scene);
+                throw new RuntimeException(errorMessage + "，API返回异常");
+            }
+            return payloads;
+        } finally {
+            // 异步模式下 bodyStream() 是真实的网络流，必须显式关闭（同时会断开底层连接）
+            response.close();
         }
-        // 优先 b64_json（快路径，免境外下载）
-        String b64 = imageData.getString("b64_json");
-        if (b64 != null && !b64.isEmpty()) {
-            return "data:" + defaultMime + ";base64," + b64;
+    }
+
+    /**
+     * 读取错误响应体。错误响应体通常很小，只取前若干字节用于日志。
+     *
+     * @param response HTTP 响应
+     * @return 错误响应体文本
+     */
+    private String readErrorBody(HttpResponse response) {
+        try {
+            java.io.InputStream in = response.bodyStream();
+            if (in == null) {
+                return "";
+            }
+            byte[] buf = new byte[4096];
+            int n = in.read(buf, 0, buf.length);
+            return n > 0 ? new String(buf, 0, n, java.nio.charset.StandardCharsets.UTF_8) : "";
+        } catch (IOException e) {
+            return "<读取失败: " + e.getMessage() + ">";
         }
-        // 回退到 url（需要再走一遍 HttpURLConnection 下载，慢路径）
-        String url = imageData.getString("url");
-        if (url != null && !url.isEmpty()) {
-            return url;
-        }
-        return null;
     }
 
     /**
@@ -565,9 +578,9 @@ public class GptUtil {
      * @param size   图片尺寸
      * @param modelParam 使用的模型（可选）
      * @param n 生成图片数量（可选，默认1）
-     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
+     * @return 生成的图片结果列表
      */
-    public String editImage(List<MultipartFile> files, String prompt, String size, String modelParam, Integer n) {
+    public List<ImagePayload> editImage(List<MultipartFile> files, String prompt, String size, String modelParam, Integer n) {
         List<File> tempFiles = new ArrayList<>();
         try {
             String fullUrl = apiUrl + "/v1/images/edits";
@@ -597,33 +610,24 @@ public class GptUtil {
                 request.form("n", n);
             }
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT image edit API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT image edit API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    // 处理多图返回
-                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
-                    if (dataArray != null && !dataArray.isEmpty()) {
-                        List<String> urls = new ArrayList<>();
-                        for (int i = 0; i < dataArray.size(); i++) {
-                            JSONObject imageData = dataArray.getJSONObject(i);
-                            String image = extractImageData(imageData, "image/png");
-                            if (image != null) {
-                                urls.add(image);
-                            }
-                        }
-                        // 返回逗号分隔的URL字符串
-                        return String.join(",", urls);
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT image edit API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("图像编辑失败: " + status);
                 }
-                log.error("GPT image edit API unexpected response: {}", body);
+                // 处理多图返回
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/png");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT image edit API unexpected response: no image found");
                 throw new RuntimeException("图像编辑失败，API返回异常");
-            } else {
-                log.error("GPT image edit API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像编辑失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (IOException e) {
             log.error("GPT image edit API IO error: {}", e.getMessage());
@@ -655,9 +659,9 @@ public class GptUtil {
      * @param size        图片尺寸
      * @param modelParam  使用的模型（可选）
      * @param n           生成图片数量（可选，默认1）
-     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
+     * @return 生成的图片结果列表
      */
-    public String editImageByUrls(List<String> imageUrls, String prompt, String size, String modelParam, Integer n) {
+    public List<ImagePayload> editImageByUrls(List<String> imageUrls, String prompt, String size, String modelParam, Integer n) {
         if (imageUrls == null || imageUrls.isEmpty()) {
             throw new IllegalArgumentException("imageUrls 不能为空");
         }
@@ -685,31 +689,23 @@ public class GptUtil {
                 request.form("n", n);
             }
 
-            HttpResponse response = request.execute();
-            String body = response.body();
-            log.info("GPT image edit (url-mode) API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT image edit (url-mode) API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
-                    if (dataArray != null && !dataArray.isEmpty()) {
-                        List<String> urls = new ArrayList<>();
-                        for (int i = 0; i < dataArray.size(); i++) {
-                            JSONObject imageData = dataArray.getJSONObject(i);
-                            String image = extractImageData(imageData, "image/png");
-                            if (image != null) {
-                                urls.add(image);
-                            }
-                        }
-                        return String.join(",", urls);
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT image edit (url-mode) error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("图像编辑失败: " + status);
                 }
-                log.error("GPT image edit (url-mode) unexpected response: {}", body);
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/png");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT image edit (url-mode) unexpected response: no image found");
                 throw new RuntimeException("图像编辑失败，API返回异常");
-            } else {
-                log.error("GPT image edit (url-mode) error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像编辑失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (Exception e) {
             log.error("GPT image edit (url-mode) failed: {}", e.getMessage());
@@ -724,9 +720,9 @@ public class GptUtil {
      * @param size   图片尺寸（如：1024x1024, 2160x3840）
      * @param modelParam 使用的模型（可选）
      * @param n 生成图片数量（可选，默认1）
-     * @return 生成的图片URL（多张图片时用逗号分隔）或Base64数据
+     * @return 生成的图片结果列表
      */
-    public String generateImage(String prompt, String size, String modelParam, Integer n) {
+    public List<ImagePayload> generateImage(String prompt, String size, String modelParam, Integer n) {
         try {
             String fullUrl = apiUrl + "/v1/images/generations";
             String effectiveModel = getEffectiveModel(modelParam, size);
@@ -748,39 +744,30 @@ public class GptUtil {
             // 中转站若不支持此参数，会忽略/报错，下方有降级逻辑。
             requestBody.put("response_format", "b64_json");
 
-            HttpResponse response = HttpRequest.post(fullUrl)
+            HttpRequest request = HttpRequest.post(fullUrl)
                     .header("Authorization", "Bearer " + effectiveApiKey)
                     .header("Content-Type", "application/json")
                     .body(requestBody.toJSONString())
-                    .timeout(30 * 60 * 1000)
-                    .execute();
+                    .timeout(30 * 60 * 1000);
 
-            String body = response.body();
-            log.info("GPT image generation API response status: {}", response.getStatus());
+            HttpResponse response = request.executeAsync();
+            try {
+                int status = response.getStatus();
+                log.info("GPT image generation API response status: {}", status);
 
-            if (response.isOk()) {
-                JSONObject json = JSON.parseObject(body);
-                if (json.containsKey("data")) {
-                    // 处理多图返回
-                    com.alibaba.fastjson.JSONArray dataArray = json.getJSONArray("data");
-                    if (dataArray != null && !dataArray.isEmpty()) {
-                        List<String> urls = new ArrayList<>();
-                        for (int i = 0; i < dataArray.size(); i++) {
-                            JSONObject imageData = dataArray.getJSONObject(i);
-                            String image = extractImageData(imageData, "image/jpeg");
-                            if (image != null) {
-                                urls.add(image);
-                            }
-                        }
-                        // 返回逗号分隔的URL字符串
-                        return String.join(",", urls);
-                    }
+                if (!response.isOk()) {
+                    log.error("GPT image generation API error: status={}, body={}", status, readErrorBody(response));
+                    throw new RuntimeException("图像生成失败: " + status);
                 }
-                log.error("GPT image generation API unexpected response: {}", body);
+                // 处理多图返回
+                List<ImagePayload> payloads = GptImageResponseParser.parse(response.bodyStream(), "image/jpeg");
+                if (!payloads.isEmpty()) {
+                    return payloads;
+                }
+                log.error("GPT image generation API unexpected response: no image found");
                 throw new RuntimeException("图像生成失败，API返回异常");
-            } else {
-                log.error("GPT image generation API error: status={}, body={}", response.getStatus(), body);
-                throw new RuntimeException("图像生成失败: " + body);
+            } finally {
+                response.close();
             }
         } catch (Exception e) {
             log.error("GPT image generation API error: {}", e.getMessage());

@@ -7,6 +7,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
+import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 老照片修复控制器 - 异步模式
@@ -35,6 +37,7 @@ public class ImageRestoreController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final ImageTaskRejectHandler imageTaskRejectHandler;
 
     /**
      * 异步老照片修复接口
@@ -98,8 +101,12 @@ public class ImageRestoreController {
         consumeLogService.createLog(user.getId(), taskId, "restore", model,
                 price != null ? price.getModelName() : model, null, cost);
 
-        // 异步执行修复任务
-        asyncImageTaskExecutor.executeRestoreTask(taskId, originalImageUrl, prompt, model);
+        // 异步执行修复任务（队列满时立即拒绝并退还费用，绝不让 HTTP 线程代跑）
+        try {
+            asyncImageTaskExecutor.executeRestoreTask(taskId, originalImageUrl, prompt, model);
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
+        }
 
         log.info("Restore task {} created for user {} with model {}, cost {}", taskId, user.getId(), model, cost);
 

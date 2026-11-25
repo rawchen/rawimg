@@ -1,6 +1,7 @@
 package com.rawchen.controller;
 
 import com.rawchen.entity.R;
+import com.rawchen.service.OssUploadService;
 import com.rawchen.util.GptUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ImageEnhanceController {
 
     private final GptUtil gptUtil;
+    private final OssUploadService ossUploadService;
 
     /**
      * 图像增强接口
@@ -47,7 +49,8 @@ public class ImageEnhanceController {
         log.info("Enhancing image with prompt: {}", enhancePrompt);
 
         try {
-            String resultUrl = gptUtil.enhanceImage(file, enhancePrompt);
+            String resultUrl = ossUploadService.uploadImagePayloads(
+                    gptUtil.enhanceImage(file, enhancePrompt), "image/enhance");
             ImageEnhanceResponse response = new ImageEnhanceResponse();
             response.setOriginalFilename(file.getOriginalFilename());
             response.setEnhancedUrl(resultUrl);

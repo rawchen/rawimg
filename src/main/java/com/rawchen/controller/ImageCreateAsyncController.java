@@ -9,6 +9,7 @@ import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
 import com.rawchen.service.ConsumeLogService;
+import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 图像创作异步控制器
@@ -37,6 +39,7 @@ public class ImageCreateAsyncController {
     private final UserBalanceService userBalanceService;
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
+    private final ImageTaskRejectHandler imageTaskRejectHandler;
 
     /**
      * 异步创建图片 - 纯文字生成或带参考图编辑
@@ -119,11 +122,15 @@ public class ImageCreateAsyncController {
         consumeLogService.createLog(user.getId(), taskId, "create", effectiveModelCode,
                 price != null ? price.getModelName() : model, size, cost);
 
-        // 异步执行任务
-        if (refUrlList == null || refUrlList.isEmpty()) {
-            asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model, n);
-        } else {
-            asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size, model, n);
+        // 异步执行任务（队列满时立即拒绝并退还费用，绝不让 HTTP 线程代跑）
+        try {
+            if (refUrlList == null || refUrlList.isEmpty()) {
+                asyncImageTaskExecutor.executeCreateTask(taskId, prompt, size, model, n);
+            } else {
+                asyncImageTaskExecutor.executeEditTaskWithUrls(taskId, refUrlList, prompt, size, model, n);
+            }
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
         }
 
         CreateAsyncResponse response = new CreateAsyncResponse();

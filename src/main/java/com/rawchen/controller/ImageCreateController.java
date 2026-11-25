@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.R;
 import com.rawchen.entity.InspirationTemplate;
 import com.rawchen.service.InspirationTemplateService;
+import com.rawchen.service.OssUploadService;
 import com.rawchen.util.GptUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class ImageCreateController {
 
     private final GptUtil gptUtil;
     private final InspirationTemplateService inspirationTemplateService;
+    private final OssUploadService ossUploadService;
 
     /**
      * 图像创作接口 - 自动判断使用生成还是编辑
@@ -52,11 +54,13 @@ public class ImageCreateController {
             if (files == null || files.isEmpty()) {
                 // 没有图片，使用纯文字生成
                 log.info("Creating image from text prompt: {}", prompt);
-                resultUrl = gptUtil.generateImage(prompt, size, null, null);
+                resultUrl = ossUploadService.uploadImagePayloads(
+                        gptUtil.generateImage(prompt, size, null, null), "image/create");
             } else {
                 // 有图片，使用图片编辑
                 log.info("Creating image with {} reference images", files.size());
-                resultUrl = gptUtil.editImage(files, prompt, size, null, null);
+                resultUrl = ossUploadService.uploadImagePayloads(
+                        gptUtil.editImage(files, prompt, size, null, null), "image/create");
             }
 
             ImageCreateResponse response = new ImageCreateResponse();

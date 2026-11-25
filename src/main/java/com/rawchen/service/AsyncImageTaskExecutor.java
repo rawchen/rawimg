@@ -2,6 +2,7 @@ package com.rawchen.service;
 
 import com.rawchen.entity.ImageTask;
 import com.rawchen.util.GptUtil;
+import com.rawchen.util.ImagePayload;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,7 +59,7 @@ public class AsyncImageTaskExecutor {
         StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async create task {} started with model {}, n={}", taskId, model, n);
-            String result = gptUtil.generateImage(prompt, size, model, n);
+            List<ImagePayload> result = gptUtil.generateImage(prompt, size, model, n);
             timer.step("call gpt.generateImage (includes network RTT + upstream)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -100,7 +101,7 @@ public class AsyncImageTaskExecutor {
             }
             timer.step("download " + files.size() + " reference images (total=" + totalSize + "B)");
 
-            String result = gptUtil.editImage(files, prompt, size, model, n);
+            List<ImagePayload> result = gptUtil.editImage(files, prompt, size, model, n);
             timer.step("call gpt.editImage (upload refs + upstream + return)");
 
             String ossUrl = uploadResultToOss(result);
@@ -177,7 +178,7 @@ public class AsyncImageTaskExecutor {
             timer.step("download reference (size=" + imageData.length + "B)");
             MultipartFile file = new MemoryMultipartFile(imageData, "reference.jpg");
 
-            String result = gptUtil.enhanceImage(file, prompt);
+            List<ImagePayload> result = gptUtil.enhanceImage(file, prompt);
             timer.step("call gpt.enhanceImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -213,7 +214,7 @@ public class AsyncImageTaskExecutor {
             MultipartFile file = new MemoryMultipartFile(imageData, "matting_original.png");
 
             // 调用GPT抠图API
-            String result = gptUtil.mattingImage(file, prompt, model);
+            List<ImagePayload> result = gptUtil.mattingImage(file, prompt, model);
             timer.step("call gpt.mattingImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -250,7 +251,7 @@ public class AsyncImageTaskExecutor {
             MultipartFile file = new MemoryMultipartFile(imageData, "restore_original.jpg");
 
             // 调用GPT修复API（使用mattingImage方法，因为它支持图片编辑）
-            String result = gptUtil.restoreImage(file, prompt, model);
+            List<ImagePayload> result = gptUtil.restoreImage(file, prompt, model);
             timer.step("call gpt.restoreImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -283,7 +284,7 @@ public class AsyncImageTaskExecutor {
             log.info("Async expand task {} started with model {}", taskId, model);
 
             // 调用GPT扩展API，maskUrl直接传递URL（API支持）
-            String result = gptUtil.expandImage(originalImageUrl, maskImageUrl, size, model);
+            List<ImagePayload> result = gptUtil.expandImage(originalImageUrl, maskImageUrl, size, model);
             timer.step("call gpt.expandImage (download ref via gpt + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -316,7 +317,7 @@ public class AsyncImageTaskExecutor {
             log.info("Async edit inpaint task {} started with model {}", taskId, model);
 
             // 调用GPT局部改图API
-            String result = gptUtil.inpaintImage(originalImageUrl, maskImageUrl, prompt, model);
+            List<ImagePayload> result = gptUtil.inpaintImage(originalImageUrl, maskImageUrl, prompt, model);
             timer.step("call gpt.inpaintImage (download ref via gpt + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -356,7 +357,7 @@ public class AsyncImageTaskExecutor {
             String fullPrompt = "对图片进行智能美颜处理：" + prompt + "。保持自然真实的效果，不要过度处理。";
 
             // 调用GPT美颜API（复用mattingImage方法，因为参数结构相同）
-            String result = gptUtil.mattingImage(file, fullPrompt, model);
+            List<ImagePayload> result = gptUtil.mattingImage(file, fullPrompt, model);
             timer.step("call gpt.mattingImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -404,7 +405,7 @@ public class AsyncImageTaskExecutor {
                     "如果有多个服装单品，请合理搭配穿着。";
 
             // 让中转站自己下载参考图（不经过本服务）
-            String result = gptUtil.editImageByUrls(allSignedUrls, fullPrompt, size, model, null);
+            List<ImagePayload> result = gptUtil.editImageByUrls(allSignedUrls, fullPrompt, size, model, null);
             timer.step("call gpt.editImageByUrls (gpt self-fetch " + allSignedUrls.size() + " refs + upstream + return)");
 
             String ossUrl = uploadResultToOss(result);
@@ -441,7 +442,7 @@ public class AsyncImageTaskExecutor {
                 totalSize += fileDataList.get(i).length;
             }
             timer.step("prepare files (size=" + totalSize + "B)");
-            String result = gptUtil.editImage(files, prompt, size, null, n);
+            List<ImagePayload> result = gptUtil.editImage(files, prompt, size, null, n);
             timer.step("call gpt.editImage (upload " + files.size() + " refs + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -469,7 +470,7 @@ public class AsyncImageTaskExecutor {
             log.info("Async enhance task {} started", taskId);
             MultipartFile file = new MemoryMultipartFile(fileData, fileName);
             timer.step("prepare file (size=" + fileData.length + "B)");
-            String result = gptUtil.enhanceImage(file, prompt);
+            List<ImagePayload> result = gptUtil.enhanceImage(file, prompt);
             timer.step("call gpt.enhanceImage (upload ref + upstream + return)");
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
@@ -487,59 +488,45 @@ public class AsyncImageTaskExecutor {
 
     /**
      * 将GPT返回的结果上传到OSS（默认task目录）
-     * GPT返回的可能是URL，也可能是Base64数据
-     * 支持多张图片（逗号分隔）
+     *
+     * @param payloads GPT返回的图片结果列表
+     * @return 逗号分隔的OSS URL
      */
-    private String uploadResultToOss(String gptResult) {
-        return uploadResultToOss(gptResult, "task");
+    private String uploadResultToOss(List<ImagePayload> payloads) {
+        return uploadResultToOss(payloads, "task");
     }
 
     /**
      * 将GPT返回的结果上传到OSS（指定目录）
-     * GPT返回的可能是URL，也可能是Base64数据
-     * 支持多张图片（逗号分隔）
      * <p>
      * 性能优化：多张图片时使用 ossUploadExecutor 并行上传，
      * 避免 4 张图串行上传累计耗时 5+ 分钟的问题。
+     * <p>
+     * 内存优化：b64_json 场景的结果在解析阶段就已解码成字节，
+     * 这里直接把字节交给 OSS SDK 上传，不再让base64 文本以 String 形式流转。
      *
-     * @param gptResult GPT返回的结果（URL或Base64）
+     * @param payloads  GPT返回的图片结果列表
      * @param directory OSS上传目录
+     * @return 逗号分隔的OSS URL
      */
-    private String uploadResultToOss(String gptResult, String directory) {
-        // 使用正则表达式分割，避免分割Base64数据内部的逗号
-        // Base64数据格式: data:image/xxx;base64,实际数据
-        // URL格式: https://xxx 或 http://xxx
-        String[] results = gptResult.split(",(?=(?:data:image/|https?://))");
-
-        // 过滤空项，保留原始下标以便生成 _0/_1/_2/_3 后缀
-        List<int[]> indexAndResult = new ArrayList<>();
-        for (int i = 0; i < results.length; i++) {
-            String r = results[i].trim();
-            if (!r.isEmpty()) {
-                indexAndResult.add(new int[]{indexAndResult.size(), i});
-                // results 数组下标 i 暂用不到，但保留原始切割位置以便调试
-            }
+    private String uploadResultToOss(List<ImagePayload> payloads, String directory) {
+        if (payloads == null || payloads.isEmpty()) {
+            return "";
         }
 
         // 仅有一张图：走同步路径，省去 CompletableFuture 的开销
-        if (indexAndResult.size() <= 1) {
-            List<String> single = new ArrayList<>();
-            if (!indexAndResult.isEmpty()) {
-                String singleResult = results[indexAndResult.get(0)[1]].trim();
-                String ossUrl = uploadSingleResult(singleResult, directory, 0);
-                single.add(ossUrl);
-            }
-            return String.join(",", single);
+        if (payloads.size() == 1) {
+            return uploadSingleResult(payloads.get(0), directory, 0);
         }
 
         // 多张图：使用 ossUploadExecutor 并行上传
         long uploadStart = System.currentTimeMillis();
-        List<CompletableFuture<String>> futures = new ArrayList<>(indexAndResult.size());
-        for (int k = 0; k < indexAndResult.size(); k++) {
+        List<CompletableFuture<String>> futures = new ArrayList<>(payloads.size());
+        for (int k = 0; k < payloads.size(); k++) {
             final int seq = k; // 顺序下标，保证文件名 _0/_1/... 与原顺序一致
-            final String singleResult = results[indexAndResult.get(k)[1]].trim();
+            final ImagePayload payload = payloads.get(k);
             futures.add(CompletableFuture.supplyAsync(
-                    () -> uploadSingleResult(singleResult, directory, seq),
+                    () -> uploadSingleResult(payload, directory, seq),
                     ossUploadExecutor));
         }
 
@@ -556,15 +543,20 @@ public class AsyncImageTaskExecutor {
     }
 
     /**
-     * 上传单张结果到OSS（Base64或URL）
+     * 上传单张结果到OSS（图片字节或URL）
+     *
+     * @param payload   图片结果
+     * @param directory OSS上传目录
+     * @param seq       顺序下标，用于生成 _0/_1/... 后缀
+     * @return OSS完整URL
      */
-    private String uploadSingleResult(String singleResult, String directory, int seq) {
+    private String uploadSingleResult(ImagePayload payload, String directory, int seq) {
         String fileName = directory + "/" + java.util.UUID.randomUUID().toString().replace("-", "") + "_" + seq + ".jpeg";
-        if (singleResult.startsWith("data:image/")) {
-            return ossUploadService.uploadBase64Image(singleResult, fileName);
-        } else {
-            return ossUploadService.uploadFromUrl(singleResult, fileName);
+        if (payload.isUrl()) {
+            return ossUploadService.uploadFromUrl(payload.getUrl(), fileName);
         }
+        String contentType = payload.getContentType() == null ? "image/jpeg" : payload.getContentType();
+        return ossUploadService.uploadBytes(payload.getData(), contentType, fileName);
     }
 
     /**
@@ -583,7 +575,7 @@ public class AsyncImageTaskExecutor {
             log.info("Async music cover task {} started with model {}, n={}", taskId, model, n);
 
             // 调用GPT图片生成API
-            String result = gptUtil.generateImage(prompt, size, model, n);
+            List<ImagePayload> result = gptUtil.generateImage(prompt, size, model, n);
             timer.step("call gpt.generateImage (includes network RTT + upstream)");
 
             // 上传到OSS的image-music目录
@@ -696,7 +688,11 @@ public class AsyncImageTaskExecutor {
 
         @Override
         public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
-            new java.io.FileOutputStream(dest).write(content);
+            // 必须使用 try-with-resources：否则 FileOutputStream 不会被关闭，
+            // 文件描述符要等 GC 触发 Cleaner 才会回收，高并发下会耗尽 ulimit -n
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(dest)) {
+                out.write(content);
+            }
         }
     }
 }
