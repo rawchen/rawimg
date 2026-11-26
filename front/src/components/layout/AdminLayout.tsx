@@ -15,12 +15,14 @@ import {
   BulbOutlined,
   AppstoreOutlined,
   DollarOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 
 const sidebarItems = [
   { icon: DashboardOutlined, label: '仪表盘', path: '/admin' },
   { icon: PictureOutlined, label: '图集管理', path: '/admin/galleries' },
   { icon: BulbOutlined, label: '灵感模板', path: '/admin/inspiration' },
+  { icon: DatabaseOutlined, label: '素材库管理', path: '/admin/material-library' },
   { icon: AppstoreOutlined, label: '任务管理', path: '/admin/image-tasks' },
   { icon: TeamOutlined, label: '用户管理', path: '/admin/users' },
   { icon: FileTextOutlined, label: '评论管理', path: '/admin/comments' },

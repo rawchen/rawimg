@@ -26,6 +26,7 @@ import { RechargePage } from '@/pages/RechargePage';
 import { ConsumeLogsPage } from '@/pages/ConsumeLogsPage';
 import { FeedbackPage } from '@/pages/admin/FeedbackPage';
 import { InspirationAdminPage } from '@/pages/admin/InspirationAdminPage';
+import { MaterialLibraryAdminPage } from '@/pages/admin/MaterialLibraryAdminPage';
 import { ImageTasksPage } from '@/pages/admin/ImageTasksPage';
 import { ModelPricesPage } from '@/pages/admin/ModelPricesPage';
 import { EditorLayout } from '@/components/editor/EditorLayout';
@@ -181,6 +182,7 @@ function AppContent() {
             <Route path="/admin/user-actions" element={<ProtectedRoute requireAdmin><UserActionsPage /></ProtectedRoute>} />
             <Route path="/admin/feedback" element={<ProtectedRoute requireAdmin><FeedbackPage /></ProtectedRoute>} />
             <Route path="/admin/inspiration" element={<ProtectedRoute requireAdmin><InspirationAdminPage /></ProtectedRoute>} />
+            <Route path="/admin/material-library" element={<ProtectedRoute requireAdmin><MaterialLibraryAdminPage /></ProtectedRoute>} />
             <Route path="/admin/image-tasks" element={<ProtectedRoute requireAdmin><ImageTasksPage /></ProtectedRoute>} />
             <Route path="/admin/config" element={<ProtectedRoute requireAdmin><ConfigPage /></ProtectedRoute>} />
 

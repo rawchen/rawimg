@@ -215,11 +215,29 @@ public class MusicServiceImpl implements MusicService {
     public List<MusicVO> playlist(String id, String musicU) {
         // 尝试从缓存获取
         String cacheKey = PLAYLIST_CACHE_PREFIX + id;
-        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+        String cachedData = null;
+        try {
+            cachedData = redisTemplate.opsForValue().get(cacheKey);
+        } catch (Exception e) {
+            log.warn("读取播放列表缓存失败: {}", e.getMessage());
+        }
 
         if (cachedData != null) {
-            log.info("从缓存获取播放列表: {}", id);
-            return JSONUtil.toList(cachedData, MusicVO.class);
+            try {
+                List<MusicVO> cachedList = JSONUtil.toList(cachedData, MusicVO.class);
+                if (cachedList != null && !cachedList.isEmpty()) {
+                    log.info("从缓存获取播放列表: {}", id);
+                    return cachedList;
+                }
+            } catch (Exception e) {
+                // 缓存脏数据（例如旧序列化格式写入的值），删除后重新拉取
+                log.warn("播放列表缓存解析失败，将重新拉取: {}", e.getMessage());
+                try {
+                    redisTemplate.delete(cacheKey);
+                } catch (Exception ignore) {
+                    log.debug("删除播放列表缓存失败: {}", cacheKey);
+                }
+            }
         }
 
         // 缓存不存在，调用API获取

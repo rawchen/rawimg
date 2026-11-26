@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .antMatchers("/api/recharge/notify").permitAll() // 支付回调接口
                         .antMatchers("/api/recharge/packages").permitAll() // 充值套餐列表（首页定价模块公开）
                         .antMatchers("/api/image-create/templates/random").permitAll()
+                        .antMatchers("/api/material-library/**").permitAll() // 素材库查询（人物/服装/姿态）
                         .antMatchers("/ws/**").permitAll()
                         .antMatchers("/uploads/**").permitAll()
                         .antMatchers("/", "/index.html", "/static/**", "/js/**", "/css/**", "/img/**", "/assets/**", "/icons/**", "/favicon.ico", "favicon.svg").permitAll()

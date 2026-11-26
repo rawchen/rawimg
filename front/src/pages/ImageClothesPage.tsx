@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { message, Spin, Modal, Image, Pagination, Empty } from 'antd';
+import { message, Spin, Modal, Image, Pagination, Empty, Select } from 'antd';
 import {
   CloudUploadOutlined,
   DownloadOutlined,
@@ -8,13 +8,19 @@ import {
   PlusOutlined,
   CloseOutlined,
   LoadingOutlined,
+  DatabaseOutlined,
+  PictureOutlined,
+  ThunderboltOutlined,
+  CaretRightOutlined,
+  CaretDownOutlined,
 } from '@ant-design/icons';
-import { userApi, ImageTaskRecord, imageClothesApi, modelPriceApi, balanceApi, BalanceStats } from '@/api';
+import { userApi, ImageTaskRecord, imageClothesApi, modelPriceApi, balanceApi, BalanceStats, materialApi, MaterialAsset, MaterialStyle } from '@/api';
 import demoImage from '@/assets/image-clothes/1.jpg';
 import rmbCircle from '@/assets/media/rmb-circle.svg';
 import { addOssThumbnailStyle } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { MaterialPickerModal, MaterialGroupType } from '@/components/material/MaterialPickerModal';
 
 // 页面标题闪烁 hook
 function useTitleFlash() {
@@ -130,6 +136,17 @@ export function ImageClothesPage() {
   const [clothesImageUrls, setClothesImageUrls] = useState<string[]>([]); // OSS URL
   const [uploadingClothesIndex, setUploadingClothesIndex] = useState<number | null>(null);
 
+  // 素材库状态（人物 / 服装 / 姿态）
+  const [personAsset, setPersonAsset] = useState<MaterialAsset | null>(null);
+  const [costumeAsset, setCostumeAsset] = useState<MaterialAsset | null>(null);
+  const [poseAsset, setPoseAsset] = useState<MaterialAsset | null>(null);
+  const [styles, setStyles] = useState<MaterialStyle[]>([]);
+  const [styleCode, setStyleCode] = useState('realistic_portrait');
+  const [previewPrompt, setPreviewPrompt] = useState('');
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<MaterialGroupType | null>(null);
+
   // 结果图片
   const [resultImage, setResultImage] = useState<string | null>(null);
 
@@ -175,6 +192,62 @@ export function ImageClothesPage() {
     loadData();
   }, [selectedModel, selectedResolution, isAuthenticated]);
 
+  // 加载换装风格列表
+  useEffect(() => {
+    let cancelled = false;
+    const loadStyles = async () => {
+      try {
+        const list = await materialApi.styles();
+        if (cancelled) return;
+        setStyles(list || []);
+        if (list && list.length > 0 && !list.some((s) => s.code === styleCode)) {
+          // 默认保持「写实人像写真」，若不存在则回退到第一项（无预设）
+          const fallback = list.find((s) => s.code === 'realistic_portrait') || list[0];
+          setStyleCode(fallback.code);
+        }
+      } catch (error) {
+        console.error('Failed to load material styles:', error);
+      }
+    };
+    loadStyles();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 素材/风格变化时刷新提示词预览
+  useEffect(() => {
+    if (!personAsset && !costumeAsset && !poseAsset) {
+      setPreviewPrompt('');
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setPromptLoading(true);
+      try {
+        const res = await materialApi.previewPrompt({
+          personAssetId: personAsset?.id ?? null,
+          costumeAssetId: costumeAsset?.id ?? null,
+          poseAssetId: poseAsset?.id ?? null,
+          styleCode,
+        });
+        if (!cancelled) {
+          setPreviewPrompt(res?.prompt || '');
+        }
+      } catch (error) {
+        console.error('Failed to preview prompt:', error);
+        if (!cancelled) setPreviewPrompt('');
+      } finally {
+        if (!cancelled) setPromptLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [personAsset, costumeAsset, poseAsset, styleCode]);
+
   // 历史记录
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<ImageTaskRecord[]>([]);
@@ -218,6 +291,7 @@ export function ImageClothesPage() {
       message.info('正在上传人物图片...');
       const ossUrl = await userApi.uploadImageToOss(file, 'clothes-original/');
       setPersonImageUrl(ossUrl);
+      setPersonAsset(null);
 
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -254,6 +328,7 @@ export function ImageClothesPage() {
       try {
         message.info(`正在上传衣服图片 ${i + 1}/${fileArray.length}...`);
         const ossUrl = await userApi.uploadImageToOss(file, 'clothes-original/');
+        setCostumeAsset(null);
 
         // 本地预览
         const reader = new FileReader();
@@ -280,13 +355,69 @@ export function ImageClothesPage() {
   };
 
   // 提交换装任务
+  const useMaterialMode = !!costumeAsset;
+  const hasPerson = !!(personImageUrl || personAsset);
+  const canSubmit = useMaterialMode
+    ? hasPerson && !!poseAsset
+    : !!personImageUrl && clothesImageUrls.length > 0;
+
+  const pollTask = useCallback((taskId: string) => {
+    // 轮询任务结果
+    const pollInterval = 5000;
+    const maxPolls = 120;
+    let pollCount = 0;
+
+    const poll = async () => {
+      try {
+        const result = await imageClothesApi.getTaskResult(taskId);
+
+        if (result.status === 'done' && result.imageUrl) {
+          setResultImage(result.imageUrl);
+          message.success('换装成功');
+          setLoading(false);
+          setTaskSubmitTime(null);
+          startFlash('done');
+        } else if (result.status === 'error') {
+          message.error(result.msg || '换装失败');
+          setLoading(false);
+          setTaskSubmitTime(null);
+          startFlash('error');
+        } else if (result.status === 'not_found') {
+          message.error('任务不存在或已过期');
+          setLoading(false);
+          setTaskSubmitTime(null);
+        } else {
+          pollCount++;
+          if (pollCount < maxPolls) {
+            setTimeout(poll, pollInterval);
+          } else {
+            message.error('任务处理超时，请稍后重试');
+            setLoading(false);
+            setTaskSubmitTime(null);
+          }
+        }
+      } catch (error: any) {
+        message.error(error.message || '查询任务状态失败');
+        setLoading(false);
+        setTaskSubmitTime(null);
+      }
+    };
+
+    setTimeout(poll, 2000);
+  }, [startFlash]);
+
   const handleSubmit = async () => {
-    if (!personImageUrl) {
-      message.warning('请先上传人物图片');
+    if (!hasPerson) {
+      message.warning('请先上传人物图片或从人物素材库选择');
       return;
     }
 
-    if (clothesImageUrls.length === 0) {
+    if (useMaterialMode && !poseAsset) {
+      message.warning('请从姿态库选择一个姿态');
+      return;
+    }
+
+    if (!useMaterialMode && clothesImageUrls.length === 0) {
       message.warning('请至少上传一张衣服图片');
       return;
     }
@@ -303,64 +434,56 @@ export function ImageClothesPage() {
 
     try {
       const actualSize = getActualSize(selectedSize, selectedResolution);
-      const prompt = '为人物换上提供的服装，保持人物原有姿势和背景，使服装自然贴合人物身形。';
 
       message.info('正在提交任务...');
-      const { taskId } = await imageClothesApi.clothesImageAsync(
-        personImageUrl,
-        clothesImageUrls,
-        prompt,
-        actualSize,
-        selectedModel
-      );
+      let taskId: string;
+      if (useMaterialMode) {
+        // 素材库模式：图1=人物、图2=服装、图3=姿态
+        const res = await imageClothesApi.materialClothesImageAsync({
+          personAssetId: personAsset?.id ?? null,
+          personImageUrl: personAsset ? null : personImageUrl,
+          costumeAssetId: costumeAsset!.id!,
+          poseAssetId: poseAsset!.id!,
+          styleCode,
+          prompt: previewPrompt || undefined,
+          size: actualSize,
+          model: selectedModel,
+        });
+        taskId = res.taskId;
+      } else {
+        const prompt = '为人物换上提供的服装，保持人物原有姿势和背景，使服装自然贴合人物身形。';
+        const res = await imageClothesApi.clothesImageAsync(
+          personImageUrl!,
+          clothesImageUrls,
+          prompt,
+          actualSize,
+          selectedModel
+        );
+        taskId = res.taskId;
+      }
       message.info('任务已提交，可稍后在生成历史查看');
 
-      // 轮询任务结果
-      const pollInterval = 5000;
-      const maxPolls = 120;
-      let pollCount = 0;
-
-      const poll = async () => {
-        try {
-          const result = await imageClothesApi.getTaskResult(taskId);
-
-          if (result.status === 'done' && result.imageUrl) {
-            setResultImage(result.imageUrl);
-            message.success('换装成功');
-            setLoading(false);
-            setTaskSubmitTime(null);
-            startFlash('done');
-          } else if (result.status === 'error') {
-            message.error(result.msg || '换装失败');
-            setLoading(false);
-            setTaskSubmitTime(null);
-            startFlash('error');
-          } else if (result.status === 'not_found') {
-            message.error('任务不存在或已过期');
-            setLoading(false);
-            setTaskSubmitTime(null);
-          } else {
-            pollCount++;
-            if (pollCount < maxPolls) {
-              setTimeout(poll, pollInterval);
-            } else {
-              message.error('任务处理超时，请稍后重试');
-              setLoading(false);
-              setTaskSubmitTime(null);
-            }
-          }
-        } catch (error: any) {
-          message.error(error.message || '查询任务状态失败');
-          setLoading(false);
-          setTaskSubmitTime(null);
-        }
-      };
-
-      setTimeout(poll, 2000);
+      pollTask(taskId);
     } catch (error: any) {
       message.error(error.message || '提交失败');
       setLoading(false);
       setTaskSubmitTime(null);
+    }
+  };
+
+  // 素材库选择回调
+  const handleMaterialSelect = (asset: MaterialAsset) => {
+    if (pickerTarget === 'portrait') {
+      setPersonAsset(asset);
+      setPersonImage(asset.thumbUrl || asset.previewUrl || asset.fullUrl || null);
+      setPersonImageUrl(null);
+    } else if (pickerTarget === 'costume') {
+      setCostumeAsset(asset);
+      // 素材库服装与上传服装互斥，避免参考图顺序混乱
+      setClothesImages([]);
+      setClothesImageUrls([]);
+    } else if (pickerTarget === 'pose') {
+      setPoseAsset(asset);
     }
   };
 
@@ -455,9 +578,6 @@ export function ImageClothesPage() {
     return formatDurationFromSeconds(elapsedMs / 1000);
   };
 
-  // 显示的图片
-  const displayAfterImage = resultImage || (personImage ? personImage : demoImage);
-
   return (
     <div className="flex-1 bg-[#F5F7FA]">
       <div className="max-w-[85rem] mx-auto px-4 py-6 md:py-8">
@@ -492,32 +612,11 @@ export function ImageClothesPage() {
                     换装结果
                   </div>
                 </>
-              ) : personImage ? (
-                // 显示上传的人物图 + Loading
-                <div className="relative w-full h-full">
-                  <img
-                    src={personImage}
-                    alt="人物图"
-                    className="w-full h-full object-contain bg-white"
-                    draggable={false}
-                  />
-                  {/* Loading */}
-                  {loading && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-                      <div className="bg-white rounded-xl px-6 py-4 flex flex-col items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <Spin size="default" />
-                          <span className="text-gray-700">处理中... {formatDurationFromSeconds(currentElapsed)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               ) : (
-                // 示例模式
+                // 生成成功前统一显示示例图（不预览上传的人物图）
                 <>
                   <img
-                    src={displayAfterImage}
+                    src={demoImage}
                     alt="示例"
                     className="absolute inset-0 w-full h-full object-contain bg-white"
                     draggable={false}
@@ -526,6 +625,18 @@ export function ImageClothesPage() {
                     示例
                   </div>
                 </>
+              )}
+
+              {/* 生成中遮罩 */}
+              {loading && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                  <div className="bg-white rounded-xl px-6 py-4 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Spin size="default" />
+                      <span className="text-gray-700">处理中... {formatDurationFromSeconds(currentElapsed)}</span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -626,36 +737,119 @@ export function ImageClothesPage() {
           </div>
 
           {/* 右侧控制区域 */}
-          <div className="lg:w-[30%] flex flex-col gap-4">
-            {/* 上传组件 - 人物图片 */}
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-3 text-sm">人物图片</h3>
-              <div
-                className="relative h-[120px] rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors cursor-pointer overflow-hidden"
-                onClick={() => personInputRef.current?.click()}
-              >
-                <input
-                  ref={personInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handlePersonUpload(file);
-                    e.target.value = '';
-                  }}
-                />
-                {personImage ? (
-                  <img
-                    src={personImage}
-                    alt="人物图"
-                    className="w-full h-full object-contain"
+          <div className="lg:w-[30%] flex flex-col gap-3">
+            {/* 人物图片与姿态并排（均只上传一张） */}
+            <div className="grid grid-cols-2 gap-3 items-start">
+              {/* 上传组件 - 人物图片 */}
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <h3 className="font-semibold text-gray-900 text-sm">人物图片</h3>
+                  <button
+                    type="button"
+                    onClick={() => setPickerTarget('portrait')}
+                    className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 px-1.5 py-1 rounded-md hover:bg-purple-50 shrink-0"
+                  >
+                    <DatabaseOutlined />
+                    人物库
+                  </button>
+                </div>
+                <div
+                  className="relative h-[100px] rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors cursor-pointer overflow-hidden"
+                  onClick={() => personInputRef.current?.click()}
+                >
+                  <input
+                    ref={personInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePersonUpload(file);
+                      e.target.value = '';
+                    }}
                   />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <CloudUploadOutlined className="text-3xl text-purple-400 mb-2" />
-                    <span className="text-gray-500 text-sm">上传真人照片</span>
-                  </div>
+                  {personImage ? (
+                    <img
+                      src={personImage}
+                      alt="人物图"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <CloudUploadOutlined className="text-3xl text-purple-400 mb-2" />
+                      <span className="text-gray-500 text-sm">上传真人照片</span>
+                    </div>
+                  )}
+                  {personImage && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPersonImage(null);
+                        setPersonImageUrl(null);
+                        setPersonAsset(null);
+                      }}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
+                    >
+                      <CloseOutlined className="text-xs" style={{ fontSize: '9px' }} />
+                    </button>
+                  )}
+                </div>
+                {personAsset && (
+                  <p className="mt-1.5 text-[11px] text-purple-600 truncate" title={personAsset.title}>
+                    <PictureOutlined className="mr-1" />
+                    {personAsset.categoryName} · {personAsset.title}
+                  </p>
+                )}
+              </div>
+
+              {/* 姿态素材库 */}
+              <div className="bg-white rounded-xl p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <h3 className="font-semibold text-gray-900 text-sm">姿态</h3>
+                  <button
+                    type="button"
+                    onClick={() => setPickerTarget('pose')}
+                    className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 px-1.5 py-1 rounded-md hover:bg-purple-50 shrink-0"
+                  >
+                    <DatabaseOutlined />
+                    姿态库
+                  </button>
+                </div>
+                <div
+                  className="relative h-[100px] rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors cursor-pointer overflow-hidden"
+                  onClick={() => setPickerTarget('pose')}
+                >
+                  {poseAsset ? (
+                    <div className="relative w-full h-full flex items-center justify-center p-1.5">
+                      <img
+                        src={poseAsset.thumbUrl || poseAsset.previewUrl || poseAsset.fullUrl || ''}
+                        alt={poseAsset.title}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPoseAsset(null);
+                        }}
+                        className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
+                      >
+                        <CloseOutlined className="text-xs" style={{ fontSize: '9px' }} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <ThunderboltOutlined className="text-2xl text-purple-400 mb-1" />
+                      <span className="text-gray-500 text-sm">从姿态库选择</span>
+                    </div>
+                  )}
+                </div>
+                {poseAsset && (
+                  <p className="mt-1.5 text-[11px] text-purple-600 truncate" title={poseAsset.title}>
+                    <PictureOutlined className="mr-1" />
+                    {poseAsset.categoryName} · {poseAsset.title}
+                  </p>
                 )}
               </div>
             </div>
@@ -664,7 +858,17 @@ export function ImageClothesPage() {
             <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900 text-sm">服装图片</h3>
-                <span className="text-xs text-gray-400">最多5张</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPickerTarget('costume')}
+                    className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 px-2 py-1 rounded-md hover:bg-purple-50"
+                  >
+                    <DatabaseOutlined />
+                    服装库
+                  </button>
+                  {/*<span className="text-xs text-gray-400">最多5张</span>*/}
+                </div>
               </div>
               <div
                 className="relative h-[120px] rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors cursor-pointer overflow-hidden"
@@ -678,7 +882,25 @@ export function ImageClothesPage() {
                   className="hidden"
                   onChange={(e) => handleClothesUpload(e.target.files)}
                 />
-                {clothesImages.length > 0 ? (
+                {costumeAsset ? (
+                  <div className="relative w-full h-full flex items-center justify-center p-2">
+                    <img
+                      src={costumeAsset.thumbUrl || costumeAsset.previewUrl || costumeAsset.fullUrl || ''}
+                      alt={costumeAsset.title}
+                      className="max-h-full max-w-full object-contain rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCostumeAsset(null);
+                      }}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
+                    >
+                      <CloseOutlined className="text-xs" style={{ fontSize: '9px' }} />
+                    </button>
+                  </div>
+                ) : clothesImages.length > 0 ? (
                   <div className="relative w-full h-full flex items-center justify-center p-2">
                     {/* 叠加显示 */}
                     {clothesImages.map((img, index) => (
@@ -731,19 +953,49 @@ export function ImageClothesPage() {
                   </div>
                 )}
               </div>
+              {costumeAsset && (
+                <p className="mt-2 text-[11px] text-purple-600 truncate" title={costumeAsset.title}>
+                  <PictureOutlined className="mr-1" />
+                  {costumeAsset.categoryName} · {costumeAsset.title}
+                </p>
+              )}
             </div>
+
+            {/* 提示词预览（默认折叠，点击三角展开） */}
+            {(personAsset || costumeAsset || poseAsset) && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPromptExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5 font-semibold text-gray-900 text-sm">
+                    {promptExpanded ? <CaretDownOutlined className="text-[10px]" /> : <CaretRightOutlined className="text-[10px]" />}
+                    提示词预览
+                  </span>
+                  {promptLoading && <LoadingOutlined className="text-purple-500 text-sm" />}
+                </button>
+                {promptExpanded && (
+                  <div className="px-4 pb-3">
+                    <div className="max-h-40 overflow-y-auto rounded-lg bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600 whitespace-pre-wrap">
+                      {previewPrompt || '选择素材与风格后自动生成'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 一键换装按钮 */}
             <button
               onClick={handleSubmit}
-              disabled={loading || !personImageUrl || clothesImageUrls.length === 0}
+              disabled={loading || !canSubmit}
               className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
-                loading || !personImageUrl || clothesImageUrls.length === 0
+                loading || !canSubmit
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:shadow-lg hover:shadow-purple-500/30'
               }`}
             >
-              {loading ? '处理中...' : !personImageUrl ? '请上传人物图片' : clothesImageUrls.length === 0 ? '请上传服装图片' : (
+              {loading ? '处理中...' : !canSubmit ? (useMaterialMode ? '请选择人物素材' : '请上传人物和服装图片') : (
                 <>
                   <span>一键换装</span>
                   <span className="flex items-center gap-1">
@@ -751,7 +1003,7 @@ export function ImageClothesPage() {
                     <img
                       src={rmbCircle}
                       alt="费用"
-                      className={`w-4 h-4 ${loading || !personImageUrl || clothesImageUrls.length === 0 ? 'grayscale opacity-50' : ''}`}
+                      className={`w-4 h-4 ${loading || !canSubmit ? 'grayscale opacity-50' : ''}`}
                     />
                   </span>
                 </>
@@ -760,12 +1012,12 @@ export function ImageClothesPage() {
 
             {/* 功能介绍 */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">AI 智能换装功能</h3>
-                <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h3 className="font-semibold text-gray-900 text-sm">AI 智能换装功能</h3>
+                <div className="flex items-center gap-3">
                   <button
                     onClick={handleOpenHistory}
-                    className="text-sm text-gray-500 hover:text-purple-600 flex items-center gap-1"
+                    className="text-sm text-gray-500 hover:text-purple-600 flex items-center gap-1 whitespace-nowrap"
                   >
                     <HistoryOutlined />
                     生成历史
@@ -792,24 +1044,34 @@ export function ImageClothesPage() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  智能服装匹配
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  多件服装组合
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  自然贴合身形
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  保持原有姿态
-                </div>
+
+              {/* 画面风格：标签贴左边缘，Select 贴右边缘 */}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-x text-gray-500 whitespace-nowrap">画面风格预设</span>
+                <Select
+                  value={styleCode}
+                  onChange={setStyleCode}
+                  size="small"
+                  className="w-[200px]"
+                  options={styles.map((s) => ({ value: s.code, label: s.name }))}
+                  placeholder="选择画面风格"
+                />
               </div>
+
+              {/*<div className="grid grid-cols-3 gap-3 text-sm">*/}
+              {/*  <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">*/}
+              {/*    <span className="w-2 h-2 bg-purple-500 rounded-full shrink-0"></span>*/}
+              {/*    多件服装组合*/}
+              {/*  </div>*/}
+              {/*  <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">*/}
+              {/*    <span className="w-2 h-2 bg-purple-500 rounded-full shrink-0"></span>*/}
+              {/*    自然贴合身形*/}
+              {/*  </div>*/}
+              {/*  <div className="flex items-center gap-2 text-gray-600 whitespace-nowrap">*/}
+              {/*    <span className="w-2 h-2 bg-purple-500 rounded-full shrink-0"></span>*/}
+              {/*    姿态智能匹配*/}
+              {/*  </div>*/}
+              {/*</div>*/}
             </div>
           </div>
         </div>
@@ -965,6 +1227,21 @@ export function ImageClothesPage() {
           </div>
         )}
       </Modal>
+
+      {/* 素材库选择器 */}
+      <MaterialPickerModal
+        open={pickerTarget !== null}
+        groupType={pickerTarget ?? 'pose'}
+        onClose={() => setPickerTarget(null)}
+        onConfirm={handleMaterialSelect}
+        title={
+          pickerTarget === 'portrait'
+            ? '人物素材库'
+            : pickerTarget === 'costume'
+              ? '服装素材库'
+              : '姿态库'
+        }
+      />
 
       {/* 登录弹窗 */}
       <AuthModal

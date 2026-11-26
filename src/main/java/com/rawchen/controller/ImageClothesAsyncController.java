@@ -2,13 +2,16 @@ package com.rawchen.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.rawchen.entity.ImageTask;
+import com.rawchen.entity.MaterialAsset;
 import com.rawchen.entity.ModelPrice;
 import com.rawchen.entity.R;
 import com.rawchen.entity.SysUser;
 import com.rawchen.service.AsyncImageTaskExecutor;
+import com.rawchen.service.ClothesPromptService;
 import com.rawchen.service.ConsumeLogService;
 import com.rawchen.service.ImageTaskRejectHandler;
 import com.rawchen.service.ImageTaskService;
+import com.rawchen.service.MaterialLibraryService;
 import com.rawchen.service.ModelPriceService;
 import com.rawchen.service.UserBalanceService;
 import lombok.Data;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
@@ -38,6 +42,8 @@ public class ImageClothesAsyncController {
     private final ModelPriceService modelPriceService;
     private final ConsumeLogService consumeLogService;
     private final ImageTaskRejectHandler imageTaskRejectHandler;
+    private final MaterialLibraryService materialLibraryService;
+    private final ClothesPromptService clothesPromptService;
 
     /**
      * 异步智能换装 - 前端已通过OSS上传图片
@@ -132,6 +138,136 @@ public class ImageClothesAsyncController {
         response.setModel(model);
         response.setCost(cost);
         return R.ok(response);
+    }
+
+    /**
+     * 异步智能换装（素材库模式：人物图 + 服装图 + 姿态图 三张参考图）
+     * <p>
+     * 参考图顺序固定为：图1=人物、图2=服装、图3=姿态，
+     * 提示词由后端按「人物素材 + 服装素材 + 姿态素材 + 风格」统一拼接，保证前后端一致。
+     *
+     * @param personAssetId  人物素材ID（素材库选择时传入；使用自己上传的人物图时可为空）
+     * @param personImageUrl 自己上传的人物图片OSS URL（personAssetId 为空时必填）
+     * @param costumeAssetId 服装素材ID
+     * @param poseAssetId    姿态素材ID
+     * @param styleCode      风格编码
+     * @param prompt         前端提示词快照（可选，最终以后端拼接结果为准）
+     * @param size           图片尺寸
+     * @param model          使用的模型
+     * @param user           当前登录用户
+     * @return 任务ID
+     */
+    @PostMapping("/material_async")
+    public R<ClothesAsyncResponse> materialClothesImageAsync(
+            @RequestParam(value = "personAssetId", required = false) Long personAssetId,
+            @RequestParam(value = "personImageUrl", required = false) String personImageUrl,
+            @RequestParam("costumeAssetId") Long costumeAssetId,
+            @RequestParam("poseAssetId") Long poseAssetId,
+            @RequestParam(value = "styleCode", defaultValue = "realistic_portrait") String styleCode,
+            @RequestParam(value = "prompt", required = false) String prompt,
+            @RequestParam(value = "size", defaultValue = "1536x864") String size,
+            @RequestParam(value = "model", defaultValue = "gpt-image-2") String model,
+            @AuthenticationPrincipal SysUser user) {
+
+        // ---------- 解析素材 ----------
+        MaterialAsset personAsset = personAssetId == null ? null
+                : materialLibraryService.getById(personAssetId);
+        MaterialAsset costumeAsset = materialLibraryService.getById(costumeAssetId);
+        MaterialAsset poseAsset = materialLibraryService.getById(poseAssetId);
+
+        if (costumeAsset == null || costumeAsset.getStatus() == null || costumeAsset.getStatus() != 1) {
+            return R.badRequest("请选择有效的服装素材");
+        }
+        if (poseAsset == null || poseAsset.getStatus() == null || poseAsset.getStatus() != 1) {
+            return R.badRequest("请选择有效的姿态素材");
+        }
+        if (personAsset != null && (personAsset.getStatus() == null || personAsset.getStatus() != 1)) {
+            return R.badRequest("请选择有效的人物素材");
+        }
+
+        // 图1：优先使用素材库人物图，否则使用用户上传的人物图
+        String personUrl = personAsset != null
+                ? firstNotBlank(personAsset.getFullUrl(), personAsset.getPreviewUrl(), personAsset.getThumbUrl())
+                : personImageUrl;
+        if (personUrl == null || personUrl.trim().isEmpty()) {
+            return R.badRequest("请选择人物素材或上传人物图片");
+        }
+
+        String costumeUrl = firstNotBlank(costumeAsset.getFullUrl(), costumeAsset.getPreviewUrl(), costumeAsset.getThumbUrl());
+        String poseUrl = firstNotBlank(poseAsset.getFullUrl(), poseAsset.getPreviewUrl(), poseAsset.getThumbUrl());
+        if (costumeUrl == null || poseUrl == null) {
+            return R.badRequest("素材图片缺失，请重新选择");
+        }
+
+        // ---------- 拼接提示词 ----------
+        String finalPrompt = clothesPromptService.buildPrompt(styleCode, personAsset, costumeAsset, poseAsset);
+
+        // ---------- 价格与余额 ----------
+        BigDecimal cost = modelPriceService.getPrice(model);
+        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+            return R.badRequest("未配置该模型的价格: " + model);
+        }
+        if (!userBalanceService.checkBalance(user.getId(), cost)) {
+            return R.forbidden("余额不足，当前需要 ¥" + cost + "，请先充值");
+        }
+        boolean deducted = userBalanceService.deduct(user.getId(), cost);
+        if (!deducted) {
+            return R.forbidden("扣费失败，请稍后重试");
+        }
+
+        // ---------- 创建任务 ----------
+        String taskId = UUID.randomUUID().toString();
+        List<String> referenceUrls = Arrays.asList(costumeUrl, poseUrl);
+        String referenceJson;
+        try {
+            referenceJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(referenceUrls);
+        } catch (Exception e) {
+            log.error("Failed to serialize reference image urls: {}", e.getMessage());
+            return R.badRequest("参考图地址序列化失败");
+        }
+
+        ImageTask task = new ImageTask();
+        task.setTaskId(taskId);
+        task.setUserId(user.getId());
+        task.setTaskType("clothes");
+        task.setStatus("pending");
+        task.setPrompt(finalPrompt);
+        task.setSize(size);
+        task.setModel(model);
+        task.setOriginalImageUrl(personUrl);
+        task.setReferenceImageUrls(referenceJson);
+        imageTaskService.save(task);
+
+        ModelPrice price = modelPriceService.getByModelCode(model);
+        consumeLogService.createLog(user.getId(), taskId, "clothes", model,
+                price != null ? price.getModelName() : model, null, cost);
+
+        try {
+            asyncImageTaskExecutor.executeClothesTask(taskId, personUrl, referenceUrls, finalPrompt, size, model, finalPrompt);
+        } catch (RejectedExecutionException e) {
+            return imageTaskRejectHandler.reject(taskId, user.getId(), cost);
+        }
+
+        log.info("Material clothes task {} created for user {} style {} model {} cost {}",
+                taskId, user.getId(), styleCode, model, cost);
+
+        ClothesAsyncResponse response = new ClothesAsyncResponse();
+        response.setTaskId(taskId);
+        response.setModel(model);
+        response.setCost(cost);
+        return R.ok(response);
+    }
+
+    private String firstNotBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**

@@ -717,6 +717,76 @@ export const imageClothesApi = {
   // 获取任务详情
   getTaskDetail: (taskId: string) =>
     api.get<ImageTaskRecord>(`/image-clothes/task/${taskId}`) as unknown as Promise<ImageTaskRecord>,
+
+  // 素材库模式异步换装（人物图 + 服装图 + 姿态图 三张参考图）
+  materialClothesImageAsync: (data: {
+    personAssetId?: number | null;
+    personImageUrl?: string | null;
+    costumeAssetId: number;
+    poseAssetId: number;
+    styleCode: string;
+    prompt?: string;
+    size: string;
+    model?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (data.personAssetId) params.append('personAssetId', String(data.personAssetId));
+    if (data.personImageUrl) params.append('personImageUrl', data.personImageUrl);
+    params.append('costumeAssetId', String(data.costumeAssetId));
+    params.append('poseAssetId', String(data.poseAssetId));
+    params.append('styleCode', data.styleCode);
+    if (data.prompt) params.append('prompt', data.prompt);
+    params.append('size', data.size);
+    params.append('model', data.model || 'gpt-image-2');
+    return api.post<{ taskId: string; model: string; cost: number }>('/image-clothes/material_async', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }) as unknown as Promise<{ taskId: string; model: string; cost: number }>;
+  },
+};
+
+// Material Library API（人物 / 服装 / 姿态）
+export const materialApi = {
+  // 分类列表
+  categories: (params?: { groupType?: string; libraryType?: string }) =>
+    api.get<MaterialCategory[]>('/material-library/categories', { params }) as unknown as Promise<MaterialCategory[]>,
+
+  // 素材列表
+  assets: (params: {
+    groupType?: string;
+    libraryType?: string;
+    categoryCode?: string;
+    keyword?: string;
+    page?: number;
+    size?: number;
+  }) =>
+    api.get<MaterialPageResponse>('/material-library/assets', { params }) as unknown as Promise<MaterialPageResponse>,
+
+  // 素材详情
+  asset: (id: number) =>
+    api.get<MaterialAsset>(`/material-library/asset/${id}`) as unknown as Promise<MaterialAsset>,
+
+  // 换装风格列表
+  styles: () =>
+    api.get<MaterialStyle[]>('/material-library/styles') as unknown as Promise<MaterialStyle[]>,
+
+  // 提示词预览
+  previewPrompt: (data: {
+    personAssetId?: number | null;
+    costumeAssetId?: number | null;
+    poseAssetId?: number | null;
+    styleCode?: string;
+  }) =>
+    api.post<{
+      prompt: string;
+      personImageUrl?: string;
+      costumeImageUrl?: string;
+      poseImageUrl?: string;
+    }>('/material-library/prompt/preview', data) as unknown as Promise<{
+      prompt: string;
+      personImageUrl?: string;
+      costumeImageUrl?: string;
+      poseImageUrl?: string;
+    }>,
 };
 
 // Image Edit API
@@ -1028,6 +1098,56 @@ export const inspirationAdminApi = {
     api.delete<void>('/admin/inspiration/batch', { data: ids }) as unknown as Promise<void>,
 };
 
+// Material Library Admin API
+export const materialAdminApi = {
+  // 素材列表
+  list: (params: {
+    groupType?: string;
+    libraryType?: string;
+    categoryCode?: string;
+    keyword?: string;
+    status?: number;
+    page?: number;
+    size?: number;
+  }) =>
+    api.get<MaterialPageResponse>('/admin/material-library/assets', { params }) as unknown as Promise<MaterialPageResponse>,
+
+  get: (id: number) =>
+    api.get<MaterialAsset>(`/admin/material-library/asset/${id}`) as unknown as Promise<MaterialAsset>,
+
+  create: (data: Partial<MaterialAsset>) =>
+    api.post<MaterialAsset>('/admin/material-library/asset', data) as unknown as Promise<MaterialAsset>,
+
+  update: (id: number, data: Partial<MaterialAsset>) =>
+    api.put<MaterialAsset>(`/admin/material-library/asset/${id}`, data) as unknown as Promise<MaterialAsset>,
+
+  updateStatus: (id: number, status: number) =>
+    api.put<void>(`/admin/material-library/asset/${id}/status`, null, { params: { status } }) as unknown as Promise<void>,
+
+  remove: (id: number) =>
+    api.delete<void>(`/admin/material-library/asset/${id}`) as unknown as Promise<void>,
+
+  removeBatch: (ids: number[]) =>
+    api.delete<void>('/admin/material-library/asset/batch', { data: ids }) as unknown as Promise<void>,
+
+  // 分类管理
+  categories: (params?: { groupType?: string; libraryType?: string }) =>
+    api.get<MaterialCategory[]>('/admin/material-library/categories', { params }) as unknown as Promise<MaterialCategory[]>,
+
+  saveCategory: (data: Partial<MaterialCategory>) =>
+    api.post<MaterialCategory>('/admin/material-library/category', data) as unknown as Promise<MaterialCategory>,
+
+  removeCategory: (id: number) =>
+    api.delete<void>(`/admin/material-library/category/${id}`) as unknown as Promise<void>,
+
+  // 批量导入（爬虫入库）
+  importAssets: (list: Partial<MaterialAsset>[]) =>
+    api.post<{ total: number; inserted: number; updated: number }>(
+      '/admin/material-library/import',
+      list
+    ) as unknown as Promise<{ total: number; inserted: number; updated: number }>,
+};
+
 // Admin Model Price API
 export const adminModelPriceApi = {
   list: (page = 1, size = 20) =>
@@ -1212,6 +1332,59 @@ interface InspirationTemplate {
   sortOrder: number;
   createTime?: string;
   updateTime?: string;
+}
+
+// ===== 素材库类型 =====
+
+/** 素材分类 */
+export interface MaterialCategory {
+  id?: number;
+  groupType: string;
+  libraryType: string;
+  categoryCode: string;
+  categoryName: string;
+  categoryNameOrigin?: string;
+  sortOrder?: number;
+  status?: number;
+  assetCount?: number;
+}
+
+/** 素材 */
+export interface MaterialAsset {
+  id?: number;
+  groupType: string;
+  libraryType: string;
+  categoryCode: string;
+  categoryName?: string;
+  sourceId: string;
+  title: string;
+  titleOrigin?: string;
+  thumbUrl?: string;
+  previewUrl?: string;
+  fullUrl?: string;
+  width?: number;
+  height?: number;
+  extra?: string;
+  sortOrder?: number;
+  status?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 换装风格 */
+export interface MaterialStyle {
+  code: string;
+  name: string;
+  stylePrompt: string;
+  realistic: boolean;
+}
+
+/** 素材分页响应 */
+export interface MaterialPageResponse {
+  content: MaterialAsset[];
+  totalElements: number;
+  totalPages: number;
+  currentPage: number;
 }
 
 // 图像任务记录类型

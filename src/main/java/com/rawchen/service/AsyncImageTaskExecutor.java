@@ -378,20 +378,35 @@ public class AsyncImageTaskExecutor {
      * 异步执行智能换装任务
      * @param taskId 任务ID
      * @param personImageUrl 人物图片URL
-     * @param clothesImageUrls 衣服图片URL列表
+     * @param clothesImageUrls 衣服图片URL列表（参考图顺序：服装图、姿态图）
      * @param prompt 换装提示词
      * @param size 图片尺寸
      * @param model 使用的模型
      */
     @Async("imageTaskExecutor")
     public void executeClothesTask(String taskId, String personImageUrl, List<String> clothesImageUrls, String prompt, String size, String model) {
+        executeClothesTask(taskId, personImageUrl, clothesImageUrls, prompt, size, model, null);
+    }
+
+    /**
+     * 异步执行智能换装任务（支持自定义提示词）
+     * @param taskId 任务ID
+     * @param personImageUrl 人物图片URL
+     * @param clothesImageUrls 衣服图片URL列表（参考图顺序：服装图、姿态图）
+     * @param prompt 换装提示词
+     * @param size 图片尺寸
+     * @param model 使用的模型
+     * @param customPrompt 自定义提示词（为空则使用默认换装提示词）
+     */
+    @Async("imageTaskExecutor")
+    public void executeClothesTask(String taskId, String personImageUrl, List<String> clothesImageUrls, String prompt, String size, String model, String customPrompt) {
         long startTime = System.currentTimeMillis();
         StepTimer timer = new StepTimer(taskId);
         try {
             log.info("Async clothes task {} started with {} clothes images, model {}", taskId, clothesImageUrls.size(), model);
 
-            // 把 OSS URL 换成带签名的临时 URL（10 分钟过期），让中转站自己下载。
-            // 人物图 + 服装图合成一个列表传给中转站。
+            // 把 OSS URL 换成带签名的临时 URL（10 分钟过期），确保本服务可稳定下载。
+            // 人物图 + 服装图合成一个列表。
             List<String> allSignedUrls = new ArrayList<>();
             allSignedUrls.add(ossUploadService.generatePresignedUrl(personImageUrl, 600));
             for (String clothesUrl : clothesImageUrls) {
@@ -399,14 +414,26 @@ public class AsyncImageTaskExecutor {
             }
             timer.step("generate signed urls (count=" + allSignedUrls.size() + ")");
 
-            // 构建换装提示词
-            String fullPrompt = "请将提供的服装图片应用到人物身上，保持人物原有的姿势、表情和背景。" +
+            // 中转站 /v1/images/edits 的 image 字段不接受 URL 文本（multipart form 解析会 500），
+            // 必须传文件二进制。因此把参考图下载到内存再作为 MultipartFile 上传。
+            List<MultipartFile> files = new ArrayList<>(allSignedUrls.size());
+            int totalSize = 0;
+            for (int i = 0; i < allSignedUrls.size(); i++) {
+                byte[] data = downloadImageFromUrl(allSignedUrls.get(i));
+                files.add(new MemoryMultipartFile(data, "ref_" + i + guessExtension(allSignedUrls.get(i))));
+                totalSize += data.length;
+            }
+            timer.step("download " + files.size() + " reference images (total=" + totalSize + "B)");
+
+            // 构建换装提示词：自定义提示词优先
+            String fullPrompt = (customPrompt != null && !customPrompt.trim().isEmpty())
+                    ? customPrompt
+                    : "请将提供的服装图片应用到人物身上，保持人物原有的姿势、表情和背景。" +
                     "确保服装自然贴合人物身形，注意服装的透视和光影效果要与环境协调。" +
                     "如果有多个服装单品，请合理搭配穿着。";
 
-            // 让中转站自己下载参考图（不经过本服务）
-            List<ImagePayload> result = gptUtil.editImageByUrls(allSignedUrls, fullPrompt, size, model, null);
-            timer.step("call gpt.editImageByUrls (gpt self-fetch " + allSignedUrls.size() + " refs + upstream + return)");
+            List<ImagePayload> result = gptUtil.editImage(files, fullPrompt, size, model, null);
+            timer.step("call gpt.editImage (upload refs + upstream + return)");
 
             String ossUrl = uploadResultToOss(result);
             timer.step("upload result to oss");
