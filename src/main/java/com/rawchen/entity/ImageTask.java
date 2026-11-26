@@ -23,7 +23,8 @@ public class ImageTask extends BaseEntity {
     private Long userId;
 
     /**
-     * 任务类型：create-图片创作, enhance-图片增强
+     * 任务类型：create-图片创作, clothes-智能换装, enhance-图片增强, matting-抠图,
+     * restore-老照片修复, expand-图片扩展, edit-图片编辑, beauty-美颜, music_cover-音乐封面
      */
     private String taskType;
 

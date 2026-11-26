@@ -999,7 +999,7 @@ export function ImageCreatePage() {
   const loadHistory = useCallback(async (page = 1) => {
     setHistoryLoading(true);
     try {
-      const result = await imageCreateApi.getHistory(page, 12, "create");
+      const result = await imageCreateApi.getHistory(page, 12);
       setHistoryRecords(result.records);
       setHistoryTotal(result.total);
       setHistoryPage(result.current);

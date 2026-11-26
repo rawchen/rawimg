@@ -188,24 +188,22 @@ public class ImageCreateAsyncController {
     }
 
     /**
-     * 获取用户的任务历史列表
+     * 获取用户的图像创作历史列表
      *
-     * @param page     页码
-     * @param size     每页大小
-     * @param taskType 任务类型（可选）
-     * @param status   任务状态（可选）
-     * @param user     当前登录用户
+     * @param page   页码
+     * @param size   每页大小
+     * @param status 任务状态（可选）
+     * @param user   当前登录用户
      * @return 任务列表
      */
     @GetMapping("/history")
     public R<TaskHistoryPageResponse> getHistory(
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "10") Integer size,
-            @RequestParam(value = "taskType", required = false) String taskType,
             @RequestParam(value = "status", required = false) String status,
             @AuthenticationPrincipal SysUser user) {
 
-        IPage<ImageTask> taskPage = imageTaskService.getUserTaskPage(user.getId(), page, size, taskType, status);
+        IPage<ImageTask> taskPage = imageTaskService.getUserTaskPage(user.getId(), page, size, "create", status);
 
         TaskHistoryPageResponse response = new TaskHistoryPageResponse();
         response.setRecords(taskPage.getRecords());
@@ -234,6 +232,10 @@ public class ImageCreateAsyncController {
         // 验证任务属于当前用户
         if (!task.getUserId().equals(user.getId())) {
             return R.forbidden("无权访问此任务");
+        }
+        // 仅允许访问图像创作任务
+        if (!"create".equals(task.getTaskType())) {
+            return R.notFound("任务不存在");
         }
 
         TaskDetailResponse response = new TaskDetailResponse();

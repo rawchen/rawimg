@@ -969,15 +969,15 @@ export const imageCreateApi = {
       prompt: string;
     }>,
 
-  // 获取用户的任务历史
-  getHistory: (page = 1, size = 10, taskType?: string, status?: string) =>
+  // 获取用户的图像创作历史
+  getHistory: (page = 1, size = 10, status?: string) =>
     api.get<{
       records: ImageTaskRecord[];
       total: number;
       pages: number;
       current: number;
       size: number;
-    }>('/image-create/history', { params: { page, size, taskType, status } }) as unknown as Promise<{
+    }>('/image-create/history', { params: { page, size, status } }) as unknown as Promise<{
       records: ImageTaskRecord[];
       total: number;
       pages: number;
