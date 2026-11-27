@@ -238,6 +238,7 @@ export function MaterialPickerModal({
       cancelText="取消"
       width={860}
       style={{ top: 16 }}
+      zIndex={1100}
       destroyOnClose
       title={title || '素材库'}
       styles={{ body: { padding: 16, maxHeight: 'calc(100vh - 150px)', overflowY: 'auto' } }}
@@ -396,7 +397,7 @@ export function MaterialPickerModal({
                         e.stopPropagation();
                         setPreviewAsset(asset);
                       }}
-                      className="absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/55 text-[10px] leading-none text-white opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-black/75 transition-opacity"
+                      className="absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 px-3 py-2 rounded-md bg-black/55 text-[10px] leading-none text-white opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-black/75 transition-opacity"
                     >
                       <EyeOutlined />
                       预览
@@ -429,10 +430,12 @@ export function MaterialPickerModal({
     </Modal>
 
     {/* 素材详情：放大查看原始 png 图，可"应用"或"取消" */}
+    {/* 详情弹窗与列表弹窗是兄弟节点，antd 默认给两者算出相同 zIndex，这里显式抬高一层 */}
     <Modal
       open={!!previewAsset && open}
       onCancel={() => setPreviewAsset(null)}
       width={760}
+      zIndex={1200}
       title={previewAsset ? `素材详情 · ${previewAsset.title}` : '素材详情'}
       styles={{ body: { padding: 16 } }}
       footer={
