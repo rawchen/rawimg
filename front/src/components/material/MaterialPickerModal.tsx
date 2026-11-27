@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Spin, Empty, Pagination, Input, Button, message } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Modal, Spin, Empty, Pagination, Input, Button, Image, message } from 'antd';
+import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import { materialApi, MaterialAsset, MaterialCategory } from '@/api';
+import { removeOssProcessStyle } from '@/lib/utils';
 
 export type MaterialGroupType = 'portrait' | 'costume' | 'pose';
 
@@ -90,6 +91,8 @@ export function MaterialPickerModal({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<MaterialAsset | null>(null);
+  /** 当前预览（详情）的素材：点击列表中的"预览"打开大图详情 */
+  const [previewAsset, setPreviewAsset] = useState<MaterialAsset | null>(null);
 
   /** 分类缓存：同一大类重复打开不再请求 categories */
   const categoriesCacheRef = useRef<Record<string, MaterialCategory[]>>({});
@@ -158,6 +161,7 @@ export function MaterialPickerModal({
   useEffect(() => {
     if (!open) return;
     setSelected(null);
+    setPreviewAsset(null);
     setCategories([]);
     setCategoriesReady(false);
     setQuery({
@@ -201,10 +205,34 @@ export function MaterialPickerModal({
     onClose();
   };
 
+  /** 关闭选择器时同步关闭详情弹窗 */
+  const handleClose = () => {
+    setPreviewAsset(null);
+    onClose();
+  };
+
+  /** 详情弹窗"应用"：选中该素材并直接使用（等同于底部"使用该素材"） */
+  const handleApplyPreview = () => {
+    if (!previewAsset) return;
+    setSelected(previewAsset);
+    setPreviewAsset(null);
+    onConfirm(previewAsset);
+    onClose();
+  };
+
+  /** 详情大图：优先正式图（png 原图），并去掉 OSS 缩略参数 */
+  const previewFullUrl = useMemo(() => {
+    if (!previewAsset) return '';
+    return removeOssProcessStyle(
+      previewAsset.fullUrl || previewAsset.previewUrl || previewAsset.thumbUrl || ''
+    );
+  }, [previewAsset]);
+
   return (
+    <>
     <Modal
       open={open}
-      onCancel={onClose}
+      onCancel={handleClose}
       onOk={handleConfirm}
       okText="使用该素材"
       cancelText="取消"
@@ -238,7 +266,7 @@ export function MaterialPickerModal({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button onClick={onClose}>取消</Button>
+            <Button onClick={handleClose}>取消</Button>
             <Button type="primary" onClick={handleConfirm}>
               使用该素材
             </Button>
@@ -330,18 +358,25 @@ export function MaterialPickerModal({
               const img = asset.thumbUrl || asset.previewUrl || asset.fullUrl;
               const active = selected?.id === asset.id;
               return (
-                <button
+                <div
                   key={asset.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelected(asset)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelected(asset);
+                    }
+                  }}
                   title={asset.title}
-                  className={`group flex flex-col overflow-hidden rounded-lg border-2 bg-white transition-all ${
+                  className={`group flex flex-col overflow-hidden rounded-lg border-2 bg-white transition-all cursor-pointer ${
                     active
                       ? 'border-violet-500 ring-2 ring-violet-200'
                       : 'border-transparent hover:border-violet-300'
                   }`}
                 >
-                  <div className={`w-full ${GROUP_ASPECT[groupType]} bg-gray-50 overflow-hidden`}>
+                  <div className={`relative w-full ${GROUP_ASPECT[groupType]} bg-gray-50 overflow-hidden`}>
                     {img ? (
                       <img
                         src={img}
@@ -354,11 +389,23 @@ export function MaterialPickerModal({
                         无预览
                       </div>
                     )}
+                    {/* 预览：打开详情大图，不改变当前选中项 */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewAsset(asset);
+                      }}
+                      className="absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/55 text-[10px] leading-none text-white opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-black/75 transition-opacity"
+                    >
+                      <EyeOutlined />
+                      预览
+                    </button>
                   </div>
                   <p className="px-1.5 py-1 text-[10px] leading-tight text-gray-600 truncate text-left">
                     {asset.title}
                   </p>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -380,5 +427,85 @@ export function MaterialPickerModal({
         </div>
       )}
     </Modal>
+
+    {/* 素材详情：放大查看原始 png 图，可"应用"或"取消" */}
+    <Modal
+      open={!!previewAsset && open}
+      onCancel={() => setPreviewAsset(null)}
+      width={760}
+      title={previewAsset ? `素材详情 · ${previewAsset.title}` : '素材详情'}
+      styles={{ body: { padding: 16 } }}
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={() => setPreviewAsset(null)}>取消</Button>
+          <Button type="primary" onClick={handleApplyPreview}>
+            应用该素材
+          </Button>
+        </div>
+      }
+    >
+      {previewAsset && (
+        <div className="flex gap-4">
+          {/* 大图区域：点击可再放大到全屏 */}
+          <div className="flex-1 min-w-0 flex items-center justify-center bg-gray-50 rounded-lg p-2 overflow-hidden">
+            {previewFullUrl ? (
+              <Image
+                src={previewFullUrl}
+                alt={previewAsset.title}
+                className="max-h-[58vh] w-auto object-contain"
+                preview={{
+                  src: previewFullUrl,
+                  mask: <span className="text-white text-xs">点击查看原图</span>,
+                }}
+              />
+            ) : (
+              <Empty description="无预览图" />
+            )}
+          </div>
+          {/* 素材信息 */}
+          <div className="w-56 shrink-0 text-xs space-y-2.5">
+            <div>
+              <p className="text-gray-400 mb-0.5">名称</p>
+              <p className="text-gray-800 font-medium break-all">{previewAsset.title}</p>
+            </div>
+            {previewAsset.titleOrigin && (
+              <div>
+                <p className="text-gray-400 mb-0.5">原始名称</p>
+                <p className="text-gray-700 break-all">{previewAsset.titleOrigin}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-gray-400 mb-0.5">分类</p>
+              <p className="text-gray-700">
+                {previewAsset.categoryName || previewAsset.categoryCode || '-'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 mb-0.5">来源 ID</p>
+              <p className="text-gray-700 break-all">{previewAsset.sourceId || '-'}</p>
+            </div>
+            {(previewAsset.width || previewAsset.height) && (
+              <div>
+                <p className="text-gray-400 mb-0.5">尺寸</p>
+                <p className="text-gray-700">
+                  {previewAsset.width || '?'} × {previewAsset.height || '?'}
+                </p>
+              </div>
+            )}
+            {previewFullUrl && (
+              <a
+                href={previewFullUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block text-violet-600 hover:underline"
+              >
+                在新窗口打开原图
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
+    </>
   );
 }
